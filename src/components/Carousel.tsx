@@ -1,3 +1,4 @@
+"use client";
 import React, { useState, useEffect, useCallback } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Button from "./ui/Button";
@@ -40,10 +41,6 @@ const Carousel: React.FC<CarouselProps> = ({
       prevIndex === 0 ? items.length - 1 : prevIndex - 1
     );
   }, [items.length]);
-
-  const goToSlide = (index: number) => {
-    setCurrentIndex(index);
-  };
 
   useEffect(() => {
     if (items.length <= 1) return;

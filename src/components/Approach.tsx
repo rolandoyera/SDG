@@ -1,3 +1,4 @@
+"use client";
 import { useState, useEffect } from "react";
 import { PlusIcon, ChevronRight } from "lucide-react";
 import Image from "next/image";

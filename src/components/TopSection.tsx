@@ -1,3 +1,4 @@
+"use client";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
@@ -49,26 +50,6 @@ export default function TopSection() {
               ? "translate-x-0 opacity-100"
               : "translate-x-full opacity-0"
           }`}>
-          {/* Corner Brackets */}
-          <div className="absolute inset-0 pointer-events-none">
-            {/* Top Left Bracket */}
-            <div
-              className="absolute top-0 left-0 w-12 h-12 border-l-8 border-t-8"
-              style={{ borderColor: "#a18663" }}></div>
-            {/* Top Right Bracket */}
-            <div
-              className="absolute top-0 right-0 w-12 h-12 border-r-8 border-t-8"
-              style={{ borderColor: "#a18663" }}></div>
-            {/* Bottom Left Bracket */}
-            <div
-              className="absolute bottom-0 left-0 w-12 h-12 border-l-8 border-b-8"
-              style={{ borderColor: "#a18663" }}></div>
-            {/* Bottom Right Bracket */}
-            <div
-              className="absolute bottom-0 right-0 w-12 h-12 border-r-8 border-b-8"
-              style={{ borderColor: "#a18663" }}></div>
-          </div>
-
           <div className="p-[20px]">
             <Image
               src="/assets/about-us-top.jpg"

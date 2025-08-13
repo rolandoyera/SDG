@@ -88,9 +88,9 @@ export default async function ProjectPage({
 
         {/* 2) Content row: left = info (sticky), right = gallery */}
         <section className="mt-6 grid grid-cols-1 lg:grid-cols-12 gap-8">
-          <aside className="lg:col-span-4 lg:-mt-40 xl:-mt-70 relative z-10">
+          <aside className="lg:col-span-4 ">
             <div className="lg:sticky lg:top-24">
-              <div className="bg-info/55 text-white backdrop-blur-md p-2 sm:p-4 md:p-8 lg:p-12 xl:p-16 shadow-md">
+              <div className="bg-info text-white p-2 sm:p-4 md:p-8 lg:p-12 xl:p-16">
                 <h1 className="text-3xl font-semibold">{data.title}</h1>
                 {data.location && (
                   <p className="text-sm text-white/80">{data.location}</p>

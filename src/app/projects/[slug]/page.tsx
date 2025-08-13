@@ -3,14 +3,10 @@ import Button from "@/components/ui/Button";
 import Image from "next/image";
 import { groq } from "next-sanity";
 import { client } from "@/sanity/lib/client";
-import { urlFor } from "@/sanity/lib/image";
+import { urlFor, type SanityImageWithAlt } from "@/sanity/lib/image";
 import { notFound } from "next/navigation";
 import { PortableText } from "@portabletext/react";
-import type { SanityImageSource } from "@sanity/image-url/lib/types/types";
 import type { PortableTextBlock } from "@portabletext/types";
-
-// Extend the image type to include optional `alt` that you added in schema
-type SanityImageWithAlt = SanityImageSource & { alt?: string };
 
 type Project = {
   _id: string;
@@ -38,9 +34,9 @@ const PROJECT_BY_SLUG = groq`*[_type=="project" && slug.current == $slug][0]{
   type,
   year,
   size,
-  heroImage,
-  mainImage,
-  gallery[]{..., asset->},
+  heroImage{ ..., alt, asset->{ url, metadata{ dimensions } } },
+  mainImage{ ..., alt, asset->{ url, metadata{ dimensions } } },
+  gallery[]{ ..., alt, asset->{ url, metadata{ dimensions } } },
   intro,
   description,
   body
@@ -58,20 +54,34 @@ export async function generateStaticParams() {
 export default async function ProjectPage({
   params,
 }: {
-  params: Promise<{ slug: string }>; // ← Make params a Promise
+  params: { slug: string };
 }) {
-  const { slug } = await params; // ← Await params before destructuring
+  const { slug } = params;
 
   const data = await client.fetch<Project | null>(PROJECT_BY_SLUG, { slug });
   if (!data) return notFound();
 
   const hero = data.heroImage || data.mainImage;
   const rich = data.description ?? data.body;
+  const gallery = Array.isArray(data.gallery) ? data.gallery : [];
+
+  // Sort: landscapes first, then portraits, then square/unknown (stable within groups)
+  const sortedGallery: SanityImageWithAlt[] = gallery
+    .map((img, idx) => {
+      const dims = img.asset.metadata?.dimensions;
+      const ar =
+        dims?.aspectRatio ??
+        (dims?.width && dims?.height ? dims.width / dims.height : 1);
+      const group = ar > 1.01 ? 0 : ar < 0.99 ? 1 : 2; // 0 L, 1 P, 2 square
+      return { img, idx, group };
+    })
+    .sort((a, b) => (a.group === b.group ? a.idx - b.idx : a.group - b.group))
+    .map((x) => x.img);
 
   return (
     <main>
       <div className="mx-auto">
-        {/* 1) Full‑bleed banner */}
+        {/* 1) Full-bleed banner */}
         {hero && (
           <section className="relative h-[70vh] overflow-hidden">
             <Image
@@ -87,8 +97,8 @@ export default async function ProjectPage({
         )}
 
         {/* 2) Content row: left = info (sticky), right = gallery */}
-        <section className="mt-6 grid grid-cols-1 lg:grid-cols-12 gap-8">
-          <aside className="lg:col-span-4 ">
+        <section className="mt-6 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:p-6">
+          <aside className="lg:col-span-4">
             <div className="lg:sticky lg:top-24">
               <div className="bg-info text-white p-2 sm:p-4 md:p-8 lg:p-12 xl:p-16">
                 <h1 className="text-3xl font-semibold">{data.title}</h1>
@@ -140,7 +150,7 @@ export default async function ProjectPage({
                 )}
 
                 {Array.isArray(rich) && rich.length > 0 && (
-                  <div className="mt-10 prose prose-invert prose-sm max-w-none richtext">
+                  <div className="mt-10 prose prose-invert prose-sm max-w-none richtext text-justify">
                     <PortableText value={rich} />
                   </div>
                 )}
@@ -156,28 +166,30 @@ export default async function ProjectPage({
             </div>
           </aside>
 
-          {/* RIGHT: Image grid */}
+          {/* RIGHT: Image grid (2 columns, natural aspect) */}
           <div className="lg:col-span-8">
-            {Array.isArray(data.gallery) && data.gallery.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 ">
-                {data.gallery.map((img: SanityImageWithAlt, i: number) => (
-                  <div
-                    key={i}
-                    className="relative aspect-[4/3] overflow-hidden">
+            {sortedGallery.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                {sortedGallery.map((img, i) => {
+                  const dims = img.asset.metadata?.dimensions;
+                  const ar = dims?.aspectRatio ?? 4 / 3;
+                  const width = Math.min(dims?.width ?? 1600, 1800);
+                  const height = Math.round(width / ar);
+
+                  return (
                     <Image
-                      src={urlFor(img)
-                        .width(1200)
-                        .height(900)
-                        .auto("format")
-                        .url()}
+                      key={i}
+                      src={urlFor(img).width(width).auto("format").url()}
                       alt={img.alt || `Project image ${i + 1}`}
-                      fill
+                      width={width}
+                      height={height}
                       loading="lazy"
+                      decoding="async"
                       sizes="(min-width:1024px) 33vw, (min-width:640px) 50vw, 100vw"
-                      className="object-cover"
+                      className="w-full h-auto"
                     />
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

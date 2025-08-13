@@ -21,7 +21,9 @@ export default function Footer() {
               required
               className="border-0 outline-none bg-transparent text-[16px] text-[#333] w-[min(480px,60vw)] pl-2 py-3 placeholder:text-[#b7b7b7] focus-visible:ring-2 focus-visible:ring-[#c9b49a] focus-visible:ring-offset-2 focus-visible:ring-offset-white rounded-full"
             />
-            <Button type="submit">SUBSCRIBE</Button>
+            <Button className="!rounded-full" type="submit">
+              SUBSCRIBE
+            </Button>
           </form>
         </div>
       </Container>

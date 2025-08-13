@@ -72,15 +72,15 @@ export default function Navbar() {
 
           {/* CENTER LOGO */}
 
-          <Link href="/" className="text-lg font-semibold py-2">
+          <Link href="/" className="text-lg font-semibold">
             <Image
-              src="/logo.png"
+              src="/assets/logo_sdg.png"
               alt="Sarvian Design Group"
               width={0}
               height={0}
-              sizes="100px"
+              sizes="130px"
               style={{
-                width: "100px",
+                width: "130px",
                 height: "auto",
                 filter: "var(--logo-filter)",
               }}

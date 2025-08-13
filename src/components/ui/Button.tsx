@@ -36,7 +36,7 @@ export default function Button({
   ...props
 }: ButtonProps) {
   const baseClasses = clsx(
-    "border-0 cursor-pointer py-3 px-4 rounded-full bg-brand text-white duration-200 ease-out hover:brightness-95 active:translate-y-px text-[16px] focus-visible:ring-2 focus-visible:ring-[#c9b49a] focus-visible:ring-offset-2 focus-visible:ring-offset-white hover:scale-103 transition-all text-white",
+    "border-0 cursor-pointer py-3 px-4 rounded-sm bg-brand text-white duration-200 ease-out hover:brightness-95 active:translate-y-px text-[16px] focus-visible:ring-2 focus-visible:ring-[#c9b49a] focus-visible:ring-offset-2 focus-visible:ring-offset-white hover:scale-103 transition-all text-white",
     className
   );
 

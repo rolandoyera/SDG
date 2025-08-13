@@ -11,22 +11,42 @@ if (!projectId || !dataset) {
 
 const builder = createImageUrlBuilder({ projectId, dataset });
 
-export const urlFor = (source: SanityImageSource) =>
-  builder.image(source).auto("format").fit("max");
+/** Minimal shapes we actually use when we query with `asset->` */
+export type SanityImageDimensions = {
+  width: number;
+  height: number;
+  aspectRatio: number;
+};
 
-// Type for Sanity image with alt text
-type SanityImageWithAlt = SanityImageSource & { alt?: string };
+export type SanityImageAsset = {
+  _type: "sanity.imageAsset";
+  url: string;
+  metadata?: { dimensions?: SanityImageDimensions };
+};
 
-/**
- * Helper for next/image
- * Example: <Image {...imageProps(myImage, 800, 600)} />
- */
+export type SanityImageWithAlt = {
+  _type: "image";
+  alt?: string;
+  asset: SanityImageAsset;
+};
+
+/** Works with either a plain SanityImageSource or our populated image object */
+export const urlFor = (source: SanityImageSource | SanityImageWithAlt) =>
+  builder
+    .image(source as SanityImageSource)
+    .auto("format")
+    .fit("max");
+
+/** Helper for next/image */
 export const imageProps = (
   source: SanityImageWithAlt,
   width: number,
   height?: number
 ) => {
-  let img = builder.image(source).width(width).auto("format");
+  let img = builder
+    .image(source as unknown as SanityImageSource)
+    .width(width)
+    .auto("format");
   if (height) img = img.height(height);
 
   return {
@@ -34,3 +54,7 @@ export const imageProps = (
     alt: source.alt || "",
   };
 };
+
+/** Optional: grab dimensions safely when sorting/layout */
+export const getDimensions = (img?: SanityImageWithAlt) =>
+  img?.asset?.metadata?.dimensions;

@@ -220,7 +220,7 @@ function ContactModal({ onClose }: { onClose: () => void }) {
                   {...register("name")}
                 />
                 {errors.name && (
-                  <p id="name-error" className="mt-1 text-sm text-red-500">
+                  <p id="name-error" className="mt-1 text-sm text-brand">
                     {errors.name.message}
                   </p>
                 )}
@@ -244,7 +244,7 @@ function ContactModal({ onClose }: { onClose: () => void }) {
                   {...register("phone")}
                 />
                 {errors.phone && (
-                  <p id="phone-error" className="mt-1 text-sm text-red-500">
+                  <p id="phone-error" className="mt-1 text-sm text-brand">
                     {errors.phone.message}
                   </p>
                 )}
@@ -267,14 +267,14 @@ function ContactModal({ onClose }: { onClose: () => void }) {
                   {...register("email")}
                 />
                 {errors.email && (
-                  <p id="email-error" className="mt-1 text-sm text-red-500">
+                  <p id="email-error" className="mt-1 text-sm text-brand">
                     {errors.email.message}
                   </p>
                 )}
               </div>
 
               {submitError && (
-                <p className="text-sm text-red-500" aria-live="polite">
+                <p className="text-sm text-brand" aria-live="polite">
                   {submitError}
                 </p>
               )}

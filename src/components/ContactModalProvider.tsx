@@ -176,7 +176,9 @@ function ContactModal({ onClose }: { onClose: () => void }) {
           </div>
         ) : (
           <>
-            <h2 id="contact-title" className="mb-1 text-2xl font-semibold">
+            <h2
+              id="contact-title"
+              className="mb-1 text-2xl font-semibold text-white">
               Let’s talk about your project
             </h2>
             <p className="mb-10 text-white">
@@ -205,7 +207,7 @@ function ContactModal({ onClose }: { onClose: () => void }) {
               />
 
               <div>
-                <label htmlFor="name" className="mb-1 block text-sm">
+                <label htmlFor="name" className="mb-1 block text-sm text-white">
                   Name
                 </label>
                 <input
@@ -214,7 +216,7 @@ function ContactModal({ onClose }: { onClose: () => void }) {
                   placeholder="Your Name"
                   aria-invalid={!!errors.name || undefined}
                   aria-describedby={errors.name ? "name-error" : undefined}
-                  className="w-full border border-gray-800 px-3 py-2 outline-none focus:ring-2 focus:ring-black/10"
+                  className="w-full border border-gray-800 px-3 py-2 outline-none focus:ring-2 focus:ring-black/10 text-white"
                   {...register("name")}
                 />
                 {errors.name && (
@@ -225,7 +227,9 @@ function ContactModal({ onClose }: { onClose: () => void }) {
               </div>
 
               <div>
-                <label htmlFor="phone" className="mb-1 block text-sm">
+                <label
+                  htmlFor="phone"
+                  className="mb-1 block text-sm text-white">
                   Phone
                 </label>
                 <input
@@ -236,7 +240,7 @@ function ContactModal({ onClose }: { onClose: () => void }) {
                   aria-invalid={!!errors.phone || undefined}
                   aria-describedby={errors.phone ? "phone-error" : undefined}
                   placeholder="Contact number"
-                  className="w-full border border-gray-800 px-3 py-2 outline-none focus:ring-2 focus:ring-black/10"
+                  className="w-full border border-gray-800 px-3 py-2 outline-none focus:ring-2 focus:ring-black/10 text-white"
                   {...register("phone")}
                 />
                 {errors.phone && (
@@ -247,7 +251,9 @@ function ContactModal({ onClose }: { onClose: () => void }) {
               </div>
 
               <div>
-                <label htmlFor="email" className="mb-1 block text-sm">
+                <label
+                  htmlFor="email"
+                  className="mb-1 block text-sm text-white">
                   Email
                 </label>
                 <input
@@ -257,7 +263,7 @@ function ContactModal({ onClose }: { onClose: () => void }) {
                   aria-invalid={!!errors.email || undefined}
                   aria-describedby={errors.email ? "email-error" : undefined}
                   placeholder="Your Email"
-                  className="w-full border border-gray-800 px-3 py-2 outline-none focus:ring-2 focus:ring-black/10"
+                  className="w-full border border-gray-800 px-3 py-2 outline-none focus:ring-2 focus:ring-black/10 text-white"
                   {...register("email")}
                 />
                 {errors.email && (

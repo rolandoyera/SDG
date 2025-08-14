@@ -165,8 +165,10 @@ function ContactModal({ onClose }: { onClose: () => void }) {
         {/* SUCCESS VIEW */}
         {sent ? (
           <div className="py-8 text-center" aria-live="assertive">
-            <CheckCircle2 className="mx-auto h-12 w-12" />
-            <h2 className="mt-4 text-xl font-semibold">Message sent</h2>
+            <CheckCircle2 className="mx-auto text-white h-12 w-12" />
+            <h2 className="mt-4 text-xl font-semibold !text-white">
+              Message sent
+            </h2>
             <p className="mt-2 text-sm text-white/80">
               Thanks—your message is on its way. We’ll reach out shortly.
             </p>
@@ -189,7 +191,6 @@ function ContactModal({ onClose }: { onClose: () => void }) {
               onSubmit={handleSubmit(onSubmit)}
               noValidate
               className="space-y-6">
-              {/* Honeypot */}
               <input
                 type="text"
                 tabIndex={-1}
@@ -199,7 +200,7 @@ function ContactModal({ onClose }: { onClose: () => void }) {
                 placeholder="Company"
                 {...register("company")}
               />
-              {/* Time trap */}
+
               <input
                 type="hidden"
                 value={Date.now()}

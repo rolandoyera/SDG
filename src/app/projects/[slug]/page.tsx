@@ -8,6 +8,8 @@ import { notFound } from "next/navigation";
 import { PortableText } from "@portabletext/react";
 import type { PortableTextBlock } from "@portabletext/types";
 
+/* -------------------- Types -------------------- */
+
 type Project = {
   _id: string;
   title: string;
@@ -25,6 +27,8 @@ type Project = {
   description?: PortableTextBlock[];
   body?: PortableTextBlock[];
 };
+
+/* -------------------- GROQ -------------------- */
 
 const PROJECT_BY_SLUG = groq`*[_type=="project" && slug.current == $slug][0]{
   _id,
@@ -44,6 +48,8 @@ const PROJECT_BY_SLUG = groq`*[_type=="project" && slug.current == $slug][0]{
 
 const ALL_SLUGS = groq`*[_type=="project" && defined(slug.current)]{ "slug": slug.current }`;
 
+/* -------------------- ISR -------------------- */
+
 export const revalidate = 60;
 
 export async function generateStaticParams() {
@@ -51,13 +57,14 @@ export async function generateStaticParams() {
   return slugs.map((s) => ({ slug: s.slug }));
 }
 
+/* -------------------- Page -------------------- */
+
 export default async function ProjectPage({
   params,
 }: {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }) {
-  const { slug } = params;
-
+  const { slug } = await params;
   const data = await client.fetch<Project | null>(PROJECT_BY_SLUG, { slug });
   if (!data) return notFound();
 
@@ -72,7 +79,7 @@ export default async function ProjectPage({
       const ar =
         dims?.aspectRatio ??
         (dims?.width && dims?.height ? dims.width / dims.height : 1);
-      const group = ar > 1.01 ? 0 : ar < 0.99 ? 1 : 2; // 0 L, 1 P, 2 square
+      const group = ar > 1.01 ? 0 : ar < 0.99 ? 1 : 2; // 0 = landscape, 1 = portrait, 2 = square/unknown
       return { img, idx, group };
     })
     .sort((a, b) => (a.group === b.group ? a.idx - b.idx : a.group - b.group))
@@ -98,6 +105,7 @@ export default async function ProjectPage({
 
         {/* 2) Content row: left = info (sticky), right = gallery */}
         <section className="mt-6 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:p-6">
+          {/* LEFT: Project info */}
           <aside className="lg:col-span-4">
             <div className="lg:sticky lg:top-24">
               <div className="bg-info text-white p-2 sm:p-4 md:p-8 lg:p-12 xl:p-16">
@@ -113,6 +121,7 @@ export default async function ProjectPage({
                     </dt>
                     <dd className="text-white">Sarvian Design Group</dd>
                   </div>
+
                   {data.type && (
                     <div className="flex justify-between border-b border-white/15 pb-2">
                       <dt className="text-white/80">
@@ -121,6 +130,7 @@ export default async function ProjectPage({
                       <dd className="text-white capitalize">{data.type}</dd>
                     </div>
                   )}
+
                   {data.size && (
                     <div className="flex justify-between border-b border-white/15 pb-2">
                       <dt className="text-white/80">
@@ -133,6 +143,7 @@ export default async function ProjectPage({
                       </dd>
                     </div>
                   )}
+
                   {typeof data.year === "number" && (
                     <div className="flex justify-between">
                       <dt className="text-white/80">
@@ -166,7 +177,7 @@ export default async function ProjectPage({
             </div>
           </aside>
 
-          {/* RIGHT: Image grid (2 columns, natural aspect) */}
+          {/* RIGHT: Image grid (2 columns, natural aspect, NO rounding) */}
           <div className="lg:col-span-8">
             {sortedGallery.length > 0 && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">

@@ -7,6 +7,7 @@ import { urlFor, type SanityImageWithAlt } from "@/sanity/lib/image";
 import { notFound } from "next/navigation";
 import { PortableText } from "@portabletext/react";
 import type { PortableTextBlock } from "@portabletext/types";
+import ContactButton from "@/components/ui/ContactButton";
 
 /* -------------------- Types -------------------- */
 
@@ -167,11 +168,9 @@ export default async function ProjectPage({
                 )}
 
                 <div className="w-full mt-16 flex">
-                  <Button
-                    href="/connect"
-                    className="w-full flex items-center justify-center">
+                  <ContactButton className="w-full flex items-center justify-center">
                     Start a Similar Project
-                  </Button>
+                  </ContactButton>
                 </div>
               </div>
             </div>

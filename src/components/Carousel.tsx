@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useCallback } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, MoveLeft, MoveRight } from "lucide-react";
 import Button from "./ui/Button";
 import Link from "next/link";
 import Image from "next/image";
@@ -109,20 +109,18 @@ const Carousel: React.FC<CarouselProps> = ({
           <>
             <button
               onClick={prevSlide}
-              className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-brand/80 hover:bg-brand text-white p-2 rounded-full shadow-md transition-all duration-200 hover:scale-110 cursor-pointer"
+              className="absolute left-4 top-1/2 transform -translate-y-1/2 text-white p-2 transition-all duration-200 hover:scale-110 cursor-pointer"
               aria-label="Previous slide">
-              <ChevronLeft size={24} />
+              <MoveLeft size={34} />
             </button>
             <button
               onClick={nextSlide}
-              className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-brand/80 hover:bg-brand text-white p-2 rounded-full shadow-md transition-all duration-200 hover:scale-110 cursor-pointer"
+              className="absolute right-4 top-1/2 transform -translate-y-1/2 text-white p-2 transition-all duration-200 hover:scale-110 cursor-pointer"
               aria-label="Next slide">
-              <ChevronRight size={24} />
+              <MoveRight size={34} />
             </button>
           </>
         )}
-
-        {/* Auto-play toggle removed - always autoplaying */}
       </div>
     </div>
   );

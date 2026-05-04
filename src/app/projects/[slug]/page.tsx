@@ -1,5 +1,4 @@
 // app/projects/[slug]/page.tsx
-import Button from "@/components/ui/Button";
 import Image from "next/image";
 import { groq } from "next-sanity";
 import { client } from "@/sanity/lib/client";
@@ -10,7 +9,6 @@ import type { PortableTextBlock } from "@portabletext/types";
 import ContactButton from "@/components/ui/ContactButton";
 
 /* -------------------- Types -------------------- */
-
 
 type Project = {
   _id: string;

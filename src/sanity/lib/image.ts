@@ -1,11 +1,11 @@
 // sanity/lib/image.ts
 import createImageUrlBuilder from "@sanity/image-url";
-import type { SanityImageSource } from "@sanity/image-url/lib/types/types";
+import type { SanityImageSource } from "@sanity/image-url";
 import { dataset, projectId } from "../env";
 
 if (!projectId || !dataset) {
   throw new Error(
-    "Missing SANITY projectId or dataset in environment variables."
+    "Missing SANITY projectId or dataset in environment variables.",
   );
 }
 
@@ -41,7 +41,7 @@ export const urlFor = (source: SanityImageSource | SanityImageWithAlt) =>
 export const imageProps = (
   source: SanityImageWithAlt,
   width: number,
-  height?: number
+  height?: number,
 ) => {
   let img = builder
     .image(source as unknown as SanityImageSource)

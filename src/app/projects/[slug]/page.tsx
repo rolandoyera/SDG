@@ -9,10 +9,8 @@ import { PortableText } from "@portabletext/react";
 import type { PortableTextBlock } from "@portabletext/types";
 import ContactButton from "@/components/ui/ContactButton";
 
-export const revalidate = 60; // Revalidate the page every 60 seconds
-
-
 /* -------------------- Types -------------------- */
+
 
 type Project = {
   _id: string;

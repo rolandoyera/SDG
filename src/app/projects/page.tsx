@@ -6,6 +6,9 @@ import { client } from "@/sanity/lib/client";
 import Main from "@/components/ui/Main";
 import Container from "@/components/ui/Container";
 
+export const revalidate = 60; // Revalidate the page every 60 seconds
+
+
 const QUERY = groq`
   *[_type == "project" && defined(mainImage)]{
     _id,

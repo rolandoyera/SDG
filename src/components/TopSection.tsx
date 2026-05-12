@@ -1,6 +1,7 @@
 "use client";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
+import Button from "./ui/Button";
 
 export default function TopSection() {
   const sectionRef = useRef<HTMLDivElement>(null);
@@ -13,7 +14,7 @@ export default function TopSection() {
           setIsVisible(true);
         }
       },
-      { threshold: 0.3 }
+      { threshold: 0.3 },
     );
 
     if (sectionRef.current) {
@@ -34,8 +35,8 @@ export default function TopSection() {
               ? "translate-x-0 opacity-100"
               : "-translate-x-full opacity-0"
           }`}>
-          <h1 className="text-h1">Architectural & Interior Design Firm</h1>
-          <p className="text-lg leading-relaxed">
+          <h1>Architectural & Interior Design Firm</h1>
+          <p>
             Sarvian Design is an award-winning architecture and interior design
             firm in Fort Lauderdale, serving clients throughout South Florida.
             By blending striking architectural forms with thoughtfully curated
@@ -43,6 +44,9 @@ export default function TopSection() {
             outdoor spaces, uniting nature and design into one harmonious living
             experience.
           </p>
+          <div className="flex gap-4 pl-4 mt-12">
+            <Button href="/projects">View Our Projects</Button>
+          </div>
         </div>
         <div
           className={`relative transition-all duration-1000 ease-out delay-300 lg:col-span-3 ${

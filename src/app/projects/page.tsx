@@ -8,7 +8,6 @@ import Container from "@/components/ui/Container";
 
 export const revalidate = 60; // Revalidate the page every 60 seconds
 
-
 const QUERY = groq`
   *[_type == "project" && defined(mainImage)]{
     _id,
@@ -38,7 +37,7 @@ export default async function ProjectsPage() {
   return (
     <Main>
       <Container>
-        <h1 className="text-3xl font-semibold mb-8">Our Projects</h1>
+        <h1 className="mb-8">Our Projects</h1>
         <div className="grid md:grid-cols-2 gap-8">
           {projects.map((p, index) => (
             <Link
@@ -46,7 +45,7 @@ export default async function ProjectsPage() {
               href={`/projects/${p.slug}`}
               className="group relative overflow-hidden block"
               aria-label={`${p.title} — ${p.location}`}>
-              <div className="relative w-full aspect-[4/3]">
+              <div className="relative w-full aspect-4/3">
                 <Image
                   src={p.imageUrl}
                   alt={p.title}

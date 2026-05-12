@@ -11,7 +11,7 @@
   --color-banner: oklch(21% 0.034 264.665);
 
   --logo-filter: none;
-  --color-card: #ffffff;
+  --color-card: oklch(21% 0.034 264.665);
   --color-border: #e5e5e5;
   --color-muted: #6b7280;
   --color-accent: #3b82f6;
@@ -36,41 +36,21 @@
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
 }
 
 /* Dark theme variables */
 html.dark {
-  --background: oklch(100% 0.028 261.692);
+  --background: oklch(10% 0.02 261.692);
   --foreground: #ededed;
-  --color-nav: oklch(21% 0.034 264.665);
-  --color-footer: oklch(21% 0.034 264.665);
+  --color-nav: oklch(18% 0.02 264.665);
+  --color-footer: oklch(18% 0.02 264.665);
   --color-brand: #816540;
 
   /* Additional semantic colors for dark */
-  --color-card: oklch(15% 0.028 261.692);
+  --color-card: oklch(18% 0.02 264.665);
   --color-border: #374151;
   --color-muted: #9ca3af;
   --color-accent: #60a5fa;
-}
-
-/* Auto dark mode (respects system preference) */
-@media (prefers-color-scheme: dark) {
-  :root:not(.light) {
-    --background: oklch(13% 0.028 261.692);
-    --foreground: #ededed;
-    --color-card: oklch(15% 0.028 261.692);
-    --color-border: #374151;
-    --color-muted: #9ca3af;
-    --color-accent: #60a5fa;
-  }
 }
 
 /* Tailwind theme integration */
@@ -93,6 +73,7 @@ html.dark {
   --color-gray-900: light-dark(#111827, #f9fafb);
 
   --font-sans: var(--font-montserrat);
+  --font-serif: var(--font-instrument-serif);
   /* Fluid sizes via clamp(min, preferred, max) */
   --text-h1: clamp(2rem, 1rem + 3vw, 3rem);
   --text-h2: clamp(1.875rem, 1rem + 2.2vw, 2.5rem);
@@ -105,19 +86,6 @@ html.dark {
   --leading-h1: 1.1;
   --leading-h2: 1.15;
   --leading-h3: 1.2;
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-destructive: var(--destructive);
@@ -168,13 +136,13 @@ html.light {
 }
 @layer base {
   h1 {
-    @apply text-h1 font-semibold leading-[var(--leading-h1)];
+    @apply font-light leading-h1 font-serif text-2xl lg:text-7xl;
   }
   h2 {
-    @apply text-h2 font-semibold leading-[var(--leading-h2)];
+    @apply text-h2 font-semibold leading-h2;
   }
   h3 {
-    @apply text-h3 font-semibold leading-[var(--leading-h3)];
+    @apply text-h3 font-semibold leading-h3;
   }
   h4 {
     @apply text-h4 font-medium leading-snug;
@@ -186,7 +154,7 @@ html.light {
     @apply text-h6 font-medium leading-snug;
   }
   p {
-    @apply text-[17px];
+    @apply text-[17px] font-extralight;
   }
 }
 

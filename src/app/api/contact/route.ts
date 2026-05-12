@@ -1,7 +1,6 @@
 // app/api/contact/route.ts
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { Resend } from "resend";
 
 const Schema = z.object({
   name: z.string().min(2),
@@ -32,22 +31,36 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    const resend = new Resend(process.env.RESEND_API_KEY!);
-
-    await resend.emails.send({
-      from: "onboarding@resend.dev", // swap to your domain later
-      to: ["rolysemail@gmail.com"],
-      subject: "New Website Inquiry — Sarvian Design",
-      replyTo: email,
-      text: `Name: ${name}\nEmail: ${email}\nPhone: ${phone ?? ""}`,
-      html: `
-        <table cellpadding="6" style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6">
-          <tr><td><strong>Name:</strong></td><td>${name}</td></tr>
-          <tr><td><strong>Email:</strong></td><td>${email}</td></tr>
-          <tr><td><strong>Phone:</strong></td><td>${phone ?? ""}</td></tr>
-        </table>
-      `,
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "api-key": process.env.BREVO_API_KEY!,
+      },
+      body: JSON.stringify({
+        sender: { email: "hello@sarviandg.com", name: "Website Contact Form" }, // Update this if you have a different verified sender email in Brevo
+        to: [{ email: "rolysemail@gmail.com" }, { email: "osh@sarviandg.com" }],
+        replyTo: { email: "osh@sarviandg.com", name: "Oshrat Rothschild" },
+        subject: "New Website Inquiry — Sarvian Design",
+        textContent: `You've received a lead from SDG website\n\nName: ${name}\nEmail: ${email}\nPhone: ${phone ?? ""}`,
+        htmlContent: `
+          <p style="font-family:Arial,sans-serif;font-size:16px;margin-bottom:20px;">
+            <strong>You've received a lead from SDG website</strong>
+          </p>
+          <table cellpadding="6" style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6">
+            <tr><td><strong>Name:</strong></td><td>${name}</td></tr>
+            <tr><td><strong>Email:</strong></td><td>${email}</td></tr>
+            <tr><td><strong>Phone:</strong></td><td>${phone ?? ""}</td></tr>
+          </table>
+        `,
+      }),
     });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error("Brevo API error:", errorData);
+      return NextResponse.json({ ok: false }, { status: 500 });
+    }
 
     return NextResponse.json({ ok: true });
   } catch (err) {

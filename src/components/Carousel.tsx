@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useCallback } from "react";
-import { ChevronLeft, ChevronRight, MoveLeft, MoveRight } from "lucide-react";
+import { TfiArrowCircleLeft, TfiArrowCircleRight } from "react-icons/tfi";
 import Button from "./ui/Button";
 import Link from "next/link";
 import Image from "next/image";
@@ -32,13 +32,13 @@ const Carousel: React.FC<CarouselProps> = ({
 
   const nextSlide = useCallback(() => {
     setCurrentIndex((prevIndex) =>
-      prevIndex === items.length - 1 ? 0 : prevIndex + 1
+      prevIndex === items.length - 1 ? 0 : prevIndex + 1,
     );
   }, [items.length]);
 
   const prevSlide = useCallback(() => {
     setCurrentIndex((prevIndex) =>
-      prevIndex === 0 ? items.length - 1 : prevIndex - 1
+      prevIndex === 0 ? items.length - 1 : prevIndex - 1,
     );
   }, [items.length]);
 
@@ -72,7 +72,7 @@ const Carousel: React.FC<CarouselProps> = ({
                 fill
                 priority={idx === 0}
                 sizes="100vw"
-                className={`object-cover transition-transform duration-[3000ms] ease-out
+                className={`object-cover transition-transform duration-3000 ease-out
           ${
             idx === currentIndex ? "scale-103 delay-500" : "scale-100 delay-0"
           }`}
@@ -83,12 +83,12 @@ const Carousel: React.FC<CarouselProps> = ({
                 <div className="absolute inset-0 flex items-center justify-center bg-black/30 p-6">
                   <div className="text-center">
                     {item.title && (
-                      <h3 className="text-white text-4xl font-bold mb-2">
+                      <h3 className="text-white text-3xl lg:text-8xl mb-2 font-light font-serif tracking-wide">
                         {item.title}
                       </h3>
                     )}
                     {item.description && (
-                      <p className="text-white/90 text-base">
+                      <p className="text-white/90 text-base lg:text-xl mb-4">
                         {item.description}
                       </p>
                     )}
@@ -111,13 +111,13 @@ const Carousel: React.FC<CarouselProps> = ({
               onClick={prevSlide}
               className="absolute left-4 top-1/2 transform -translate-y-1/2 text-white p-2 transition-all duration-200 hover:scale-110 cursor-pointer"
               aria-label="Previous slide">
-              <MoveLeft size={34} />
+              <TfiArrowCircleLeft size={60} />
             </button>
             <button
               onClick={nextSlide}
               className="absolute right-4 top-1/2 transform -translate-y-1/2 text-white p-2 transition-all duration-200 hover:scale-110 cursor-pointer"
               aria-label="Next slide">
-              <MoveRight size={34} />
+              <TfiArrowCircleRight size={60} />
             </button>
           </>
         )}

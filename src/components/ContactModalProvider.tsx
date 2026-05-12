@@ -61,7 +61,7 @@ export default function ContactModalProvider({
 
   const value = useMemo(
     () => ({ open: openFn, close, toggle }),
-    [openFn, close, toggle]
+    [openFn, close, toggle],
   );
 
   return (
@@ -82,7 +82,7 @@ const ContactSchema = z.object({
     .min(1, "Phone is required")
     .refine(
       (v) => v.replace(/\D/g, "").length >= 10, // at least 10 digits
-      "Enter a valid phone number"
+      "Enter a valid phone number",
     ),
   email: z.string().email("Enter a valid email"),
   company: z.string().optional(),
@@ -143,7 +143,7 @@ function ContactModal({ onClose }: { onClose: () => void }) {
       role="dialog"
       aria-modal="true"
       aria-labelledby="contact-title"
-      className="fixed inset-0 z-[100] flex items-center justify-center">
+      className="fixed inset-0 z-100 flex items-center justify-center">
       {/* Backdrop with dark + blur */}
       <button
         aria-label="Close contact form"
@@ -166,7 +166,7 @@ function ContactModal({ onClose }: { onClose: () => void }) {
         {sent ? (
           <div className="py-8 text-center" aria-live="assertive">
             <CheckCircle2 className="mx-auto text-white h-12 w-12" />
-            <h2 className="mt-4 text-xl font-semibold !text-white">
+            <h2 className="mt-4 text-xl font-semibold text-white!">
               Message sent
             </h2>
             <p className="mt-2 text-sm text-white/80">

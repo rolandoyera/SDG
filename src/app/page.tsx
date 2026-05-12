@@ -63,9 +63,9 @@ export default function Home() {
       <section className="min-h-dvh p-6 xl:p-0">
         <TopSection />
       </section>
-      <section className="min-h-dvh">
+      {/* <section className="min-h-dvh">
         <OurApproachSection />
-      </section>
+      </section> */}
 
       <Connect />
     </>

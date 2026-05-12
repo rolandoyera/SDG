@@ -96,6 +96,7 @@ export default async function ProjectPage({
               alt={hero.alt || data.title}
               fill
               priority
+              loading="eager"
               fetchPriority="high"
               sizes="100vw"
               className="object-cover"
@@ -108,7 +109,7 @@ export default async function ProjectPage({
           {/* LEFT: Project info */}
           <aside className="lg:col-span-4">
             <div className="lg:sticky lg:top-24">
-              <div className="bg-info text-white p-2 sm:p-4 md:p-8 lg:p-12 xl:p-16">
+              <div className="bg-card text-white p-2 sm:p-4 md:p-8 lg:p-12 xl:p-16">
                 <h1 className="text-3xl font-semibold">{data.title}</h1>
                 {data.location && (
                   <p className="text-sm text-white/80">{data.location}</p>

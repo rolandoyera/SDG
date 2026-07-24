@@ -188,12 +188,11 @@ export default function UsagePage() {
           </div>
           <Select
             value={range}
-            onValueChange={(value) => setRange(value as RangeValue)}
-          >
-            <SelectTrigger className="w-44">
+            onValueChange={(value) => setRange(value as RangeValue)}>
+            <SelectTrigger className="w-48">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent position="popper" side="bottom" align="end">
               {RANGE_OPTIONS.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
                   {option.label}

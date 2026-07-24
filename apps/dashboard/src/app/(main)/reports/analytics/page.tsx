@@ -14,7 +14,8 @@ import {
 } from "@/server/analytics-actions";
 
 const RANGE_LABELS: Record<string, string> = {
-  "last-24-hours": "Last 24 hours",
+  today: "Today",
+  yesterday: "Yesterday",
   "last-7-days": "Last 7 days",
   "last-4-weeks": "Last 4 weeks",
   "last-3-months": "Last 3 months",
@@ -27,8 +28,8 @@ interface PageProps {
 
 export default async function AnalyticsReportPage({ searchParams }: PageProps) {
   const resolvedSearchParams = await searchParams;
-  const range = (resolvedSearchParams.range as string) || "last-24-hours";
-  const rangeLabel = RANGE_LABELS[range] ?? RANGE_LABELS["last-24-hours"];
+  const range = (resolvedSearchParams.range as string) || "today";
+  const rangeLabel = RANGE_LABELS[range] ?? RANGE_LABELS.today;
 
   // The report consumes the same GA4 data as the dashboard, fetched here and
   // handed to the presentational document component.

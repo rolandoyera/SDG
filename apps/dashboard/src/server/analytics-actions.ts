@@ -99,29 +99,12 @@ export async function fetchTopPagesData(
     return { success: false, data: [], error: CONFIG_MISSING_ERROR };
   }
 
-  // Map range to GA4 date string
-  let startDate = "30daysAgo";
-  if (range === "last-24-hours") {
-    startDate = "1daysAgo";
-  } else if (range === "last-7-days") {
-    startDate = "7daysAgo";
-  } else if (range === "last-3-months") {
-    startDate = "90daysAgo";
-  } else if (range === "year-to-date") {
-    startDate = `${new Date().getFullYear()}-01-01`;
-  }
-
   try {
     const client = getGA4Client();
 
     const [response] = await client.runReport({
       property: `properties/${propertyId}`,
-      dateRanges: [
-        {
-          startDate,
-          endDate: "today",
-        },
-      ],
+      dateRanges: [rangeToDates(range)],
       dimensions: [
         {
           name: "pagePath",
@@ -221,6 +204,23 @@ function getDateRangesForRange(range: string): {
   label: string;
   comparisonLabel: string;
 } {
+  if (range === "today") {
+    return {
+      current: { startDate: "today", endDate: "today" },
+      previous: { startDate: "yesterday", endDate: "yesterday" },
+      label: "today",
+      comparisonLabel: "yesterday",
+    };
+  }
+  if (range === "yesterday") {
+    return {
+      current: { startDate: "yesterday", endDate: "yesterday" },
+      previous: { startDate: "2daysAgo", endDate: "2daysAgo" },
+      label: "yesterday",
+      comparisonLabel: "previous day",
+    };
+  }
+
   const today = new Date();
   const formatDate = (date: Date) => date.toISOString().split("T")[0];
 
@@ -228,11 +228,7 @@ function getDateRangesForRange(range: string): {
   let label = "last 4 weeks";
   let comparisonLabel = "previous 4 weeks";
 
-  if (range === "last-24-hours") {
-    days = 1;
-    label = "yesterday";
-    comparisonLabel = "previous day";
-  } else if (range === "last-7-days") {
+  if (range === "last-7-days") {
     days = 7;
     label = "last 7 days";
     comparisonLabel = "previous 7 days";
@@ -482,12 +478,25 @@ async function getConfiguredPropertyId(): Promise<string | null> {
 const CONFIG_MISSING_ERROR =
   "Google Analytics 4 is not configured in .env.local yet.";
 
-function rangeToStartDate(range?: string): string {
-  if (range === "last-24-hours") return "1daysAgo";
-  if (range === "last-7-days") return "7daysAgo";
-  if (range === "last-3-months") return "90daysAgo";
-  if (range === "year-to-date") return `${new Date().getFullYear()}-01-01`;
-  return "28daysAgo";
+function rangeToDates(range?: string): {
+  startDate: string;
+  endDate: string;
+} {
+  if (range === "today") return { startDate: "today", endDate: "today" };
+  if (range === "yesterday")
+    return { startDate: "yesterday", endDate: "yesterday" };
+  if (range === "last-7-days")
+    return { startDate: "7daysAgo", endDate: "today" };
+  if (range === "last-3-months")
+    return { startDate: "90daysAgo", endDate: "today" };
+  if (range === "year-to-date")
+    return { startDate: `${new Date().getFullYear()}-01-01`, endDate: "today" };
+  return { startDate: "28daysAgo", endDate: "today" };
+}
+
+// Single-day ranges render trends hourly (dateHour) instead of daily.
+function isSingleDayRange(range?: string): boolean {
+  return range === "today" || range === "yesterday";
 }
 
 function formatCount(val: number): string {
@@ -519,14 +528,14 @@ export async function fetchTrafficTrend(
   if (!propertyId)
     return { success: false, data: [], error: CONFIG_MISSING_ERROR };
 
-  const hourly = range === "last-24-hours";
+  const hourly = isSingleDayRange(range);
   const dimension = hourly ? "dateHour" : "date";
 
   try {
     const client = getGA4Client();
     const [response] = await client.runReport({
       property: `properties/${propertyId}`,
-      dateRanges: [{ startDate: rangeToStartDate(range), endDate: "today" }],
+      dateRanges: [rangeToDates(range)],
       dimensions: [{ name: dimension }],
       metrics: [{ name: "activeUsers" }, { name: "sessions" }],
       orderBys: [{ dimension: { dimensionName: dimension } }],
@@ -578,7 +587,7 @@ export async function fetchTrafficSources(
     const runFor = async (dimension: string): Promise<TrafficSourceItem[]> => {
       const [response] = await client.runReport({
         property: `properties/${propertyId}`,
-        dateRanges: [{ startDate: rangeToStartDate(range), endDate: "today" }],
+        dateRanges: [rangeToDates(range)],
         dimensions: [{ name: dimension }],
         metrics: [{ name: "sessions" }],
         orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
@@ -710,9 +719,9 @@ export async function fetchConversionsData(
   const propertyId = await getConfiguredPropertyId();
   if (!propertyId) return { success: false, error: CONFIG_MISSING_ERROR };
 
-  const hourly = range === "last-24-hours";
+  const hourly = isSingleDayRange(range);
   const trendDimension = hourly ? "dateHour" : "date";
-  const dateRanges = [{ startDate: rangeToStartDate(range), endDate: "today" }];
+  const dateRanges = [rangeToDates(range)];
 
   try {
     const client = getGA4Client();
@@ -799,7 +808,7 @@ export async function fetchLandingPages(
     const client = getGA4Client();
     const [response] = await client.runReport({
       property: `properties/${propertyId}`,
-      dateRanges: [{ startDate: rangeToStartDate(range), endDate: "today" }],
+      dateRanges: [rangeToDates(range)],
       dimensions: [{ name: "landingPage" }],
       metrics: [{ name: "sessions" }, { name: "keyEvents" }],
       orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
@@ -855,7 +864,7 @@ export async function fetchAudienceData(
   const propertyId = await getConfiguredPropertyId();
   if (!propertyId) return { success: false, error: CONFIG_MISSING_ERROR };
 
-  const dateRanges = [{ startDate: rangeToStartDate(range), endDate: "today" }];
+  const dateRanges = [rangeToDates(range)];
 
   try {
     const client = getGA4Client();
@@ -1022,7 +1031,7 @@ export async function fetchAcquisitionData(
   const propertyId = await getConfiguredPropertyId();
   if (!propertyId) return { success: false, error: CONFIG_MISSING_ERROR };
 
-  const dateRanges = [{ startDate: rangeToStartDate(range), endDate: "today" }];
+  const dateRanges = [rangeToDates(range)];
 
   try {
     const client = getGA4Client();

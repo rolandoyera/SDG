@@ -18,7 +18,7 @@ interface AnalyticsKpiStripProps {
 }
 
 export async function AnalyticsKpiStrip({
-  range = "last-24-hours",
+  range = "today",
 }: AnalyticsKpiStripProps) {
   const result = await fetchKpiData(range);
 
@@ -28,7 +28,7 @@ export async function AnalyticsKpiStrip({
         <AnalyticsSetupRequired
           error={result.error}
           title="Analytics KPI Error"
-          className="min-h-[140px]"
+          className="min-h-35"
         />
       </div>
     );
@@ -72,8 +72,7 @@ export async function AnalyticsKpiStrip({
                   </span>
                 ) : (
                   <Badge
-                    variant={metric.isPositive ? "trendingUp" : "trendingDown"}
-                  >
+                    variant={metric.isPositive ? "trendingUp" : "trendingDown"}>
                     {metric.isPositive ? <TrendingUp /> : <TrendingDown />}
                     {metric.change}
                   </Badge>

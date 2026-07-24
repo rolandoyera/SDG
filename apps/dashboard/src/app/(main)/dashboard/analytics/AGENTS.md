@@ -56,8 +56,11 @@ tenant. The Admin SDK in `org-config.ts` bypasses security rules; keep it server
 - **Connection status is checked during SSR.** `page.tsx` awaits `testGA4Connection()` and renders the
   result as a ping indicator next to the page title (green = connected, red = not). No separate
   client-side check, so a page visit produces a single `getActiveOrgConfig` read from this path.
-- **Range comes from `?range=` search param**, default `last-24-hours`, threaded as a `range` prop
-  into sections. `last-24-hours` switches GA4 trend dimensions to hourly (`dateHour`).
+- **Range comes from `?range=` search param**, default `today`, threaded as a `range` prop
+  into sections. The single-day ranges (`today`, `yesterday`) switch GA4 trend dimensions to
+  hourly (`dateHour`); there is no rolling "last 24 hours" — GA4 date ranges are whole calendar
+  days. Search Console ignores single-day ranges (its data lags ~3 days) and falls back to its
+  28-day default.
 
 ## Document / PDF export — separate from the dashboard UI
 

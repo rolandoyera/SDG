@@ -24,7 +24,7 @@ interface PageProps {
 
 export default async function Page({ searchParams }: PageProps) {
   const resolvedSearchParams = await searchParams;
-  const range = (resolvedSearchParams.range as string) || "last-24-hours";
+  const range = (resolvedSearchParams.range as string) || "today";
   const connection = await testGA4Connection();
   const connected = connection.success;
 

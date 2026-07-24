@@ -29,7 +29,7 @@ export function AnalyticsToolbar() {
   const searchParams = useSearchParams();
   const [isRefreshing, startRefresh] = useTransition();
 
-  const currentRange = searchParams.get("range") || "last-24-hours";
+  const currentRange = searchParams.get("range") || "today";
 
   const handleRangeChange = (value: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -45,7 +45,8 @@ export function AnalyticsToolbar() {
         </SelectTrigger>
         <SelectContent>
           <SelectGroup>
-            <SelectItem value="last-24-hours">Last 24 hours</SelectItem>
+            <SelectItem value="today">Today</SelectItem>
+            <SelectItem value="yesterday">Yesterday</SelectItem>
             <SelectItem value="last-7-days">Last 7 days</SelectItem>
             <SelectItem value="last-4-weeks">Last 4 weeks</SelectItem>
             <SelectItem value="last-3-months">Last 3 months</SelectItem>

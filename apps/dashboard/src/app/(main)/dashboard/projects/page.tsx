@@ -188,14 +188,14 @@ export default function ProjectsPage() {
 
         {/* Loading or Visual Grid Cards */}
         {loading ? (
-          <div className="flex min-h-[300px] flex-col items-center justify-center gap-3">
+          <div className="flex min-h-75 flex-col items-center justify-center gap-3">
             <Loader2 className="size-8 animate-spin text-primary" />
             <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
               Loading Project spaces
             </p>
           </div>
         ) : filteredProjects.length === 0 ? (
-          <div className="flex min-h-[300px] flex-col items-center justify-center p-8 text-center">
+          <div className="flex min-h-75 flex-col items-center justify-center p-8 text-center">
             <FolderKanban className="mb-3 size-12 text-muted-foreground/40" />
             <h3 className="font-semibold text-lg mb-1">
               {searchQuery ? "No results found" : "No projects"}
@@ -208,15 +208,14 @@ export default function ProjectsPage() {
             {!searchQuery && clients.length > 0 && (
               <Button
                 onClick={handleOpenAdd}
-                className="mt-4 flex items-center gap-2"
-              >
+                className="mt-4 flex items-center gap-2">
                 <Plus className="size-4" />
                 Start Project
               </Button>
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-1 xl:grid-cols-3">
             {filteredProjects.map((project) => {
               const parentClient = clients.find(
                 (c) => c.uid === project.clientId,
@@ -226,14 +225,12 @@ export default function ProjectsPage() {
                 <Card
                   variant="panel"
                   key={project.projectId}
-                  className="group transition-all duration-200 has-[.detail-link:hover]:-translate-y-0.5 has-[.detail-link:hover]:border-primary/30 has-[.detail-link:hover]:shadow-md"
-                >
+                  className="group transition-all duration-200 has-[.detail-link:hover]:-translate-y-0.5 has-[.detail-link:hover]:border-primary/30 has-[.detail-link:hover]:shadow-md">
                   <CardHeader className="justify-between">
                     <CardTitle className="transition-colors group-has-[.detail-link:hover]:text-primary">
                       <Link
                         href={`/dashboard/projects/${project.clientId}`}
-                        className="detail-link shrink-0 cursor-pointer"
-                      >
+                        className="detail-link shrink-0 cursor-pointer">
                         <Avatar className="size-8">
                           {parentClient?.company ? (
                             <Building2 className="size-4" />
@@ -245,8 +242,7 @@ export default function ProjectsPage() {
                       <Link
                         href={`/dashboard/projects/${project.projectId}`}
                         prefetch={false}
-                        className="detail-link cursor-pointer"
-                      >
+                        className="detail-link cursor-pointer">
                         {project.name}
                       </Link>
                     </CardTitle>
@@ -256,12 +252,11 @@ export default function ProjectsPage() {
                   </CardHeader>
 
                   <CardContent className="py-2">
-                    <div className="flex flex-col gap-2 rounded-lg border border-muted/50 bg-muted p-3">
+                    <div className="flex flex-col gap-2 rounded border border-muted/50 bg-muted p-3">
                       <DataField
                         variant="icon"
                         label={parentClient?.company ? <Building2 /> : <User />}
-                        empty="Not set"
-                      >
+                        empty="Not set">
                         {parentClient
                           ? parentClient.company ||
                             `${parentClient.firstName ?? ""} ${parentClient.lastName ?? ""}`.trim()
@@ -270,8 +265,7 @@ export default function ProjectsPage() {
                       <DataField
                         variant="icon"
                         label={<DollarSign />}
-                        empty="Not set"
-                      >
+                        empty="Not set">
                         {project.budget
                           ? formatCurrency(project.budget, {
                               noDecimals: true,
@@ -281,8 +275,7 @@ export default function ProjectsPage() {
                       <DataField
                         variant="icon"
                         label={<MapPin />}
-                        empty="Not set"
-                      >
+                        empty="Not set">
                         {[project.city, project.state, project.zip]
                           .filter(Boolean)
                           .join(", ")}
@@ -294,13 +287,11 @@ export default function ProjectsPage() {
                       variant="link"
                       size="sm"
                       asChild
-                      className="ml-auto p-0 detail-link"
-                    >
+                      className="ml-auto p-0 detail-link">
                       <Link
                         href={`/dashboard/projects/${project.projectId}`}
                         prefetch={false}
-                        className="group/btn flex items-center gap-0.5"
-                      >
+                        className="group/btn flex items-center gap-0.5">
                         View Project
                         <ArrowRight className="size-3 transition-transform group-hover/btn:translate-x-1" />
                       </Link>

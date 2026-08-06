@@ -40,7 +40,7 @@ export function UserProfile() {
 
   if (!profile) {
     return (
-      <div className="size-8 animate-pulse rounded-lg border border-border/20 bg-muted/60" />
+      <div className="size-8 animate-pulse rounded border border-border/20 bg-muted/60" />
     );
   }
 
@@ -52,11 +52,10 @@ export function UserProfile() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
-        className="mt-2 min-w-56 space-y-1 rounded-lg"
+        className="mt-2 min-w-56 space-y-1 rounded"
         side="bottom"
         align="end"
-        sideOffset={4}
-      >
+        sideOffset={4}>
         <DropdownMenuGroup>
           <DropdownMenuItem asChild>
             <Link href="/dashboard/profile" className="hover:cursor-pointer">

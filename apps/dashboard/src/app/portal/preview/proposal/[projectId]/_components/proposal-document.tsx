@@ -111,7 +111,7 @@ export function ProposalDocument({
       {/* Sections — one card per section */}
       {rooms.length === 0 ? (
         <Card>
-          <p className="rounded-lg border border-border border-dashed bg-neutral-50 p-8 text-center text-muted-foreground text-sm">
+          <p className="rounded border border-border border-dashed bg-neutral-50 p-8 text-center text-muted-foreground text-sm">
             This project has no sections yet. Add sections and items in the
             Items tab to populate the proposal.
           </p>

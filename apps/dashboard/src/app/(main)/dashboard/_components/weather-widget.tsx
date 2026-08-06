@@ -68,7 +68,7 @@ export function WeatherWidget() {
 
   if (loading) {
     return (
-      <div className="flex h-11 w-44 items-center gap-2.5 rounded-xl border border-border/40 bg-card/45 px-3 py-1.5 shadow-xs backdrop-blur-xs">
+      <div className="flex h-11 w-44 items-center gap-2.5 rounded border border-border/40 bg-card/45 px-3 py-1.5 shadow-xs backdrop-blur-xs">
         <Skeleton className="size-7.5 shrink-0 rounded-full" />
         <div className="min-w-0 flex-1 space-y-1.5">
           <Skeleton className="h-3 w-12" />
@@ -99,8 +99,7 @@ export function WeatherWidget() {
   return (
     <div
       title={`Current weather in ${cityName}: ${conditionText}`}
-      className="flex shrink-0 select-none items-center px-3 font-normal text-card-foreground text-sm normal-case tracking-normal mt-1"
-    >
+      className="flex shrink-0 select-none items-center px-3 font-normal text-card-foreground text-sm normal-case tracking-normal mt-1">
       <div className="relative size-14 shrink-0">
         <DashboardImage
           src={iconUrl}

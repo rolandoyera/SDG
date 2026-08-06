@@ -20,7 +20,7 @@ export function ItemNotesCards({ item }: ItemNotesCardsProps) {
         </CardHeader>
         <CardContent className="pt-6">
           {item.description ? (
-            <div className="rounded-lg border border-border bg-muted/50 p-3.5 text-foreground text-sm leading-relaxed shadow-inner">
+            <div className="rounded border border-border bg-muted/50 p-3.5 text-foreground text-sm leading-relaxed shadow-inner">
               {item.description}
             </div>
           ) : (
@@ -40,11 +40,11 @@ export function ItemNotesCards({ item }: ItemNotesCardsProps) {
         </CardHeader>
         <CardContent className="pt-6">
           {item.internalNote ? (
-            <div className="rounded-lg border bg-muted/50 p-3.5 text-foreground text-sm leading-relaxed shadow-inner">
+            <div className="rounded border bg-muted/50 p-3.5 text-foreground text-sm leading-relaxed shadow-inner">
               {item.internalNote}
             </div>
           ) : (
-            <div className="rounded-lg border bg-muted/50 p-3.5 text-foreground/50 text-sm italic leading-relaxed shadow-inner">
+            <div className="rounded border bg-muted/50 p-3.5 text-foreground/50 text-sm italic leading-relaxed shadow-inner">
               No internal notes logged.
             </div>
           )}

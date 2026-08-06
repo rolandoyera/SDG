@@ -23,7 +23,7 @@ export async function AudienceSection({ range }: { range?: string }) {
 
   if (!result.success || !result.data) {
     return (
-      <div className="rounded-xl bg-card shadow-xs ring-1 ring-foreground/10">
+      <div className="rounded bg-card shadow-xs ring-1 ring-foreground/10">
         <AnalyticsSetupRequired
           error={result.error}
           title="Audience Error"

@@ -161,7 +161,7 @@ export function MetricCards() {
       <Card>
         <CardHeader className="flex items-center gap-4">
           <CardTitle>
-            <div className="flex size-7 items-center justify-center rounded-lg border bg-muted text-muted-foreground">
+            <div className="flex size-7 items-center justify-center rounded border bg-muted text-muted-foreground">
               <DollarSign className="size-4" />
             </div>
           </CardTitle>

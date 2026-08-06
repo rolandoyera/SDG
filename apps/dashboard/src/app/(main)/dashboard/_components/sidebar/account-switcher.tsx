@@ -35,7 +35,7 @@ export function AccountSwitcher({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Avatar className="size-8 rounded-lg">
+        <Avatar className="size-8 rounded">
           <AvatarImage
             src={activeUser.avatar || undefined}
             alt={activeUser.name}
@@ -44,20 +44,18 @@ export function AccountSwitcher({
         </Avatar>
       </DropdownMenuTrigger>
       <DropdownMenuContent
-        className="min-w-56 space-y-1 rounded-lg"
+        className="min-w-56 space-y-1 rounded"
         side="bottom"
         align="end"
-        sideOffset={4}
-      >
+        sideOffset={4}>
         {users.map((user) => (
           <DropdownMenuItem
             key={user.email}
             className={cn("p-0", user.id === activeUser.id && "bg-accent/50")}
             aria-current={user.id === activeUser.id ? "true" : undefined}
-            onClick={() => setActiveUser(user)}
-          >
+            onClick={() => setActiveUser(user)}>
             <div className="flex w-full items-center gap-2 px-1 py-1.5">
-              <Avatar className="size-9 rounded-lg">
+              <Avatar className="size-9 rounded">
                 <AvatarImage src={user.avatar || undefined} alt={user.name} />
                 <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
               </Avatar>
@@ -69,8 +67,7 @@ export function AccountSwitcher({
                 className={cn(
                   "mr-1 flex size-5 items-center justify-center rounded-full text-primary opacity-0",
                   user.id === activeUser.id && "opacity-100",
-                )}
-              >
+                )}>
                 <Check aria-hidden="true" />
               </span>
             </div>

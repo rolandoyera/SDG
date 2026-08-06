@@ -64,7 +64,7 @@ export function TaskReminders() {
 
             <div className="relative h-14">
               <div className="absolute inset-x-3 top-1/2 h-px -translate-y-1/2 bg-border/80" />
-              <div className="absolute top-2 bottom-2 left-[22%] flex w-[44%] items-center rounded-lg bg-primary px-2 text-primary-foreground shadow-sm">
+              <div className="absolute top-2 bottom-2 left-[22%] flex w-[44%] items-center rounded bg-primary px-2 text-primary-foreground shadow-sm">
                 <div className="flex items-center gap-2">
                   <div className="flex size-7 items-center justify-center rounded-full bg-background text-primary">
                     <CalendarRange className="size-3.5" />

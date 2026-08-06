@@ -34,7 +34,7 @@ export function CustomerReviews() {
       </CardHeader>
 
       <CardContent className="flex flex-col gap-4">
-        <div className="rounded-lg bg-muted p-4">
+        <div className="rounded bg-muted p-4">
           <div className="flex items-start justify-between gap-3">
             <div className="flex flex-col gap-2">
               <div className="flex gap-0.5 text-foreground">
@@ -57,8 +57,7 @@ export function CustomerReviews() {
               <Button
                 aria-label="Previous review"
                 size="icon-xs"
-                variant="outline"
-              >
+                variant="outline">
                 <ArrowLeft />
               </Button>
               <Button aria-label="Next review" size="icon-xs" variant="outline">
@@ -68,7 +67,7 @@ export function CustomerReviews() {
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-4 rounded-lg border px-4 py-3">
+        <div className="flex items-center justify-between gap-4 rounded border px-4 py-3">
           <div className="min-w-0">
             <div className="font-medium text-sm">12.8K reviews</div>
             <div className="line-clamp-2 min-h-[3em] text-muted-foreground text-xs">

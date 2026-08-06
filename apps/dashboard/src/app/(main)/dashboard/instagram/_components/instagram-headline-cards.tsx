@@ -59,7 +59,7 @@ export async function InstagramHeadlineCards({
       <Card>
         <CardHeader className="flex items-center gap-4">
           <CardTitle>
-            <div className="flex size-7 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+            <div className="flex size-7 items-center justify-center rounded bg-muted text-muted-foreground">
               <InstagramIcon size={20} strokeWidth={1.5} />
             </div>
           </CardTitle>
@@ -77,7 +77,7 @@ export async function InstagramHeadlineCards({
         <Card key={card.label}>
           <CardHeader className="flex items-center gap-4">
             <CardTitle>
-              <div className="flex size-7 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+              <div className="flex size-7 items-center justify-center rounded bg-muted text-muted-foreground">
                 {card.icon}
               </div>
             </CardTitle>

@@ -105,8 +105,7 @@ export function ClientFormDialog({
         <form
           onSubmit={handleSubmit(handleFormSubmit)}
           className="flex flex-col gap-4"
-          noValidate
-        >
+          noValidate>
           <DialogHeader className="mb-4">
             <DialogTitle>{title}</DialogTitle>
             <DialogDescription>{description}</DialogDescription>
@@ -120,7 +119,7 @@ export function ClientFormDialog({
             render={({ field }) => <input type="hidden" {...field} />}
           />
 
-          <div className="grid grid-cols-2 gap-4 rounded-lg border border-border bg-muted/30 px-3 py-2.5">
+          <div className="grid grid-cols-2 gap-4 rounded border border-border bg-muted/30 px-3 py-2.5">
             <Controller
               control={control}
               name="isCompany"
@@ -134,8 +133,7 @@ export function ClientFormDialog({
                   <Label
                     size="large"
                     htmlFor="is-company-checkbox"
-                    className="cursor-pointer select-none leading-none"
-                  >
+                    className="cursor-pointer select-none leading-none">
                     This is a company or commercial entity
                   </Label>
                 </div>
@@ -155,8 +153,7 @@ export function ClientFormDialog({
                   <Label
                     size="large"
                     htmlFor="taxable-checkbox"
-                    className="cursor-pointer select-none"
-                  >
+                    className="cursor-pointer select-none">
                     This client is taxable
                   </Label>
                 </div>
@@ -167,8 +164,7 @@ export function ClientFormDialog({
           <div className="flex flex-col gap-4 py-2">
             <div
               className="grid transition-all duration-300 ease-in-out"
-              style={{ gridTemplateRows: isCompany ? "1fr" : "0fr" }}
-            >
+              style={{ gridTemplateRows: isCompany ? "1fr" : "0fr" }}>
               <div className="-mx-1 overflow-hidden px-1">
                 <div className="grid grid-cols-2 gap-4 pt-1 pb-4">
                   <Controller
@@ -177,8 +173,7 @@ export function ClientFormDialog({
                     render={({ field, fieldState }) => (
                       <Field
                         className="flex flex-col gap-1.5"
-                        data-invalid={fieldState.invalid}
-                      >
+                        data-invalid={fieldState.invalid}>
                         <Label className={LABEL_CLASS}>
                           Company Name{" "}
                           {isCompany && (
@@ -198,8 +193,7 @@ export function ClientFormDialog({
                     render={({ field, fieldState }) => (
                       <Field
                         className="flex flex-col gap-1.5"
-                        data-invalid={fieldState.invalid}
-                      >
+                        data-invalid={fieldState.invalid}>
                         <Label className={LABEL_CLASS}>Tax ID</Label>
                         <Input
                           {...field}
@@ -225,8 +219,7 @@ export function ClientFormDialog({
                 render={({ field, fieldState }) => (
                   <Field
                     className="flex flex-col gap-1.5"
-                    data-invalid={fieldState.invalid}
-                  >
+                    data-invalid={fieldState.invalid}>
                     <Label className={LABEL_CLASS}>
                       First Name{" "}
                       <span className="ml-0.5 text-destructive">*</span>
@@ -244,8 +237,7 @@ export function ClientFormDialog({
                 render={({ field, fieldState }) => (
                   <Field
                     className="flex flex-col gap-1.5"
-                    data-invalid={fieldState.invalid}
-                  >
+                    data-invalid={fieldState.invalid}>
                     <Label className={LABEL_CLASS}>
                       Last Name{" "}
                       <span className="ml-0.5 text-destructive">*</span>
@@ -266,8 +258,7 @@ export function ClientFormDialog({
                 render={({ field, fieldState }) => (
                   <Field
                     className="flex flex-col gap-1.5"
-                    data-invalid={fieldState.invalid}
-                  >
+                    data-invalid={fieldState.invalid}>
                     <Label className={LABEL_CLASS}>Email Address</Label>
                     <Input
                       {...field}
@@ -286,8 +277,7 @@ export function ClientFormDialog({
                 render={({ field, fieldState }) => (
                   <Field
                     className="flex flex-col gap-1.5"
-                    data-invalid={fieldState.invalid}
-                  >
+                    data-invalid={fieldState.invalid}>
                     <Label className={LABEL_CLASS}>Phone Number</Label>
                     <Input
                       {...field}
@@ -311,8 +301,7 @@ export function ClientFormDialog({
               render={({ field, fieldState }) => (
                 <Field
                   className="flex flex-col gap-1.5"
-                  data-invalid={fieldState.invalid}
-                >
+                  data-invalid={fieldState.invalid}>
                   <Label className={LABEL_CLASS}>Street Address</Label>
                   <Input {...field} aria-invalid={fieldState.invalid} />
                   {fieldState.invalid && (
@@ -329,8 +318,7 @@ export function ClientFormDialog({
                 render={({ field, fieldState }) => (
                   <Field
                     className="col-span-2 flex flex-col gap-1.5"
-                    data-invalid={fieldState.invalid}
-                  >
+                    data-invalid={fieldState.invalid}>
                     <Label className={LABEL_CLASS}>City</Label>
                     <Input {...field} aria-invalid={fieldState.invalid} />
                     {fieldState.invalid && (
@@ -345,8 +333,7 @@ export function ClientFormDialog({
                 render={({ field, fieldState }) => (
                   <Field
                     className="flex flex-col gap-1.5"
-                    data-invalid={fieldState.invalid}
-                  >
+                    data-invalid={fieldState.invalid}>
                     <Label className={LABEL_CLASS}>State</Label>
                     <Input
                       {...field}
@@ -365,8 +352,7 @@ export function ClientFormDialog({
                 render={({ field, fieldState }) => (
                   <Field
                     className="flex flex-col gap-1.5"
-                    data-invalid={fieldState.invalid}
-                  >
+                    data-invalid={fieldState.invalid}>
                     <Label className={LABEL_CLASS}>ZIP Code</Label>
                     <Input
                       {...field}
@@ -391,15 +377,13 @@ export function ClientFormDialog({
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              disabled={submitting}
-            >
+              disabled={submitting}>
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={submitting}
-              className="flex items-center gap-2"
-            >
+              className="flex items-center gap-2">
               {submitting && <Loader2 className="size-4 animate-spin" />}
               {submitLabel}
             </Button>

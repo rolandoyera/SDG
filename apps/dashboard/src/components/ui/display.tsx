@@ -7,7 +7,7 @@ function Display({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="display"
       className={cn(
-        "flex flex-col overflow-hidden rounded-xl bg-card py-4 text-sm text-card-foreground shadow-xs bg-linear-to-t from-primary/5 to-card ring-1 ring-foreground/10 dark:bg-card",
+        "flex flex-col overflow-hidden rounded bg-card py-4 text-sm text-card-foreground shadow-xs bg-linear-to-t from-primary/5 to-card ring-1 ring-foreground/10 dark:bg-card",
         className,
       )}
       {...props}
@@ -30,7 +30,7 @@ function DisplayIcon({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="display-icon"
       className={cn(
-        "flex size-7 items-center justify-center rounded-lg bg-muted text-muted-foreground",
+        "flex size-7 items-center justify-center rounded bg-muted text-muted-foreground",
         className,
       )}
       {...props}

@@ -71,7 +71,7 @@ export function PortalSignForm({
           onChange={(e) => setName(e.target.value)}
           placeholder="Your full legal name"
           autoComplete="name"
-          className="h-10 rounded-lg border border-neutral-300 px-3 text-neutral-900 text-sm outline-none focus:border-neutral-900"
+          className="h-10 rounded border border-neutral-300 px-3 text-neutral-900 text-sm outline-none focus:border-neutral-900"
         />
         {name.trim() && (
           <span className="mt-1 font-[cursive] text-2xl text-neutral-800">
@@ -100,8 +100,7 @@ export function PortalSignForm({
         type="button"
         onClick={handleSign}
         disabled={!canSign}
-        className="inline-flex h-10 items-center justify-center rounded-lg bg-neutral-900 px-6 font-medium text-sm text-white transition-colors hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-40"
-      >
+        className="inline-flex h-10 items-center justify-center rounded bg-neutral-900 px-6 font-medium text-sm text-white transition-colors hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-40">
         {submitting ? "Signing…" : "Sign contract"}
       </button>
     </div>

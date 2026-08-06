@@ -198,7 +198,7 @@ export default function VendorDetailPage({ params }: PageProps) {
 
   if (loading || authLoading) {
     return (
-      <div className="flex min-h-[400px] flex-col items-center justify-center gap-3">
+      <div className="flex min-h-100 flex-col items-center justify-center gap-3">
         <Loader2 className="size-8 animate-spin text-primary" />
         <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
           Loading Vendor Profile
@@ -263,15 +263,15 @@ export default function VendorDetailPage({ params }: PageProps) {
             <DataField
               label="Address"
               empty="Not provided"
-              className="min-h-21"
-            >
-              <AddressValue lines={addressLines} query={addressText} />
+              className="min-h-21">
+              {addressLines.length > 0 && (
+                <AddressValue lines={addressLines} query={addressText} />
+              )}
             </DataField>
             <DataField
               label="Sourcing Notes"
               empty="Not provided"
-              className="h-21"
-            >
+              className="h-21">
               {vendor.notes}
             </DataField>
           </CardContent>
@@ -326,20 +326,18 @@ export default function VendorDetailPage({ params }: PageProps) {
                       You must delete these items first or reassign them to a
                       different vendor before this vendor can be deleted.
                     </span>
-                    <div className="mt-3 max-h-40 divide-y divide-border/40 overflow-y-auto rounded-lg border border-border/40 bg-muted/30">
+                    <div className="mt-3 max-h-40 divide-y divide-border/40 overflow-y-auto rounded border border-border/40 bg-muted/30">
                       {items.map((item) => (
                         <div
                           key={item.itemId}
-                          className="flex items-center justify-between p-2.5 text-xs"
-                        >
-                          <span className="max-w-[240px] truncate font-medium">
+                          className="flex items-center justify-between p-2.5 text-xs">
+                          <span className="max-w-60 truncate font-medium">
                             {item.name}
                           </span>
                           <Link
                             href={`/dashboard/library/${item.itemId}`}
                             onClick={() => setIsDeleteOpen(false)}
-                            className="font-semibold text-primary hover:underline"
-                          >
+                            className="font-semibold text-primary hover:underline">
                             View Item
                           </Link>
                         </div>
@@ -367,8 +365,7 @@ export default function VendorDetailPage({ params }: PageProps) {
                   variant="destructive"
                   onClick={handleDelete}
                   disabled={deleting}
-                  className="gap-2"
-                >
+                  className="gap-2">
                   {deleting && <Loader2 className="size-4 animate-spin" />}
                   Delete Vendor
                 </AlertDialogAction>

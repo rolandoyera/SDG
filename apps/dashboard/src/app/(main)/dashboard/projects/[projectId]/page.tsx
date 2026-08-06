@@ -248,7 +248,7 @@ export default function ProjectDetailPage({ params }: PageProps) {
 
   if (loading || authLoading) {
     return (
-      <div className="flex min-h-[400px] flex-col items-center justify-center gap-3">
+      <div className="flex min-h-100 flex-col items-center justify-center gap-3">
         <Loader2 className="size-8 animate-spin text-primary" />
         <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
           Fetching Project Specifications
@@ -342,7 +342,7 @@ export default function ProjectDetailPage({ params }: PageProps) {
 
 function TabPlaceholder({ label }: { label: string }) {
   return (
-    <Card className="flex min-h-[300px] flex-col items-center justify-center border-dashed bg-background/30 p-8 text-center">
+    <Card className="flex min-h-75 flex-col items-center justify-center border-dashed bg-background/30 p-8 text-center">
       <h3 className="font-semibold text-lg">{label} coming soon</h3>
       <p className="mt-1 max-w-sm text-muted-foreground text-sm">
         This section is not available yet.

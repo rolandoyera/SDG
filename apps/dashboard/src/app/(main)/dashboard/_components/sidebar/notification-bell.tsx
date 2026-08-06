@@ -46,14 +46,13 @@ export function NotificationBell() {
           variant="secondary"
           size="icon"
           aria-label="Notifications"
-          className="relative"
-        >
+          className="relative">
           <Bell />
           {unreadCount > 0 && (
             <>
               <span
                 aria-hidden
-                className="pointer-events-none absolute inset-0 animate-ping-soft rounded-lg border-2 border-primary/60"
+                className="pointer-events-none absolute inset-0 animate-ping-soft rounded border-2 border-primary/60"
               />
               <span className="-top-1.5 -right-1.5 absolute flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 font-medium text-[10px] text-primary-foreground tabular-nums">
                 {unreadCount}
@@ -90,8 +89,7 @@ export function NotificationBell() {
                           unread
                             ? "font-medium"
                             : "font-normal text-muted-foreground",
-                        )}
-                      >
+                        )}>
                         {n.title}
                       </p>
                       {n.body && (
@@ -112,8 +110,7 @@ export function NotificationBell() {
                           title="Mark as read"
                           onClick={() =>
                             void markNotificationRead(n.notificationId, uid)
-                          }
-                        >
+                          }>
                           <Check />
                         </Button>
                       )}
@@ -123,8 +120,7 @@ export function NotificationBell() {
                           size="icon-xs"
                           aria-label="View"
                           title="View"
-                          onClick={() => handleView(n)}
-                        >
+                          onClick={() => handleView(n)}>
                           <ExternalLink />
                         </Button>
                       )}
@@ -135,8 +131,7 @@ export function NotificationBell() {
                         title="Delete"
                         onClick={() =>
                           void dismissNotification(n.notificationId, uid)
-                        }
-                      >
+                        }>
                         <Trash2 />
                       </Button>
                     </div>

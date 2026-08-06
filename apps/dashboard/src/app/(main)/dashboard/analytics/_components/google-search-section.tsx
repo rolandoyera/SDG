@@ -31,7 +31,7 @@ export async function GoogleSearchSection({ range }: { range?: string }) {
 
   if (!totals.success && !queries.success && !pages.success) {
     return (
-      <div className="rounded-xl bg-card shadow-xs ring-1 ring-foreground/10">
+      <div className="rounded bg-card shadow-xs ring-1 ring-foreground/10">
         <AnalyticsSetupRequired
           error={totals.error}
           title="Search Console Error"

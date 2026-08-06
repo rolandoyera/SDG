@@ -100,8 +100,7 @@ export function LeadFormDialog({
         <form
           onSubmit={handleSubmit(onSubmit)}
           className="flex max-h-[85vh] flex-col gap-4"
-          noValidate
-        >
+          noValidate>
           <DialogHeader className="mb-2">
             <DialogTitle>{title}</DialogTitle>
             <DialogDescription>{description}</DialogDescription>
@@ -154,7 +153,7 @@ export function LeadFormDialog({
               />
             </div>
             <div className="grid grid-cols-2 items-end gap-4">
-              <div className="rounded-lg border border-border bg-muted/30 h-10 flex items-center pl-2">
+              <div className="rounded border border-border bg-muted/30 h-10 flex items-center pl-2">
                 <Controller
                   control={control}
                   name="isCompany"
@@ -168,8 +167,7 @@ export function LeadFormDialog({
                       <Label
                         size="large"
                         htmlFor="lead-is-company"
-                        className="cursor-pointer select-none leading-none"
-                      >
+                        className="cursor-pointer select-none leading-none">
                         This is a company or commercial entity
                       </Label>
                     </div>
@@ -182,8 +180,7 @@ export function LeadFormDialog({
                 render={({ field, fieldState }) => (
                   <Field
                     className="flex flex-col gap-1.5"
-                    data-invalid={fieldState.invalid}
-                  >
+                    data-invalid={fieldState.invalid}>
                     <Label className={LABEL_CLASS}>
                       Company Name{" "}
                       {isCompany && (
@@ -211,8 +208,7 @@ export function LeadFormDialog({
                   render={({ field, fieldState }) => (
                     <Field
                       className="flex flex-col gap-1.5"
-                      data-invalid={fieldState.invalid}
-                    >
+                      data-invalid={fieldState.invalid}>
                       <Label className={LABEL_CLASS}>
                         First Name{" "}
                         {!isCompany && (
@@ -232,8 +228,7 @@ export function LeadFormDialog({
                   render={({ field, fieldState }) => (
                     <Field
                       className="flex flex-col gap-1.5"
-                      data-invalid={fieldState.invalid}
-                    >
+                      data-invalid={fieldState.invalid}>
                       <Label className={LABEL_CLASS}>Last Name</Label>
                       <Input {...field} aria-invalid={fieldState.invalid} />
                       {fieldState.invalid && (
@@ -251,8 +246,7 @@ export function LeadFormDialog({
                   render={({ field, fieldState }) => (
                     <Field
                       className="flex flex-col gap-1.5"
-                      data-invalid={fieldState.invalid}
-                    >
+                      data-invalid={fieldState.invalid}>
                       <Label className={LABEL_CLASS}>Email Address</Label>
                       <Input
                         {...field}
@@ -271,8 +265,7 @@ export function LeadFormDialog({
                   render={({ field, fieldState }) => (
                     <Field
                       className="flex flex-col gap-1.5"
-                      data-invalid={fieldState.invalid}
-                    >
+                      data-invalid={fieldState.invalid}>
                       <Label className={LABEL_CLASS}>Phone Number</Label>
                       <Input
                         {...field}
@@ -295,8 +288,7 @@ export function LeadFormDialog({
                 render={({ field, fieldState }) => (
                   <Field
                     className="flex flex-col gap-1.5"
-                    data-invalid={fieldState.invalid}
-                  >
+                    data-invalid={fieldState.invalid}>
                     <Label className={LABEL_CLASS}>Street Address</Label>
                     <Input {...field} aria-invalid={fieldState.invalid} />
                     {fieldState.invalid && (
@@ -313,8 +305,7 @@ export function LeadFormDialog({
                   render={({ field, fieldState }) => (
                     <Field
                       className="col-span-2 flex flex-col gap-1.5"
-                      data-invalid={fieldState.invalid}
-                    >
+                      data-invalid={fieldState.invalid}>
                       <Label className={LABEL_CLASS}>City</Label>
                       <Input {...field} aria-invalid={fieldState.invalid} />
                       {fieldState.invalid && (
@@ -329,8 +320,7 @@ export function LeadFormDialog({
                   render={({ field, fieldState }) => (
                     <Field
                       className="flex flex-col gap-1.5"
-                      data-invalid={fieldState.invalid}
-                    >
+                      data-invalid={fieldState.invalid}>
                       <Label className={LABEL_CLASS}>State</Label>
                       <Input
                         {...field}
@@ -349,8 +339,7 @@ export function LeadFormDialog({
                   render={({ field, fieldState }) => (
                     <Field
                       className="flex flex-col gap-1.5"
-                      data-invalid={fieldState.invalid}
-                    >
+                      data-invalid={fieldState.invalid}>
                       <Label className={LABEL_CLASS}>ZIP Code</Label>
                       <Input
                         {...field}
@@ -376,16 +365,14 @@ export function LeadFormDialog({
                   render={({ field, fieldState }) => (
                     <Field
                       className="flex flex-col gap-1.5"
-                      data-invalid={fieldState.invalid}
-                    >
+                      data-invalid={fieldState.invalid}>
                       <Label className={LABEL_CLASS}>
                         Source{" "}
                         <span className="ml-0.5 text-destructive">*</span>
                       </Label>
                       <Select
                         value={field.value}
-                        onValueChange={field.onChange}
-                      >
+                        onValueChange={field.onChange}>
                         <SelectTrigger aria-invalid={fieldState.invalid}>
                           <SelectValue placeholder="Select a source" />
                         </SelectTrigger>
@@ -427,8 +414,7 @@ export function LeadFormDialog({
                       <Label className={LABEL_CLASS}>Property Type</Label>
                       <Select
                         value={field.value}
-                        onValueChange={field.onChange}
-                      >
+                        onValueChange={field.onChange}>
                         <SelectTrigger>
                           <SelectValue placeholder="Not specified" />
                         </SelectTrigger>
@@ -452,8 +438,7 @@ export function LeadFormDialog({
                       <Label className={LABEL_CLASS}>Budget Range</Label>
                       <Select
                         value={field.value}
-                        onValueChange={field.onChange}
-                      >
+                        onValueChange={field.onChange}>
                         <SelectTrigger>
                           <SelectValue placeholder="Not specified" />
                         </SelectTrigger>
@@ -477,8 +462,7 @@ export function LeadFormDialog({
                       <Label className={LABEL_CLASS}>Desired Timeline</Label>
                       <Select
                         value={field.value}
-                        onValueChange={field.onChange}
-                      >
+                        onValueChange={field.onChange}>
                         <SelectTrigger>
                           <SelectValue placeholder="Not specified" />
                         </SelectTrigger>
@@ -518,15 +502,13 @@ export function LeadFormDialog({
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              disabled={submitting}
-            >
+              disabled={submitting}>
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={submitting}
-              className="flex items-center gap-2"
-            >
+              className="flex items-center gap-2">
               {submitting && <Loader2 className="size-4 animate-spin" />}
               {submitLabel}
             </Button>

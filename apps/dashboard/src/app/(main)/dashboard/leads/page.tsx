@@ -102,7 +102,7 @@ export default function LeadsPage() {
         </div>
 
         {loading ? (
-          <div className="flex min-h-[300px] flex-col items-center justify-center gap-3">
+          <div className="flex min-h-75 flex-col items-center justify-center gap-3">
             <Loader2 className="size-8 animate-spin text-primary" />
             <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
               Loading Leads

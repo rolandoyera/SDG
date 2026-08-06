@@ -108,12 +108,11 @@ function ImagePickerDialog({
                 onClick={() =>
                   setSelectedHero(url === selectedHero ? null : url)
                 }
-                className={`relative aspect-video overflow-hidden rounded-lg border-2 bg-muted/30 transition-all ${
+                className={`relative aspect-video overflow-hidden rounded border-2 bg-muted/30 transition-all ${
                   selectedHero === url
                     ? "border-primary shadow-md"
                     : "border-border hover:border-muted-foreground/40"
-                }`}
-              >
+                }`}>
                 {/* biome-ignore lint/performance/noImgElement: selectable preview uses dynamic scraped hero image URLs. */}
                 <img
                   src={url}
@@ -139,8 +138,7 @@ function ImagePickerDialog({
           <Button
             type="button"
             variant="ghost"
-            onClick={() => onOpenChange(false)}
-          >
+            onClick={() => onOpenChange(false)}>
             Skip
           </Button>
           <Button
@@ -149,8 +147,7 @@ function ImagePickerDialog({
             onClick={() => {
               onApply(selectedHero);
               onOpenChange(false);
-            }}
-          >
+            }}>
             Apply Selection
           </Button>
         </DialogFooter>
@@ -380,8 +377,7 @@ export function VendorFormDialog({
         open={open}
         onOpenChange={(v) => {
           if (!isSubmitting && !aiLoading) onOpenChange(v);
-        }}
-      >
+        }}>
         <DialogContent className="sm:max-w-3xl">
           {/* Portal target so the country combobox popup renders within the dialog. */}
           <div ref={setComboboxContainer} />
@@ -389,8 +385,7 @@ export function VendorFormDialog({
             onSubmit={handleSubmit(onSubmit)}
             className="flex flex-col gap-4"
             noValidate
-            autoComplete="off"
-          >
+            autoComplete="off">
             <DialogHeader>
               <DialogTitle className="text-xl">
                 {mode === "edit" ? "Edit Vendor" : "Add Vendor"}
@@ -410,8 +405,7 @@ export function VendorFormDialog({
                   render={({ field, fieldState }) => (
                     <Field
                       className="col-span-2 flex flex-col gap-1.5 sm:col-span-1"
-                      data-invalid={fieldState.invalid}
-                    >
+                      data-invalid={fieldState.invalid}>
                       <Label className={LABEL_CLASS}>
                         Name <span className="ml-0.5 text-destructive">*</span>
                       </Label>
@@ -433,13 +427,11 @@ export function VendorFormDialog({
                   render={({ field, fieldState }) => (
                     <Field
                       className="col-span-2 flex flex-col gap-1.5 sm:col-span-1"
-                      data-invalid={fieldState.invalid}
-                    >
+                      data-invalid={fieldState.invalid}>
                       <Label className={LABEL_CLASS}>Category</Label>
                       <Select
                         value={field.value}
-                        onValueChange={field.onChange}
-                      >
+                        onValueChange={field.onChange}>
                         <SelectTrigger aria-invalid={fieldState.invalid}>
                           <SelectValue placeholder="Select category..." />
                         </SelectTrigger>
@@ -466,8 +458,7 @@ export function VendorFormDialog({
                 render={({ field, fieldState }) => (
                   <Field
                     className="flex flex-col gap-1.5"
-                    data-invalid={fieldState.invalid}
-                  >
+                    data-invalid={fieldState.invalid}>
                     <Label className={LABEL_CLASS}>Website</Label>
                     <div className="flex gap-2">
                       <Input
@@ -483,8 +474,7 @@ export function VendorFormDialog({
                         disabled={
                           !field.value || aiLoading ? true : isSubmitting
                         }
-                        className="group relative h-10 shrink-0 cursor-pointer overflow-hidden border-0 bg-linear-to-r from-violet-600 to-indigo-500 px-3 font-medium text-sm text-white shadow-violet-500/20 shadow-xs transition-all duration-200 hover:scale-[1.03] hover:from-violet-500 hover:to-indigo-400 hover:shadow-lg hover:shadow-violet-500/30 disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none disabled:hover:scale-100"
-                      >
+                        className="group relative h-10 shrink-0 cursor-pointer overflow-hidden border-0 bg-linear-to-r from-violet-600 to-indigo-500 px-3 font-medium text-sm text-white shadow-violet-500/20 shadow-xs transition-all duration-200 hover:scale-[1.03] hover:from-violet-500 hover:to-indigo-400 hover:shadow-lg hover:shadow-violet-500/30 disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none disabled:hover:scale-100">
                         {aiLoading && (
                           <span className="absolute inset-0 -translate-x-full animate-shimmer bg-linear-to-r from-transparent via-white/20 to-transparent" />
                         )}
@@ -538,7 +528,7 @@ export function VendorFormDialog({
                   {/* BRAND LOGO CARD (Aspect ratio 1:1, takes 4 columns on desktop) */}
                   <div className="flex flex-col gap-2 sm:col-span-4">
                     <Label className={LABEL_CLASS}>Logo</Label>
-                    <div className="group/logo relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-lg border border-border bg-background transition-all hover:border-primary/50">
+                    <div className="group/logo relative flex aspect-square w-full items-center justify-center overflow-hidden rounded border border-border bg-background transition-all hover:border-primary/50">
                       {uploadingLogo ? (
                         <div className="flex flex-col items-center justify-center gap-1.5 p-4 text-center text-primary">
                           <Loader2 className="size-6 animate-spin" />
@@ -555,8 +545,7 @@ export function VendorFormDialog({
                           <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/40 opacity-0 transition-opacity group-hover/logo:opacity-100">
                             <Label
                               htmlFor="vendor-logo-uploader"
-                              className="cursor-pointer rounded bg-white px-2 py-1 font-medium text-[10px] text-black hover:bg-gray-100"
-                            >
+                              className="cursor-pointer rounded bg-white px-2 py-1 font-medium text-[10px] text-black hover:bg-gray-100">
                               Change
                             </Label>
                             <button
@@ -565,8 +554,7 @@ export function VendorFormDialog({
                                 setValue("logoUrl", "");
                                 setValue("logoPath", "");
                               }}
-                              className="rounded bg-destructive px-2 py-1 font-medium text-[10px] text-destructive-foreground hover:bg-destructive/90"
-                            >
+                              className="rounded bg-destructive px-2 py-1 font-medium text-[10px] text-destructive-foreground hover:bg-destructive/90">
                               Remove
                             </button>
                           </div>
@@ -574,8 +562,7 @@ export function VendorFormDialog({
                       ) : (
                         <Label
                           htmlFor="vendor-logo-uploader"
-                          className="flex size-full cursor-pointer flex-col items-center justify-center gap-1.5 p-4 text-center text-muted-foreground/60 transition-colors hover:bg-muted/10 hover:text-muted-foreground"
-                        >
+                          className="flex size-full cursor-pointer flex-col items-center justify-center gap-1.5 p-4 text-center text-muted-foreground/60 transition-colors hover:bg-muted/10 hover:text-muted-foreground">
                           <Upload className="size-6 text-muted-foreground/40" />
                           <p className="font-medium text-[11px]">Upload Logo</p>
                           <p className="text-[9px] text-muted-foreground/50">
@@ -589,7 +576,7 @@ export function VendorFormDialog({
                   {/* HERO BANNER CARD (Aspect ratio 16:9, takes 8 columns on desktop) */}
                   <div className="flex flex-col gap-2 sm:col-span-8">
                     <Label className={LABEL_CLASS}>Hero Banner</Label>
-                    <div className="group/hero relative flex aspect-video w-full items-center justify-center overflow-hidden rounded-lg border border-border bg-background transition-all hover:border-primary/50">
+                    <div className="group/hero relative flex aspect-video w-full items-center justify-center overflow-hidden rounded border border-border bg-background transition-all hover:border-primary/50">
                       {uploadingHero ? (
                         <div className="flex flex-col items-center justify-center gap-1.5 p-4 text-center text-primary">
                           <Loader2 className="size-6 animate-spin" />
@@ -606,8 +593,7 @@ export function VendorFormDialog({
                           <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/40 opacity-0 transition-opacity group-hover/hero:opacity-100">
                             <Label
                               htmlFor="vendor-hero-uploader"
-                              className="cursor-pointer rounded bg-white px-2 py-1 font-medium text-[10px] text-black hover:bg-gray-100"
-                            >
+                              className="cursor-pointer rounded bg-white px-2 py-1 font-medium text-[10px] text-black hover:bg-gray-100">
                               Change
                             </Label>
                             <button
@@ -616,8 +602,7 @@ export function VendorFormDialog({
                                 setValue("heroImageUrl", "");
                                 setValue("heroImagePath", "");
                               }}
-                              className="rounded bg-destructive px-2 py-1 font-medium text-[10px] text-destructive-foreground hover:bg-destructive/90"
-                            >
+                              className="rounded bg-destructive px-2 py-1 font-medium text-[10px] text-destructive-foreground hover:bg-destructive/90">
                               Remove
                             </button>
                           </div>
@@ -625,8 +610,7 @@ export function VendorFormDialog({
                       ) : (
                         <Label
                           htmlFor="vendor-hero-uploader"
-                          className="flex size-full cursor-pointer flex-col items-center justify-center gap-1.5 p-4 text-center text-muted-foreground/60 transition-colors hover:bg-muted/10 hover:text-muted-foreground"
-                        >
+                          className="flex size-full cursor-pointer flex-col items-center justify-center gap-1.5 p-4 text-center text-muted-foreground/60 transition-colors hover:bg-muted/10 hover:text-muted-foreground">
                           <Upload className="size-6 text-muted-foreground/40" />
                           <p className="font-medium text-[11px]">
                             Upload Hero Banner
@@ -644,8 +628,7 @@ export function VendorFormDialog({
                         variant="outline"
                         size="sm"
                         onClick={() => setPickerOpen(true)}
-                        className="mt-1 h-7 w-full gap-1 text-[10px]"
-                      >
+                        className="mt-1 h-7 w-full gap-1 text-[10px]">
                         <Image className="size-3" /> Choose Cover Image
                       </Button>
                     )}
@@ -660,8 +643,7 @@ export function VendorFormDialog({
                 render={({ field, fieldState }) => (
                   <Field
                     className="flex flex-col gap-1.5"
-                    data-invalid={fieldState.invalid}
-                  >
+                    data-invalid={fieldState.invalid}>
                     <Label className={LABEL_CLASS}>Account Number</Label>
                     <Input
                       {...field}
@@ -682,8 +664,7 @@ export function VendorFormDialog({
                 render={({ field, fieldState }) => (
                   <Field
                     className="flex flex-col gap-1.5"
-                    data-invalid={fieldState.invalid}
-                  >
+                    data-invalid={fieldState.invalid}>
                     <Label className={LABEL_CLASS}>Company Description</Label>
                     <Textarea
                       {...field}
@@ -705,8 +686,7 @@ export function VendorFormDialog({
                 render={({ field, fieldState }) => (
                   <Field
                     className="flex flex-col gap-1.5"
-                    data-invalid={fieldState.invalid}
-                  >
+                    data-invalid={fieldState.invalid}>
                     <Label className={LABEL_CLASS}>Address Line 1</Label>
                     <Input
                       {...field}
@@ -725,8 +705,7 @@ export function VendorFormDialog({
                 render={({ field, fieldState }) => (
                   <Field
                     className="flex flex-col gap-1.5"
-                    data-invalid={fieldState.invalid}
-                  >
+                    data-invalid={fieldState.invalid}>
                     <Label className={LABEL_CLASS}>Address Line 2</Label>
                     <Input
                       {...field}
@@ -750,8 +729,7 @@ export function VendorFormDialog({
                     return (
                       <Field
                         className="flex flex-col gap-1.5"
-                        data-invalid={fieldState.invalid}
-                      >
+                        data-invalid={fieldState.invalid}>
                         <Label className={LABEL_CLASS}>
                           Country{" "}
                           <span className="ml-0.5 text-destructive">*</span>
@@ -766,21 +744,19 @@ export function VendorFormDialog({
                             item.name
                               .toLowerCase()
                               .includes(inputValue.toLowerCase())
-                          }
-                        >
+                          }>
                           <ComboboxTrigger
                             render={
                               <button
                                 type="button"
                                 aria-invalid={fieldState.invalid}
                                 className={cn(
-                                  "flex h-10 w-full items-center justify-between whitespace-nowrap rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none transition-colors",
+                                  "flex h-10 w-full items-center justify-between whitespace-nowrap rounded border border-input bg-transparent px-2.5 text-sm outline-none transition-colors",
                                   "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
                                   "aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20",
                                   "dark:bg-input/30",
                                   !selected && "text-muted-foreground",
-                                )}
-                              >
+                                )}>
                                 <span className="truncate">
                                   {selected
                                     ? selected.name
@@ -818,8 +794,7 @@ export function VendorFormDialog({
                   render={({ field, fieldState }) => (
                     <Field
                       className="flex flex-col gap-1.5"
-                      data-invalid={fieldState.invalid}
-                    >
+                      data-invalid={fieldState.invalid}>
                       <Label className={LABEL_CLASS}>City</Label>
                       <Input
                         {...field}
@@ -838,8 +813,7 @@ export function VendorFormDialog({
                   render={({ field, fieldState }) => (
                     <Field
                       className="flex flex-col gap-1.5"
-                      data-invalid={fieldState.invalid}
-                    >
+                      data-invalid={fieldState.invalid}>
                       <Label className={LABEL_CLASS}>
                         {regionLabelFor(countryValue)}
                       </Label>
@@ -862,8 +836,7 @@ export function VendorFormDialog({
                     return (
                       <Field
                         className="flex flex-col gap-1.5"
-                        data-invalid={fieldState.invalid}
-                      >
+                        data-invalid={fieldState.invalid}>
                         <Label className={LABEL_CLASS}>
                           {isUs ? "ZIP Code" : "Postal Code"}
                         </Label>
@@ -898,8 +871,7 @@ export function VendorFormDialog({
                   render={({ field, fieldState }) => (
                     <Field
                       className="col-span-2 flex flex-col gap-1.5"
-                      data-invalid={fieldState.invalid}
-                    >
+                      data-invalid={fieldState.invalid}>
                       <Label className={LABEL_CLASS}>Contact Name</Label>
                       <Input
                         {...field}
@@ -918,8 +890,7 @@ export function VendorFormDialog({
                   render={({ field, fieldState }) => (
                     <Field
                       className="col-span-2 flex flex-col gap-1.5"
-                      data-invalid={fieldState.invalid}
-                    >
+                      data-invalid={fieldState.invalid}>
                       <Label className={LABEL_CLASS}>Contact Email</Label>
                       <Input
                         {...field}
@@ -942,8 +913,7 @@ export function VendorFormDialog({
                     return (
                       <Field
                         className="flex flex-col gap-1.5"
-                        data-invalid={fieldState.invalid}
-                      >
+                        data-invalid={fieldState.invalid}>
                         <Label className={LABEL_CLASS}>Phone Country</Label>
                         <Combobox
                           value={selected}
@@ -962,21 +932,19 @@ export function VendorFormDialog({
                             item.name
                               .toLowerCase()
                               .includes(inputValue.toLowerCase())
-                          }
-                        >
+                          }>
                           <ComboboxTrigger
                             render={
                               <button
                                 type="button"
                                 aria-invalid={fieldState.invalid}
                                 className={cn(
-                                  "flex h-10 w-full items-center justify-between whitespace-nowrap rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none transition-colors",
+                                  "flex h-10 w-full items-center justify-between whitespace-nowrap rounded border border-input bg-transparent px-2.5 text-sm outline-none transition-colors",
                                   "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
                                   "aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20",
                                   "dark:bg-input/30",
                                   !selected && "text-muted-foreground",
-                                )}
-                              >
+                                )}>
                                 <span className="truncate">
                                   {selected
                                     ? selected.name
@@ -1014,8 +982,7 @@ export function VendorFormDialog({
                   render={({ field, fieldState }) => (
                     <Field
                       className="flex flex-col gap-1.5"
-                      data-invalid={fieldState.invalid}
-                    >
+                      data-invalid={fieldState.invalid}>
                       <Label className={LABEL_CLASS}>Contact Phone</Label>
                       <Input
                         {...field}
@@ -1050,8 +1017,7 @@ export function VendorFormDialog({
                     render={({ field, fieldState }) => (
                       <Field
                         className="col-span-2 flex flex-col gap-1.5 sm:col-span-1"
-                        data-invalid={fieldState.invalid}
-                      >
+                        data-invalid={fieldState.invalid}>
                         <Label className={LABEL_CLASS}>Instagram URL</Label>
                         <Input
                           {...field}
@@ -1070,8 +1036,7 @@ export function VendorFormDialog({
                     render={({ field, fieldState }) => (
                       <Field
                         className="col-span-2 flex flex-col gap-1.5 sm:col-span-1"
-                        data-invalid={fieldState.invalid}
-                      >
+                        data-invalid={fieldState.invalid}>
                         <Label className={LABEL_CLASS}>Pinterest URL</Label>
                         <Input
                           {...field}
@@ -1090,8 +1055,7 @@ export function VendorFormDialog({
                     render={({ field, fieldState }) => (
                       <Field
                         className="col-span-2 flex flex-col gap-1.5 sm:col-span-1"
-                        data-invalid={fieldState.invalid}
-                      >
+                        data-invalid={fieldState.invalid}>
                         <Label className={LABEL_CLASS}>Facebook URL</Label>
                         <Input
                           {...field}
@@ -1110,8 +1074,7 @@ export function VendorFormDialog({
                     render={({ field, fieldState }) => (
                       <Field
                         className="col-span-2 flex flex-col gap-1.5 sm:col-span-1"
-                        data-invalid={fieldState.invalid}
-                      >
+                        data-invalid={fieldState.invalid}>
                         <Label className={LABEL_CLASS}>YouTube URL</Label>
                         <Input
                           {...field}
@@ -1130,8 +1093,7 @@ export function VendorFormDialog({
                     render={({ field, fieldState }) => (
                       <Field
                         className="col-span-2 flex flex-col gap-1.5"
-                        data-invalid={fieldState.invalid}
-                      >
+                        data-invalid={fieldState.invalid}>
                         <Label className={LABEL_CLASS}>X / Twitter URL</Label>
                         <Input
                           {...field}
@@ -1154,8 +1116,7 @@ export function VendorFormDialog({
                 render={({ field, fieldState }) => (
                   <Field
                     className="flex flex-col gap-1.5"
-                    data-invalid={fieldState.invalid}
-                  >
+                    data-invalid={fieldState.invalid}>
                     <Label className={LABEL_CLASS}>Internal Notes</Label>
                     <Textarea
                       {...field}
@@ -1176,15 +1137,13 @@ export function VendorFormDialog({
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
-                disabled={isSubmitting || aiLoading}
-              >
+                disabled={isSubmitting || aiLoading}>
                 Cancel
               </Button>
               <Button
                 type="submit"
                 disabled={isSubmitting || aiLoading}
-                className="flex items-center gap-2"
-              >
+                className="flex items-center gap-2">
                 {isSubmitting && <Loader2 className="size-4 animate-spin" />}
                 {mode === "edit" ? "Save Changes" : "Create Vendor"}
               </Button>

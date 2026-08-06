@@ -1,5 +1,8 @@
 import { CircleAlert, Mail, Phone, User } from "lucide-react";
-import { AddressValue } from "@/components/ui/address-value";
+import {
+  AddressValue,
+  hasAddressLines,
+} from "@/components/ui/address-value";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -114,7 +117,7 @@ export function ClientContactCard({ client }: ClientContactCardProps) {
           empty="Not provided"
           className="h-21 order-7 md:order-7"
         >
-          <AddressValue address={client} />
+          {hasAddressLines(client) && <AddressValue address={client} />}
         </DataField>
         <DataField label="Tax Status" className="order-6 md:order-8">
           {client.taxable ? <p>Taxable</p> : <p>Tax Exempt</p>}

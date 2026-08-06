@@ -22,11 +22,24 @@ interface AddressValueProps {
 }
 
 /**
+ * True when `AddressValue` would render at least one line. Check this at the
+ * call site before creating the element — `DataField` sees its children as an
+ * element (never `null`), so `<AddressValue>` returning `null` cannot trigger
+ * the `empty` placeholder on its own.
+ */
+export function hasAddressLines(address?: AddressValueProps["address"]) {
+  return Boolean(
+    address?.street || address?.city || address?.state || address?.zip,
+  );
+}
+
+/**
  * Read-only address block: stacked address lines plus a "google maps" link.
- * Renders `null` when there's nothing to show, so dropping it inside a
- * `DataField` lets that component's `empty` placeholder take over. Pass a
- * structured `address` for US-style records (street + city/state/zip) or
- * pre-formatted `lines` + `query` for already-formatted addresses.
+ * Renders `null` when there's nothing to show — but gate rendering with
+ * `hasAddressLines` when a wrapping `DataField` should show its `empty`
+ * placeholder instead. Pass a structured `address` for US-style records
+ * (street + city/state/zip) or pre-formatted `lines` + `query` for
+ * already-formatted addresses.
  */
 export function AddressValue({
   address,

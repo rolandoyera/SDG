@@ -31,7 +31,7 @@ export default function ProposalsPage() {
         <div className="absolute -top-12 -right-12 size-40 rounded-full bg-primary/10 blur-2xl" />
 
         <CardHeader className="flex flex-row items-center gap-3 p-0 pb-4">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/15 text-primary">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded border border-primary/20 bg-primary/15 text-primary">
             <ReceiptText className="size-5" />
           </div>
           <div>

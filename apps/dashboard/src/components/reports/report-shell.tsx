@@ -50,7 +50,7 @@ export function ReportShell({
 
   return (
     <div className="report-screen flex min-h-screen justify-center bg-muted/60 p-4 md:p-8">
-      <div className="report-sheet w-full max-w-[297mm] rounded-lg bg-background text-foreground shadow-lg ring-1 ring-foreground/10">
+      <div className="report-sheet w-full max-w-[297mm] rounded bg-background text-foreground shadow-lg ring-1 ring-foreground/10">
         <div className="flex flex-col gap-10 p-10 md:p-14">
           <header className="report-keep-together flex items-start justify-between gap-6 border-b pb-6">
             <div className="flex items-center gap-3">
@@ -126,8 +126,7 @@ export function ReportSection({
         breakBefore && "report-break-before",
         "flex flex-col gap-4",
         className,
-      )}
-    >
+      )}>
       <div className="flex flex-col gap-1">
         <h2 className="font-semibold text-base tracking-tight">{title}</h2>
         {description ? (

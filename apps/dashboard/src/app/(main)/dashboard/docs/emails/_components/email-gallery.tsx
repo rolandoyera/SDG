@@ -33,7 +33,7 @@ function EmailPreview({
         <h3 className="font-medium text-sm">{title}</h3>
         <p className="text-muted-foreground text-sm">{description}</p>
       </div>
-      <div className="overflow-hidden rounded-lg border bg-card">
+      <div className="overflow-hidden rounded border bg-card">
         <iframe
           title={title}
           srcDoc={html}

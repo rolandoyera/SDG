@@ -70,7 +70,7 @@ export const recentCustomersColumns: ColumnDef<RecentCustomerRow>[] = [
     header: "Customer",
     cell: ({ row }) => (
       <div className="flex items-center gap-2">
-        <span className="flex size-8 items-center justify-center rounded-md border bg-muted">
+        <span className="flex size-8 items-center justify-center rounded border bg-muted">
           <UserRound className="size-4 text-muted-foreground" />
         </span>
         <div className="min-w-0 flex-1">

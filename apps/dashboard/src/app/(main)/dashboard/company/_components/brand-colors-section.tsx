@@ -35,7 +35,7 @@ function ColorField({
           aria-label={`${label} swatch`}
           value={value || "#000000"}
           onChange={(e) => onChange(e.target.value.toUpperCase())}
-          className="size-10 shrink-0 cursor-pointer rounded-lg border border-input bg-transparent p-1"
+          className="size-10 shrink-0 cursor-pointer rounded border border-input bg-transparent p-1"
         />
         <Input
           value={value}
@@ -59,7 +59,7 @@ function ColorSwatch({ label, value }: { label: string; value?: string }) {
       {value ? (
         <span className="flex flex-col gap-3 text-sm mt-2">
           <span
-            className="size-52 rounded-lg border border-border"
+            className="size-52 rounded border border-border"
             style={{ backgroundColor: value }}
           />
           {value}

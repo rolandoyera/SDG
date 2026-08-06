@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { Building2 } from "lucide-react";
-import { AddressValue } from "@/components/ui/address-value";
+import {
+  AddressValue,
+  hasAddressLines,
+} from "@/components/ui/address-value";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataField } from "@/components/ui/data-field";
 import type { Client, Project } from "@/lib/types";
@@ -60,7 +63,7 @@ export function ProjectInformationCard({
         </DataField>
 
         <DataField label="Project Site" empty="Not set">
-          <AddressValue address={project} />
+          {hasAddressLines(project) && <AddressValue address={project} />}
         </DataField>
         <DataField label="Project Brief" empty="Not set">
           {project.brief}

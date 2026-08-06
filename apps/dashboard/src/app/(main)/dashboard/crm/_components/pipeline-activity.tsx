@@ -89,21 +89,18 @@ export function PipelineActivity() {
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
             <ChartContainer
               config={pipelineChartConfig}
-              className="h-72 w-full lg:col-span-8"
-            >
+              className="h-72 w-full lg:col-span-8">
               <BarChart
                 data={pipelineChartData}
                 margin={{ left: 0, right: 0, top: 0, bottom: 0 }}
-                barSize={38}
-              >
+                barSize={38}>
                 <defs>
                   <pattern
                     id="crm-qualified-pattern"
                     width="4"
                     height="4"
                     patternUnits="userSpaceOnUse"
-                    patternTransform="rotate(45)"
-                  >
+                    patternTransform="rotate(45)">
                     <rect
                       width="6"
                       height="6"
@@ -153,7 +150,7 @@ export function PipelineActivity() {
               </BarChart>
             </ChartContainer>
 
-            <div className="flex flex-col gap-5 rounded-lg p-4 lg:col-span-4">
+            <div className="flex flex-col gap-5 rounded p-4 lg:col-span-4">
               <div className="flex flex-col gap-1">
                 <div className="font-medium text-4xl tabular-nums leading-none">
                   {totalQualified}{" "}
@@ -166,7 +163,7 @@ export function PipelineActivity() {
                 </p>
               </div>
 
-              <div className="flex flex-col gap-3 rounded-lg border border-border/60 p-3">
+              <div className="flex flex-col gap-3 rounded border border-border/60 p-3">
                 <div className="text-[11px] text-muted-foreground uppercase tracking-widest">
                   Discovery Calls Booked
                 </div>

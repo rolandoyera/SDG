@@ -30,7 +30,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { AddressValue } from "@/components/ui/address-value";
+import { AddressValue, hasAddressLines } from "@/components/ui/address-value";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -223,7 +223,7 @@ export default function LeadDetailPage({ params }: PageProps) {
 
   if (loading || authLoading) {
     return (
-      <div className="flex min-h-[400px] flex-col items-center justify-center gap-3">
+      <div className="flex min-h-100 flex-col items-center justify-center gap-3">
         <Loader2 className="size-8 animate-spin text-primary" />
         <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
           Fetching Lead
@@ -264,16 +264,14 @@ export default function LeadDetailPage({ params }: PageProps) {
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => setIsConvertOpen(true)}
-                  disabled={isConverted}
-                >
+                  disabled={isConverted}>
                   <ArrowRightLeft className="size-4" />
                   {isConverted ? "Converted" : "Convert to Client"}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   variant="destructive"
                   onClick={() => setIsDeleteOpen(true)}
-                  disabled={isConverted}
-                >
+                  disabled={isConverted}>
                   <Trash2 className="size-4" />
                   Delete Lead
                 </DropdownMenuItem>
@@ -302,8 +300,8 @@ export default function LeadDetailPage({ params }: PageProps) {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
-        <Card variant="panel" className="lg:col-span-4">
+      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-12">
+        <Card variant="panel" className="xl:col-span-4">
           <CardHeader>
             <CardTitle>
               <UserPlus className="icons" />
@@ -327,8 +325,7 @@ export default function LeadDetailPage({ params }: PageProps) {
                 {lead.phone ? (
                   <a
                     href={`tel:${normalizePhone(lead.phone)}`}
-                    className="hover:text-primary"
-                  >
+                    className="hover:text-primary">
                     {formatPhone(lead.phone)}
                   </a>
                 ) : null}
@@ -336,13 +333,16 @@ export default function LeadDetailPage({ params }: PageProps) {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2">
               <DataField label="Address" empty="Not set">
-                <AddressValue address={lead} />
+                {hasAddressLines(lead) && <AddressValue address={lead} />}
+              </DataField>
+              <DataField label="Comments" empty="Not set">
+                {lead.customerComments}
               </DataField>
             </div>
           </CardContent>
         </Card>
 
-        <Card variant="panel" className="lg:col-span-4">
+        <Card variant="panel" className="xl:col-span-4">
           <CardHeader>
             <CardTitle>
               <House className="icons" />
@@ -375,7 +375,7 @@ export default function LeadDetailPage({ params }: PageProps) {
             <div className="grid grid-cols-1 md:grid-cols-2" />
           </CardContent>
         </Card>
-        <Card variant="panel" className="lg:col-span-4">
+        <Card variant="panel" className="xl:col-span-4">
           <CardHeader>
             <CardTitle>
               <Megaphone className="icons" />
@@ -404,17 +404,6 @@ export default function LeadDetailPage({ params }: PageProps) {
             </DataField>
           </CardContent>
         </Card>
-
-        {lead.customerComments && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Customer Comments</CardTitle>
-            </CardHeader>
-            <CardContent className="whitespace-pre-wrap text-muted-foreground text-sm">
-              {lead.customerComments}
-            </CardContent>
-          </Card>
-        )}
 
         {lead.notes && (
           <Card>
@@ -462,8 +451,7 @@ export default function LeadDetailPage({ params }: PageProps) {
                 void handleConvert();
               }}
               disabled={converting}
-              className="flex items-center gap-1.5"
-            >
+              className="flex items-center gap-1.5">
               {converting && <Loader2 className="size-4 animate-spin" />}
               Convert to Client
             </AlertDialogAction>
@@ -494,8 +482,7 @@ export default function LeadDetailPage({ params }: PageProps) {
                 void handleDelete();
               }}
               disabled={deleting}
-              className="flex items-center gap-1.5 bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
+              className="flex items-center gap-1.5 bg-destructive text-destructive-foreground hover:bg-destructive/90">
               {deleting && <Loader2 className="size-4 animate-spin" />}
               Delete Lead
             </AlertDialogAction>

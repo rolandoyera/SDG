@@ -9,7 +9,7 @@ function Swatch({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-start gap-2 rounded-lg border bg-card p-4">
+    <div className="flex flex-col items-start gap-2 rounded border bg-card p-4">
       <div className="flex min-h-6 items-center">{children}</div>
       <code className="text-[11px] text-muted-foreground">{label}</code>
     </div>

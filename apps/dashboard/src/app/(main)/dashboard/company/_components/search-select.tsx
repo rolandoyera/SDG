@@ -19,7 +19,7 @@ export interface ComboItem {
 }
 
 const COMBO_TRIGGER_CLASS = cn(
-  "flex h-10 w-full items-center justify-between whitespace-nowrap rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none transition-colors",
+  "flex h-10 w-full items-center justify-between whitespace-nowrap rounded border border-input bg-transparent px-2.5 text-sm outline-none transition-colors",
   "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
   "aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20",
   "dark:bg-input/30",
@@ -51,8 +51,7 @@ export function SearchSelect({
       items={items}
       filter={(item: ComboItem, inputValue: string) =>
         item.name.toLowerCase().includes(inputValue.toLowerCase())
-      }
-    >
+      }>
       <ComboboxTrigger
         render={
           <button
@@ -60,8 +59,7 @@ export function SearchSelect({
             className={cn(
               COMBO_TRIGGER_CLASS,
               !selected && "text-muted-foreground",
-            )}
-          >
+            )}>
             <span className="truncate">
               {selected ? selected.name : placeholder}
             </span>

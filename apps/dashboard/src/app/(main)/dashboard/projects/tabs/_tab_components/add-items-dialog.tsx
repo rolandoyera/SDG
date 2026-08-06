@@ -294,8 +294,7 @@ export function AddItemsDialog({
         <Tabs
           value={activeTab}
           onValueChange={setActiveTab}
-          className="flex flex-1 flex-col overflow-hidden"
-        >
+          className="flex flex-1 flex-col overflow-hidden">
           <div className="shrink-0 border-b bg-muted/10 px-6 py-2">
             <TabsList className="w-full justify-start gap-1">
               <TabsTrigger value="catalog">Library Items</TabsTrigger>
@@ -305,8 +304,7 @@ export function AddItemsDialog({
 
           <TabsContent
             value="catalog"
-            className="m-0 flex flex-1 flex-col overflow-hidden"
-          >
+            className="m-0 flex flex-1 flex-col overflow-hidden">
             <div className="flex shrink-0 gap-4 border-b p-4">
               <div className="relative flex-1">
                 <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -352,12 +350,11 @@ export function AddItemsDialog({
                   return (
                     <div
                       key={item.itemId}
-                      className={`flex items-center gap-4 rounded-lg border p-3 transition-all ${
+                      className={`flex items-center gap-4 rounded border p-3 transition-all ${
                         isChecked
                           ? "border-primary bg-primary/5 shadow-xs"
                           : "hover:border-primary/20"
-                      }`}
-                    >
+                      }`}>
                       <Checkbox
                         checked={isChecked}
                         onCheckedChange={() =>
@@ -437,8 +434,7 @@ export function AddItemsDialog({
                   disabled={
                     addingCatalog ||
                     Object.keys(selectedCatalogItems).length === 0
-                  }
-                >
+                  }>
                   {addingCatalog && (
                     <Loader2 className="mr-1.5 size-3.5 animate-spin" />
                   )}
@@ -450,12 +446,10 @@ export function AddItemsDialog({
 
           <TabsContent
             value="custom"
-            className="m-0 flex flex-1 flex-col overflow-hidden"
-          >
+            className="m-0 flex flex-1 flex-col overflow-hidden">
             <form
               onSubmit={customItemForm.handleSubmit(onSubmitCustomItem)}
-              className="flex flex-1 flex-col overflow-hidden"
-            >
+              className="flex flex-1 flex-col overflow-hidden">
               <div className="flex-1 space-y-6 overflow-y-auto p-6">
                 <div>
                   <h3 className="mb-4 border-b pb-1.5 font-semibold text-muted-foreground text-xs uppercase tracking-wider">
@@ -468,8 +462,7 @@ export function AddItemsDialog({
                       render={({ field, fieldState }) => (
                         <Field
                           className="flex flex-col gap-1.5"
-                          data-invalid={fieldState.invalid}
-                        >
+                          data-invalid={fieldState.invalid}>
                           <Label>
                             Item Name{" "}
                             <span className="text-destructive">*</span>
@@ -490,8 +483,7 @@ export function AddItemsDialog({
                       render={({ field, fieldState }) => (
                         <Field
                           className="flex flex-col gap-1.5"
-                          data-invalid={fieldState.invalid}
-                        >
+                          data-invalid={fieldState.invalid}>
                           <Label>SKU / Model Number</Label>
                           <Input placeholder="e.g. SF-WL-01" {...field} />
                           {fieldState.invalid && (
@@ -506,8 +498,7 @@ export function AddItemsDialog({
                       render={({ field, fieldState }) => (
                         <Field
                           className="flex flex-col gap-1.5"
-                          data-invalid={fieldState.invalid}
-                        >
+                          data-invalid={fieldState.invalid}>
                           <Label>
                             Category <span className="text-destructive">*</span>
                           </Label>
@@ -516,8 +507,7 @@ export function AddItemsDialog({
                             onValueChange={(val) => {
                               field.onChange(val);
                               customItemForm.setValue("subcategory", "");
-                            }}
-                          >
+                            }}>
                             <SelectTrigger>
                               <SelectValue placeholder="Choose Category" />
                             </SelectTrigger>
@@ -546,14 +536,12 @@ export function AddItemsDialog({
                         return (
                           <Field
                             className="flex flex-col gap-1.5"
-                            data-invalid={fieldState.invalid}
-                          >
+                            data-invalid={fieldState.invalid}>
                             <Label>Subcategory</Label>
                             <Select
                               value={field.value}
                               disabled={!activeCategory || subs.length === 0}
-                              onValueChange={field.onChange}
-                            >
+                              onValueChange={field.onChange}>
                               <SelectTrigger>
                                 <SelectValue placeholder="Select Subcategory" />
                               </SelectTrigger>
@@ -586,8 +574,7 @@ export function AddItemsDialog({
                       render={({ field, fieldState }) => (
                         <Field
                           className="flex flex-col gap-1.5"
-                          data-invalid={fieldState.invalid}
-                        >
+                          data-invalid={fieldState.invalid}>
                           <Label>Sourcing Link</Label>
                           <Input placeholder="https://..." {...field} />
                           {fieldState.invalid && (
@@ -602,13 +589,11 @@ export function AddItemsDialog({
                       render={({ field, fieldState }) => (
                         <Field
                           className="flex flex-col gap-1.5"
-                          data-invalid={fieldState.invalid}
-                        >
+                          data-invalid={fieldState.invalid}>
                           <Label>Unit Type</Label>
                           <Select
                             value={field.value}
-                            onValueChange={field.onChange}
-                          >
+                            onValueChange={field.onChange}>
                             <SelectTrigger>
                               <SelectValue placeholder="Select Unit Type" />
                             </SelectTrigger>
@@ -632,8 +617,7 @@ export function AddItemsDialog({
                       render={({ field, fieldState }) => (
                         <Field
                           className="flex flex-col gap-1.5"
-                          data-invalid={fieldState.invalid}
-                        >
+                          data-invalid={fieldState.invalid}>
                           <Label>Materials</Label>
                           <Input
                             placeholder="e.g. Solid Oak, Bouclé Fabric"
@@ -651,8 +635,7 @@ export function AddItemsDialog({
                       render={({ field, fieldState }) => (
                         <Field
                           className="flex flex-col gap-1.5"
-                          data-invalid={fieldState.invalid}
-                        >
+                          data-invalid={fieldState.invalid}>
                           <Label>Dimensions</Label>
                           <Input
                             placeholder='e.g. 84" W x 38" D x 32" H'
@@ -672,8 +655,7 @@ export function AddItemsDialog({
                       render={({ field, fieldState }) => (
                         <Field
                           className="flex flex-col gap-1.5"
-                          data-invalid={fieldState.invalid}
-                        >
+                          data-invalid={fieldState.invalid}>
                           <Label>Sourcing & PO Description</Label>
                           <Textarea
                             placeholder="Item specifications details..."
@@ -740,8 +722,7 @@ export function AddItemsDialog({
                       render={({ field, fieldState }) => (
                         <Field
                           className="flex flex-col gap-1.5"
-                          data-invalid={fieldState.invalid}
-                        >
+                          data-invalid={fieldState.invalid}>
                           <Label htmlFor="item-qty">Quantity</Label>
                           <Input
                             id="item-qty"
@@ -776,8 +757,7 @@ export function AddItemsDialog({
                         <div className="grid gap-1.5 leading-none">
                           <Label
                             htmlFor="save-to-library"
-                            className="cursor-pointer select-none font-semibold text-sm"
-                          >
+                            className="cursor-pointer select-none font-semibold text-sm">
                             Add to Global Library
                           </Label>
                           <p className="text-muted-foreground text-xs">
@@ -795,14 +775,12 @@ export function AddItemsDialog({
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => onOpenChange(false)}
-                >
+                  onClick={() => onOpenChange(false)}>
                   Cancel
                 </Button>
                 <Button
                   type="submit"
-                  disabled={customItemForm.formState.isSubmitting}
-                >
+                  disabled={customItemForm.formState.isSubmitting}>
                   {customItemForm.formState.isSubmitting && (
                     <Loader2 className="mr-1.5 size-3.5 animate-spin" />
                   )}

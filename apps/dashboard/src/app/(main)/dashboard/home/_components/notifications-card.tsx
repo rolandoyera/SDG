@@ -55,7 +55,7 @@ export function NotificationsCard() {
                 return (
                   <div
                     key={n.notificationId}
-                    className="flex flex-col rounded-lg bg-muted p-2">
+                    className="flex flex-col rounded bg-muted p-2">
                     <p className="mb-2 text-muted-foreground text-xs">
                       {formatDistanceToNow(n.createdAt, { addSuffix: true })}
                     </p>

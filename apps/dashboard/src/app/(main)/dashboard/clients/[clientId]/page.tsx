@@ -187,7 +187,7 @@ export default function ClientProfilePage({ params }: PageProps) {
 
   if (loading || authLoading) {
     return (
-      <div className="flex min-h-[400px] flex-col items-center justify-center gap-3">
+      <div className="flex min-h-100 flex-col items-center justify-center gap-3">
         <Loader2 className="size-8 animate-spin text-primary" />
         <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
           Fetching Client Specifications
@@ -209,18 +209,18 @@ export default function ClientProfilePage({ params }: PageProps) {
         onRequestDelete={() => setIsDeleteAlertOpen(true)}
       />
 
-      <div className="grid grid-cols-1 gap-6 2xl:grid-cols-12">
-        <div className="col-span-1 2xl:col-span-5">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+        <div className="col-span-1 xl:col-span-6">
           <ClientContactCard client={client} />
         </div>
-        <div className="col-span-1 2xl:col-span-4">
+        <div className="col-span-1 xl:col-span-6">
           <ClientProjectsCard
             projects={projects}
             onAddProject={() => setIsAddProjectOpen(true)}
           />
         </div>
         {currentActor && (
-          <div className="col-span-1 2xl:col-span-3">
+          <div className="col-span-1 xl:col-span-6">
             <ClientNotesLogCard
               notes={notes}
               currentActor={currentActor}

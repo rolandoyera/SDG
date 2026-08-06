@@ -18,7 +18,6 @@ import { toast } from "sonner";
 
 import { useAuth } from "@/components/auth-context";
 import { PageTitle } from "@/components/page-title-updater";
-import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -141,14 +140,14 @@ export default function ClientsPage() {
         </div>
 
         {loading ? (
-          <div className="flex min-h-[300px] flex-col items-center justify-center gap-3">
+          <div className="flex min-h-75 flex-col items-center justify-center gap-3">
             <Loader2 className="size-8 animate-spin text-primary" />
             <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
               Loading Clients Directory
             </p>
           </div>
         ) : filteredClients.length === 0 ? (
-          <div className="flex min-h-[300px] flex-col items-center justify-center p-8 text-center">
+          <div className="flex min-h-75 flex-col items-center justify-center p-8 text-center">
             <Users className="mb-3 size-12 text-muted-foreground/40" />
             <h3 className="font-semibold text-lg mb-1">
               {searchQuery ? "No results found" : "No clients"}
@@ -160,7 +159,7 @@ export default function ClientsPage() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
             {filteredClients.map((client) => {
               const { firstName, lastName } = getClientName(client);
 
@@ -168,27 +167,24 @@ export default function ClientsPage() {
                 <Card
                   variant="panel"
                   key={client.uid}
-                  className="group relative flex h-full flex-col overflow-hidden transition-all duration-200 has-[.detail-link:hover]:-translate-y-0.5 has-[.detail-link:hover]:border-primary/30 has-[.detail-link:hover]:shadow-md"
-                >
+                  className="group relative flex h-full flex-col overflow-hidden transition-all duration-200 has-[.detail-link:hover]:-translate-y-0.5 has-[.detail-link:hover]:border-primary/30 has-[.detail-link:hover]:shadow-md">
                   <CardHeader className="gap-2">
                     <Link
                       href={`/dashboard/clients/${client.uid}`}
-                      className="detail-link shrink-0 cursor-pointer"
-                    >
-                      <Avatar className="size-8">
+                      className="detail-link shrink-0 cursor-pointer">
+                      <>
                         {client.company ? (
-                          <Building2 className="size-4" />
+                          <Building2 className="icons" />
                         ) : (
-                          <User className="size-4" />
+                          <User className="icons" />
                         )}
-                      </Avatar>
+                      </>
                     </Link>
                     <div className="min-w-0 flex-1">
                       <H3 className="truncate transition-colors group-has-[.detail-link:hover]:text-primary">
                         <Link
                           href={`/dashboard/clients/${client.uid}`}
-                          className="detail-link cursor-pointer"
-                        >
+                          className="detail-link cursor-pointer">
                           {client.company
                             ? client.company
                             : `${firstName} ${lastName}`}
@@ -198,26 +194,23 @@ export default function ClientsPage() {
                   </CardHeader>
 
                   <CardContent className="py-2">
-                    <div className="flex flex-col gap-2 rounded-lg border border-muted/50 bg-muted p-3">
+                    <div className="flex flex-col gap-2 rounded border border-muted/50 bg-muted/50 p-3">
                       <DataField
                         variant="icon"
                         label={<Mail />}
-                        empty="Not set"
-                      >
+                        empty="Not set">
                         {client.email}
                       </DataField>
                       <DataField
                         variant="icon"
                         label={<Phone />}
-                        empty="Not set"
-                      >
+                        empty="Not set">
                         {client.phone && formatPhone(client.phone)}
                       </DataField>
                       <DataField
                         variant="icon"
                         label={<MapPin />}
-                        empty="Not set"
-                      >
+                        empty="Not set">
                         {[client.city, client.state].filter(Boolean).join(", ")}
                       </DataField>
                     </div>
@@ -227,13 +220,11 @@ export default function ClientsPage() {
                       variant="link"
                       size="sm"
                       asChild
-                      className="ml-auto -mr-2 detail-link"
-                    >
+                      className="ml-auto -mr-2 detail-link">
                       <Link
                         href={`/dashboard/clients/${client.uid}`}
                         prefetch={false}
-                        className="group/btn flex items-center gap-0.5"
-                      >
+                        className="group/btn flex items-center gap-0.5">
                         View Client
                         <ArrowRight className="size-3 transition-transform group-hover/btn:translate-x-1" />
                       </Link>

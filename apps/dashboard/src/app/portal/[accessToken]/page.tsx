@@ -78,8 +78,7 @@ export default async function PortalLandingPage({
       </div>
       <Link
         href={`/portal/${accessToken}/contract/${access.contractId}`}
-        className="inline-flex h-10 items-center justify-center rounded-lg bg-neutral-900 px-6 font-medium text-sm text-white transition-colors hover:bg-neutral-800"
-      >
+        className="inline-flex h-10 items-center justify-center rounded bg-neutral-900 px-6 font-medium text-sm text-white transition-colors hover:bg-neutral-800">
         Review your contract
       </Link>
     </div>

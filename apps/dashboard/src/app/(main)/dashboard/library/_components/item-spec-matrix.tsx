@@ -57,7 +57,7 @@ export function ItemSpecMatrix({ item }: ItemSpecMatrixProps) {
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-5 py-3">
-        <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border text-sm md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-px overflow-hidden rounded border border-border bg-border text-sm md:grid-cols-4">
           <SpecField label="Finish / Color" value={na(item.finishColor)} />
           <SpecField label="Materials" value={na(item.materials)} />
           <SpecField label="Dimensions" value={na(item.dimensions)} />
@@ -75,8 +75,7 @@ export function ItemSpecMatrix({ item }: ItemSpecMatrixProps) {
               <a
                 href={withProtocol(item.sourcingLink)}
                 target="_blank"
-                rel="noopener noreferrer"
-              >
+                rel="noopener noreferrer">
                 <Button variant="secondary" size="sm">
                   <ExternalLink className="size-4" />
                   Product Website

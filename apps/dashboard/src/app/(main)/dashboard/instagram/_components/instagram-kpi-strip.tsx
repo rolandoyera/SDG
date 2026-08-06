@@ -30,7 +30,7 @@ export async function InstagramKpiStrip({ range }: { range?: string }) {
 
   if (!result.success || !result.data) {
     return (
-      <div className="rounded-xl bg-card p-6 text-center text-muted-foreground text-sm shadow-xs ring-1 ring-foreground/10">
+      <div className="rounded bg-card p-6 text-center text-muted-foreground text-sm shadow-xs ring-1 ring-foreground/10">
         {result.error ?? "Couldn't load Instagram metrics."}
       </div>
     );
@@ -84,8 +84,7 @@ export async function InstagramKpiStrip({ range }: { range?: string }) {
                       <Badge
                         variant={
                           metric.isPositive ? "trendingUp" : "trendingDown"
-                        }
-                      >
+                        }>
                         {metric.isPositive ? <TrendingUp /> : <TrendingDown />}
                         {metric.change}
                       </Badge>

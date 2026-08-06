@@ -62,13 +62,12 @@ export function ItemGalleryCard({
               <button
                 key={url}
                 type="button"
-                className={`relative size-16 shrink-0 cursor-pointer overflow-hidden rounded-md border transition-all ${
+                className={`relative size-16 shrink-0 cursor-pointer overflow-hidden rounded border transition-all ${
                   activeImage === url
                     ? "scale-105 border-primary ring-2 ring-primary/20"
                     : "border-border/60 hover:border-border"
                 }`}
-                onClick={() => onSelectImage(url)}
-              >
+                onClick={() => onSelectImage(url)}>
                 <DashboardImage
                   src={url}
                   alt="thumbnail"

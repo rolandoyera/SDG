@@ -362,7 +362,7 @@ export function AddItemsDialog({
                         }
                         className="size-4.5 rounded"
                       />
-                      <div className="relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-muted">
+                      <div className="relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded border bg-muted">
                         {item.coverImageUrl ? (
                           <DashboardImage
                             src={item.coverImageUrl}

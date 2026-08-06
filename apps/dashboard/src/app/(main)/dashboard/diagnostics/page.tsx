@@ -563,7 +563,7 @@ export default function DiagnosticsPage() {
                                 <img
                                   src={selectedRun.parsedData.logoUrl}
                                   alt="Logo"
-                                  className="size-12 rounded-md border border-border bg-white object-contain p-1"
+                                  className="size-12 rounded border border-border bg-white object-contain p-1"
                                 />
                                 <span className="max-w-[200px] truncate font-mono text-muted-foreground text-xs">
                                   {selectedRun.parsedData.logoUrl}
@@ -591,7 +591,7 @@ export default function DiagnosticsPage() {
                                     selectedRun.parsedData.coverImageUrl
                                   }
                                   alt="Hero Showcase"
-                                  className="size-12 rounded-md border border-border object-cover"
+                                  className="size-12 rounded border border-border object-cover"
                                 />
                                 <span className="max-w-[200px] truncate font-mono text-muted-foreground text-xs">
                                   {selectedRun.parsedData.heroImageUrl ||

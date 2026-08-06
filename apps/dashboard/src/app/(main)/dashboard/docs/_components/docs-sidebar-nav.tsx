@@ -25,12 +25,11 @@ export function DocsSidebarNav({ items }: { items: DocsNavItem[] }) {
             key={href}
             href={href}
             className={cn(
-              "rounded-md px-3 py-1.5 text-sm transition-colors hover:bg-muted",
+              "rounded px-3 py-1.5 text-sm transition-colors hover:bg-muted",
               isActive
                 ? "bg-muted font-medium text-foreground"
                 : "text-muted-foreground",
-            )}
-          >
+            )}>
             {item.title}
           </Link>
         );

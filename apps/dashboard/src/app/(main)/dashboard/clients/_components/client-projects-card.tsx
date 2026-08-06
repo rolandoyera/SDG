@@ -57,7 +57,7 @@ export function ClientProjectsCard({
                   </Badge>
                 </div>
 
-                <div className="flex flex-col gap-1.5 rounded-md border border-muted/30 bg-muted/20 p-2.5 text-muted-foreground text-xs">
+                <div className="flex flex-col gap-1.5 rounded border border-muted/30 bg-muted/20 p-2.5 text-muted-foreground text-xs">
                   {project.budget !== undefined && project.budget > 0 && (
                     <div className="flex items-center gap-1.5 font-medium text-foreground/80">
                       Budget:{" "}

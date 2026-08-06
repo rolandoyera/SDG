@@ -84,7 +84,7 @@ function buildColumns(
     cell: ({ row }) => {
       const item = row.original;
       return (
-        <div className="relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-muted">
+        <div className="relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded border bg-muted">
           {item.coverImageUrl ? (
             <DashboardImage
               src={item.coverImageUrl}
@@ -131,8 +131,7 @@ function buildColumns(
             variant="ghost"
             size="icon"
             className="size-8"
-            onClick={() => onEditItem(item)}
-          >
+            onClick={() => onEditItem(item)}>
             <Pencil className="size-4" />
             <span className="sr-only">Edit item</span>
           </Button>
@@ -140,8 +139,7 @@ function buildColumns(
             variant="ghost"
             size="icon"
             className="size-8 text-muted-foreground hover:text-destructive"
-            onClick={() => onDeleteItem(item)}
-          >
+            onClick={() => onDeleteItem(item)}>
             <Trash2 className="size-4" />
             <span className="sr-only">Delete item</span>
           </Button>
@@ -184,13 +182,11 @@ function SortableItemRow({ row }: { row: Row<ProjectRoomItem> }) {
         "grid min-w-full items-center transition-colors hover:bg-muted/20",
         isDragging &&
           "relative z-10 bg-white! shadow-[0_12px_30px_rgba(60,50,40,0.15)] dark:bg-white/20!",
-      )}
-    >
+      )}>
       <div
         {...attributes}
         {...listeners}
-        className="flex h-full cursor-grab touch-none items-center justify-center text-muted-foreground/30 hover:text-muted-foreground active:cursor-grabbing"
-      >
+        className="flex h-full cursor-grab touch-none items-center justify-center text-muted-foreground/30 hover:text-muted-foreground active:cursor-grabbing">
         <GripVertical className="size-4" />
         <span className="sr-only">Drag to reorder</span>
       </div>
@@ -261,12 +257,10 @@ export function ItemsTable({
   return (
     <div
       className="w-full overflow-x-auto"
-      style={{ "--items-cols": template } as CSSProperties}
-    >
+      style={{ "--items-cols": template } as CSSProperties}>
       <div
         className="grid min-w-full items-center border-b"
-        style={{ gridTemplateColumns: "var(--items-cols)" }}
-      >
+        style={{ gridTemplateColumns: "var(--items-cols)" }}>
         <div aria-hidden />
         {table.getHeaderGroups()[0]?.headers.map((header) => {
           const field = FIELD_BY_ID.get(header.column.id);
@@ -276,8 +270,7 @@ export function ItemsTable({
               className={cn(
                 "relative flex items-center px-3 py-2 text-muted-foreground text-xs uppercase tracking-widest",
                 field?.align === "right" && "justify-end",
-              )}
-            >
+              )}>
               {header.isPlaceholder
                 ? null
                 : flexRender(
@@ -291,8 +284,7 @@ export function ItemsTable({
                   onMouseDown={header.getResizeHandler()}
                   onTouchStart={header.getResizeHandler()}
                   onClick={(event) => event.stopPropagation()}
-                  className="group/resize absolute top-0 right-0 z-10 flex h-full w-3 cursor-col-resize touch-none select-none items-center justify-center"
-                >
+                  className="group/resize absolute top-0 right-0 z-10 flex h-full w-3 cursor-col-resize touch-none select-none items-center justify-center">
                   <span
                     className={cn(
                       "h-1/2 w-px bg-border transition-all group-hover/resize:h-full group-hover/resize:w-0.5 group-hover/resize:bg-primary",
@@ -308,8 +300,7 @@ export function ItemsTable({
       </div>
       <SortableContext
         items={items.map((item) => item.roomItemId)}
-        strategy={verticalListSortingStrategy}
-      >
+        strategy={verticalListSortingStrategy}>
         <div className="divide-y">
           {table.getRowModel().rows.map((row) => (
             <SortableItemRow key={row.id} row={row} />

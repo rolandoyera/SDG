@@ -453,7 +453,7 @@ export default function PanoramaViewer({
   return (
     <div
       ref={containerRef}
-      className={`relative w-full aspect-video bg-[#0b0a09] rounded-md overflow-hidden select-none shadow group/pano ${className}`}
+      className={`relative w-full aspect-video bg-[#0b0a09] rounded overflow-hidden select-none shadow group/pano ${className}`}
       onMouseDown={handlePointerDown}
       onMouseMove={handlePointerMove}
       onMouseUp={handlePointerUp}
@@ -514,7 +514,7 @@ export default function PanoramaViewer({
               e.stopPropagation();
               adjustZoom(0.15);
             }}
-            className="p-2 text-white/85 hover:text-white hover:bg-white/10 rounded-md transition cursor-pointer"
+            className="p-2 text-white/85 hover:text-white hover:bg-white/10 rounded transition cursor-pointer"
             title="Zoom In">
             <ZoomIn size={18} />
           </button>
@@ -524,7 +524,7 @@ export default function PanoramaViewer({
               e.stopPropagation();
               adjustZoom(-0.15);
             }}
-            className="p-2 text-white/85 hover:text-white hover:bg-white/10 rounded-md transition cursor-pointer"
+            className="p-2 text-white/85 hover:text-white hover:bg-white/10 rounded transition cursor-pointer"
             title="Zoom Out">
             <ZoomOut size={18} />
           </button>
@@ -534,7 +534,7 @@ export default function PanoramaViewer({
               e.stopPropagation();
               resetView();
             }}
-            className="p-2 text-white/85 hover:text-white hover:bg-white/10 rounded-md transition cursor-pointer"
+            className="p-2 text-white/85 hover:text-white hover:bg-white/10 rounded transition cursor-pointer"
             title="Reset Angle">
             <RotateCcw size={17} />
           </button>
@@ -546,7 +546,7 @@ export default function PanoramaViewer({
               e.stopPropagation();
               toggleFullscreen();
             }}
-            className="p-2 text-white/85 hover:text-white hover:bg-white/10 rounded-md transition cursor-pointer"
+            className="p-2 text-white/85 hover:text-white hover:bg-white/10 rounded transition cursor-pointer"
             title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}>
             {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
           </button>

@@ -58,13 +58,11 @@ export function ProposalItemsTable({
   return (
     <div
       className="w-full overflow-x-auto"
-      style={{ "--proposal-cols": template } as CSSProperties}
-    >
+      style={{ "--proposal-cols": template } as CSSProperties}>
       {/* Header */}
       <div
         className="grid min-w-full items-center border-border border-b"
-        style={gridStyle}
-      >
+        style={gridStyle}>
         <div aria-hidden />
         {visibleFields.map((field) => (
           <div
@@ -72,8 +70,7 @@ export function ProposalItemsTable({
             className={cn(
               "flex items-center px-3 py-2 text-muted-foreground text-xs uppercase tracking-widest",
               field.align === "right" && "justify-end",
-            )}
-          >
+            )}>
             {field.label}
           </div>
         ))}
@@ -87,10 +84,9 @@ export function ProposalItemsTable({
             <div
               key={item.roomItemId}
               className="grid min-w-full items-center"
-              style={gridStyle}
-            >
+              style={gridStyle}>
               <div className={cellClass("thumbnail")}>
-                <div className="relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-neutral-100">
+                <div className="relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded border border-border bg-neutral-100">
                   {item.coverImageUrl ? (
                     <DashboardImage
                       src={item.coverImageUrl}
@@ -109,8 +105,7 @@ export function ProposalItemsTable({
                   className={cellClass(
                     field.id,
                     field.id === "item" ? { wrap: true } : undefined,
-                  )}
-                >
+                  )}>
                   {field.render
                     ? field.render(item, vendor)
                     : field.value(item) || "—"}

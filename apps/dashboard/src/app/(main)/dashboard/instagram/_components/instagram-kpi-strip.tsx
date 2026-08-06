@@ -56,7 +56,7 @@ export async function InstagramKpiStrip({ range }: { range?: string }) {
   return (
     <div className="flex flex-col gap-2">
       {isFallback && (
-        <div className="rounded-md bg-amber-500/10 px-3 py-2 text-amber-700 text-xs dark:text-amber-400">
+        <div className="rounded bg-amber-500/10 px-3 py-2 text-amber-700 text-xs dark:text-amber-400">
           Live Instagram data is unavailable — showing saved data.{" "}
           {asOfLabel(result.asOf)}.
         </div>

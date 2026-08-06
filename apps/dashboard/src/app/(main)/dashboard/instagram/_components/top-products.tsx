@@ -69,13 +69,12 @@ export function TopProducts() {
           <div
             aria-label="Sales by category"
             className="flex h-2 gap-1 overflow-hidden bg-muted"
-            role="img"
-          >
+            role="img">
             {categories.map((category) => (
               <div
                 aria-hidden="true"
                 key={category.name}
-                className="rounded-md"
+                className="rounded"
                 style={{
                   backgroundColor: category.color,
                   width: `${category.share}%`,

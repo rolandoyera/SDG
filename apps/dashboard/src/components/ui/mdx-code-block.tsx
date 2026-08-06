@@ -50,7 +50,7 @@ export function MdxCodeBlock({
             size="icon-sm"
             onClick={handleCopy}
             aria-label="Copy code"
-            className="absolute top-2 right-2 size-7 rounded-md border border-white/15 bg-white/90 text-zinc-700 shadow-sm backdrop-blur-sm transition-colors hover:bg-white hover:text-zinc-900 dark:hover:bg-white dark:hover:text-zinc-900">
+            className="absolute top-2 right-2 size-7 rounded border border-white/15 bg-white/90 text-zinc-700 shadow-sm backdrop-blur-sm transition-colors hover:bg-white hover:text-zinc-900 dark:hover:bg-white dark:hover:text-zinc-900">
             {copied ? (
               <Check className="size-3.5 text-emerald-500" />
             ) : (

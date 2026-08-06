@@ -224,7 +224,7 @@ function SortableImageCard({ url, index, onRemove }: SortableImageCardProps) {
     <div
       ref={setNodeRef}
       style={style}
-      className={`group/thumb relative aspect-square overflow-hidden rounded-md border bg-background transition-all hover:scale-102 ${
+      className={`group/thumb relative aspect-square overflow-hidden rounded border bg-background transition-all hover:scale-102 ${
         index === 0
           ? "scale-102 border-primary ring-2 ring-primary/20"
           : "border-border hover:border-primary/50"
@@ -1178,7 +1178,7 @@ export function LibraryItemFormDialog({
                                 key={placeholderId}
                                 id={placeholderId}
                                 className="aspect-square">
-                                <div className="flex size-full items-center justify-center rounded-md border border-primary/50 border-dashed bg-primary/5 text-primary">
+                                <div className="flex size-full items-center justify-center rounded border border-primary/50 border-dashed bg-primary/5 text-primary">
                                   <LoaderIcon className="size-4 animate-spin" />
                                 </div>
                               </DroppablePlaceholderWrapper>
@@ -1191,7 +1191,7 @@ export function LibraryItemFormDialog({
                               className="aspect-square">
                               <Label
                                 htmlFor={uploaderId}
-                                className="flex size-full cursor-pointer items-center justify-center rounded-md border border-muted-foreground/30 border-dashed text-muted-foreground/40 hover:border-primary/50 hover:bg-primary/5">
+                                className="flex size-full cursor-pointer items-center justify-center rounded border border-muted-foreground/30 border-dashed text-muted-foreground/40 hover:border-primary/50 hover:bg-primary/5">
                                 <Plus className="size-4" />
                               </Label>
                             </DroppablePlaceholderWrapper>
@@ -1210,7 +1210,7 @@ export function LibraryItemFormDialog({
                       createPortal(
                         <DragOverlay adjustScale={true}>
                           {activeId ? (
-                            <div className="relative aspect-square scale-102 cursor-grabbing overflow-hidden rounded-md border border-primary bg-background opacity-90 shadow-2xl">
+                            <div className="relative aspect-square scale-102 cursor-grabbing overflow-hidden rounded border border-primary bg-background opacity-90 shadow-2xl">
                               {/* biome-ignore lint/performance/noImgElement: drag overlay preview uses the active dynamic image URL. */}
                               <img
                                 src={activeId}

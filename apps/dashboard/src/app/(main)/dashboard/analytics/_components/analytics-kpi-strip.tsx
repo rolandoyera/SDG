@@ -24,7 +24,7 @@ export async function AnalyticsKpiStrip({
 
   if (!result.success || !result.data) {
     return (
-      <div className="rounded bg-card shadow-xs ring-1 ring-foreground/10">
+      <div className="rounded bg-card shadow-xs ring-1 ring-foreground/5">
         <AnalyticsSetupRequired
           error={result.error}
           title="Analytics KPI Error"

@@ -109,7 +109,7 @@ export function DropboxImageGallery({
                 key={image.id}
                 type="button"
                 onClick={() => setOpenIndex(i)}
-                className="relative aspect-square cursor-pointer overflow-hidden rounded bg-muted ring-1 ring-foreground/10 transition-opacity hover:opacity-90">
+                className="relative aspect-square cursor-pointer overflow-hidden rounded bg-muted ring-1 ring-foreground/5 transition-opacity hover:opacity-90">
                 {/* biome-ignore lint/performance/noImgElement: the same-origin proxy already returns a sized, cache-controlled JPEG; next/image would re-optimize it and needs localPatterns config for the query string. */}
                 <img
                   src={thumbSrc(image, "grid")}

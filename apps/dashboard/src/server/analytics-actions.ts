@@ -1,6 +1,7 @@
 ﻿"use server";
 
 import { getGA4Client, hasGA4Credentials } from "./ga4";
+import type { KpiMetric } from "./meta-actions";
 import { getActiveOrgConfig } from "./org-config";
 
 function getErrorMessage(error: unknown, fallback: string) {
@@ -1081,6 +1082,71 @@ export async function fetchAcquisitionData(
     return {
       success: false,
       error: getErrorMessage(error, "Failed to load GA4 acquisition data."),
+    };
+  }
+}
+
+export interface WebsiteVisitsResult {
+  success: boolean;
+  data?: { visits: number; comparison: KpiMetric };
+  error?: string;
+}
+
+/**
+ * GA4 sessions ("visits") for the last 30 days vs the previous 30, for the
+ * home metric card. Fixed 30-day windows to mirror the Instagram followers
+ * card, independent of the analytics page's `?range=` presets.
+ */
+export async function fetchWebsiteVisits(): Promise<WebsiteVisitsResult> {
+  const propertyId = await getConfiguredPropertyId();
+  if (!propertyId) {
+    return { success: false, error: CONFIG_MISSING_ERROR };
+  }
+
+  try {
+    const client = getGA4Client();
+    const today = new Date();
+    const day = (offset: number) => {
+      const d = new Date(today);
+      d.setDate(today.getDate() + offset);
+      return d.toISOString().split("T")[0];
+    };
+
+    const [response] = await client.runReport({
+      property: `properties/${propertyId}`,
+      dateRanges: [
+        { startDate: day(-29), endDate: day(0), name: "current" },
+        { startDate: day(-59), endDate: day(-30), name: "previous" },
+      ],
+      metrics: [{ name: "sessions" }],
+    });
+
+    let current = 0;
+    let previous = 0;
+    for (const row of response.rows ?? []) {
+      const rangeName = row.dimensionValues?.[0]?.value;
+      const value = parseInt(row.metricValues?.[0]?.value || "0", 10);
+      if (rangeName === "current" || rangeName === "date_range_0") {
+        current = value;
+      } else if (rangeName === "previous" || rangeName === "date_range_1") {
+        previous = value;
+      }
+    }
+
+    const pct = previous === 0 ? 0 : ((current - previous) / previous) * 100;
+    const comparison: KpiMetric = {
+      value: current,
+      previousValue: previous,
+      change: `${Math.abs(pct).toFixed(1)}%`,
+      isPositive: pct >= 0,
+    };
+
+    return { success: true, data: { visits: current, comparison } };
+  } catch (error: unknown) {
+    console.error("Failed to fetch website visits from GA4:", error);
+    return {
+      success: false,
+      error: getErrorMessage(error, "Failed to load GA4 website visits."),
     };
   }
 }

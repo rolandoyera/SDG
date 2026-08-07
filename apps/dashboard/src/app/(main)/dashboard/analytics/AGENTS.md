@@ -20,7 +20,9 @@ Server logic lives in `src/server/`, not this folder. Two external APIs, two sep
 - `analytics-actions.ts` — `"use server"` actions for every GA4-backed section
   (`fetchKpiData`, `fetchTrafficTrend`, `fetchRealtimeData`, `fetchTopPagesData`,
   `fetchTrafficSources`, `fetchAudienceData`, `fetchAcquisitionData`, `fetchLandingPages`,
-  `fetchConversionsData`, `testGA4Connection`).
+  `fetchConversionsData`, `testGA4Connection`), plus `fetchWebsiteVisits` — the home page's
+  "Website Visits" metric card (fixed last-30-days vs previous-30-days `sessions` comparison,
+  independent of the `?range=` presets; hidden when GA4 isn't configured for the org).
 - `gsc.ts` / `search-console-actions.ts` — Google Search Console (the "Google" tab only). A
   **different** API and quota from GA4; `fetchSearchTotals`/`fetchTopSearchQueries`/`fetchTopSearchPages`.
 - `org-config.ts` — `getActiveOrgConfig()`, the single cookie-scoped read of

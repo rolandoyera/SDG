@@ -128,8 +128,7 @@ export function GeoTable({
               <button
                 type="button"
                 className="flex items-center gap-1 transition-colors hover:text-foreground"
-                onClick={() => toggleSort("label")}
-              >
+                onClick={() => toggleSort("label")}>
                 {labelHeader}
                 {renderSortIcon("label")}
               </button>
@@ -138,8 +137,7 @@ export function GeoTable({
               <button
                 type="button"
                 className="flex w-full items-center justify-end gap-1 transition-colors hover:text-foreground"
-                onClick={() => toggleSort("value")}
-              >
+                onClick={() => toggleSort("value")}>
                 {valueHeader}
                 {renderSortIcon("value")}
               </button>
@@ -148,8 +146,7 @@ export function GeoTable({
               <button
                 type="button"
                 className="flex w-full items-center justify-end gap-1 transition-colors hover:text-foreground"
-                onClick={() => toggleSort("value")}
-              >
+                onClick={() => toggleSort("value")}>
                 %{renderSortIcon("value")}
               </button>
             </TableHead>
@@ -164,7 +161,7 @@ export function GeoTable({
                     aria-hidden="true"
                     className={
                       row.flagCode
-                        ? `flag:${row.flagCode} shrink-0 rounded-xs ring-1 ring-foreground/10`
+                        ? `flag:${row.flagCode} shrink-0 rounded-xs ring-1 ring-foreground/5`
                         : "shrink-0"
                     }
                     style={{ height: FLAG_HEIGHT, width: FLAG_WIDTH }}
@@ -215,8 +212,7 @@ export function GeoTable({
                     onClick={(event) => {
                       preventNavigation(event);
                       setPageIndex(pageNumber - 1);
-                    }}
-                  >
+                    }}>
                     {pageNumber}
                   </PaginationLink>
                 </PaginationItem>

@@ -74,8 +74,7 @@ export function HatchBarChart({
         fontSize={14}
         textAnchor="end"
         x="100%"
-        y={Number(y) + Number(height) / 2}
-      >
+        y={Number(y) + Number(height) / 2}>
         {value}
       </text>
     );
@@ -115,11 +114,10 @@ export function HatchBarChart({
         x={Number(x) - FLAG_SLOT + 2}
         y={Number(y) + (Number(height) - FLAG_HEIGHT) / 2}
         width={FLAG_WIDTH}
-        height={FLAG_HEIGHT}
-      >
+        height={FLAG_HEIGHT}>
         <span
           aria-hidden="true"
-          className={`flag:${row.flagCode} block rounded-xs ring-1 ring-foreground/10`}
+          className={`flag:${row.flagCode} block rounded-xs ring-1 ring-foreground/5`}
           style={{ height: FLAG_HEIGHT, width: FLAG_WIDTH }}
         />
       </foreignObject>
@@ -130,22 +128,19 @@ export function HatchBarChart({
     <ChartContainer
       config={config}
       className={className}
-      style={{ height: rows.length * rowHeight }}
-    >
+      style={{ height: rows.length * rowHeight }}>
       <BarChart
         accessibilityLayer
         data={rows}
         layout="vertical"
-        margin={{ left: hasFlags ? FLAG_SLOT : 0, right: 48 }}
-      >
+        margin={{ left: hasFlags ? FLAG_SLOT : 0, right: 48 }}>
         <defs>
           <pattern
             height="4"
             id={PATTERN_ID}
             patternTransform="rotate(45)"
             patternUnits="userSpaceOnUse"
-            width="4"
-          >
+            width="4">
             <rect height="6" width="6" fill="var(--muted)" fillOpacity="0.5" />
             <line
               stroke="var(--muted-foreground)"
@@ -198,8 +193,7 @@ export function HatchBarChart({
           dataKey="value"
           fill="var(--color-value)"
           fillOpacity={0.5}
-          radius={8}
-        >
+          radius={8}>
           <LabelList
             className="fill-foreground"
             dataKey="barText"

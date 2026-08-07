@@ -74,7 +74,7 @@ export async function GoogleSearchSection({ range }: { range?: string }) {
               <Ellipsis className="size-4" />
             </CardAction>
           </CardHeader>
-          <CardContent className="px-0 pt-0">
+          <CardContent className="flex flex-1 flex-col px-0 pt-0">
             {!queries.success ? (
               <AnalyticsSetupRequired
                 error={queries.error}
@@ -95,7 +95,7 @@ export async function GoogleSearchSection({ range }: { range?: string }) {
               <Ellipsis className="size-4" />
             </CardAction>
           </CardHeader>
-          <CardContent className="px-0 pt-0">
+          <CardContent className="flex flex-1 flex-col px-0 pt-0">
             {!pages.success ? (
               <AnalyticsSetupRequired
                 error={pages.error}

@@ -2,6 +2,7 @@
 "use no memo";
 
 import type * as React from "react";
+import { useId } from "react";
 
 import type {
   Column,
@@ -9,19 +10,27 @@ import type {
   Table as TanstackTable,
 } from "@tanstack/react-table";
 import { flexRender } from "@tanstack/react-table";
-import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -113,23 +122,6 @@ export function SortableHeader<TData>({
   );
 }
 
-function preventPaginationNavigation(
-  event: React.MouseEvent<HTMLAnchorElement>,
-) {
-  event.preventDefault();
-}
-
-/** Windowed page numbers around the current page (max 3 shown). */
-function getPageNumbers(currentPage: number, pageCount: number): number[] {
-  if (pageCount <= 3) {
-    return Array.from({ length: pageCount }, (_, index) => index + 1);
-  }
-  if (currentPage <= 2) return [1, 2, 3];
-  if (currentPage >= pageCount - 1)
-    return [pageCount - 2, pageCount - 1, pageCount];
-  return [currentPage - 1, currentPage, currentPage + 1];
-}
-
 /**
  * Renders a TanStack Table instance with the shared data-table theme (cell/head
  * padding, header sizing, row borders). Owns the `<Table>` markup and an optional
@@ -147,10 +139,13 @@ export function TanTable<TData>({
   const pageCount = table.getPageCount();
   const filteredCount = table.getFilteredRowModel().rows.length;
   const visibleCount = table.getRowModel().rows.length;
-  const pageNumbers = getPageNumbers(currentPage, pageCount);
+  // Unique per instance so the "Rows per page" label targets its own select.
+  const rowsPerPageId = useId();
 
   return (
-    <>
+    // Flex column so the pagination footer pins to the bottom (`mt-auto`) when
+    // the parent stretches the table (e.g. side-by-side cards of equal height).
+    <div className="flex h-full flex-col">
       <div className="overflow-hidden">
         <Table className="**:data-[slot='table-cell']:px-4 **:data-[slot='table-head']:px-4 **:data-[slot='table-cell']:py-4">
           <TableHeader
@@ -210,72 +205,87 @@ export function TanTable<TData>({
       </div>
 
       {pagination ? (
-        <div className="flex items-center justify-between gap-4 px-4 pb-1">
-          <p className="text-muted-foreground text-sm">
+        <div className="mt-auto flex items-center justify-between gap-4 px-4 pt-4 pb-1">
+          <p className="hidden flex-1 text-muted-foreground text-sm lg:block">
             Viewing {visibleCount} out of {filteredCount.toLocaleString()}{" "}
             {noun}
           </p>
 
-          <Pagination className="mx-0 w-auto justify-end">
-            <PaginationContent className="gap-1.5">
-              <PaginationItem>
-                <PaginationPrevious
-                  href="#"
-                  className={
-                    !table.getCanPreviousPage()
-                      ? "pointer-events-none opacity-50"
-                      : undefined
-                  }
-                  onClick={(event) => {
-                    preventPaginationNavigation(event);
-                    table.previousPage();
-                  }}
-                />
-              </PaginationItem>
-              {pageNumbers[0] > 1 ? (
-                <PaginationItem>
-                  <PaginationEllipsis />
-                </PaginationItem>
-              ) : null}
-              {pageNumbers.map((pageNumber) => (
-                <PaginationItem key={`page-${pageNumber}`}>
-                  <PaginationLink
-                    href="#"
-                    isActive={
-                      table.getState().pagination.pageIndex === pageNumber - 1
-                    }
-                    onClick={(event) => {
-                      preventPaginationNavigation(event);
-                      table.setPageIndex(pageNumber - 1);
-                    }}
-                  >
-                    {pageNumber}
-                  </PaginationLink>
-                </PaginationItem>
-              ))}
-              {pageNumbers[pageNumbers.length - 1] < pageCount ? (
-                <PaginationItem>
-                  <PaginationEllipsis />
-                </PaginationItem>
-              ) : null}
-              <PaginationItem>
-                <PaginationNext
-                  href="#"
-                  className={
-                    !table.getCanNextPage()
-                      ? "pointer-events-none opacity-50"
-                      : undefined
-                  }
-                  onClick={(event) => {
-                    preventPaginationNavigation(event);
-                    table.nextPage();
-                  }}
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
+          <div className="flex w-full items-center gap-8 lg:w-fit">
+            <div className="hidden items-center gap-2 lg:flex">
+              <Label htmlFor={rowsPerPageId} className="font-medium text-sm">
+                Rows per page
+              </Label>
+              <Select
+                value={`${table.getState().pagination.pageSize}`}
+                onValueChange={(value) => {
+                  table.setPageSize(Number(value));
+                }}
+              >
+                <SelectTrigger size="sm" className="w-20" id={rowsPerPageId}>
+                  <SelectValue
+                    placeholder={table.getState().pagination.pageSize}
+                  />
+                </SelectTrigger>
+                <SelectContent side="top">
+                  <SelectGroup>
+                    {[10, 20, 30, 40, 50].map((pageSize) => (
+                      <SelectItem key={pageSize} value={`${pageSize}`}>
+                        {pageSize}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex w-fit items-center justify-center font-medium text-sm">
+              Page {currentPage} of {Math.max(pageCount, 1)}
+            </div>
+            <div className="ml-auto flex items-center gap-2 lg:ml-0">
+              <Button
+                variant="outline"
+                className="hidden size-8 lg:flex"
+                size="icon"
+                onClick={() => table.setPageIndex(0)}
+                disabled={!table.getCanPreviousPage()}
+              >
+                <span className="sr-only">Go to first page</span>
+                <ChevronsLeft className="size-4" />
+              </Button>
+              <Button
+                variant="outline"
+                className="size-8"
+                size="icon"
+                onClick={() => table.previousPage()}
+                disabled={!table.getCanPreviousPage()}
+              >
+                <span className="sr-only">Go to previous page</span>
+                <ChevronLeft className="size-4" />
+              </Button>
+              <Button
+                variant="outline"
+                className="size-8"
+                size="icon"
+                onClick={() => table.nextPage()}
+                disabled={!table.getCanNextPage()}
+              >
+                <span className="sr-only">Go to next page</span>
+                <ChevronRight className="size-4" />
+              </Button>
+              <Button
+                variant="outline"
+                className="hidden size-8 lg:flex"
+                size="icon"
+                onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+                disabled={!table.getCanNextPage()}
+              >
+                <span className="sr-only">Go to last page</span>
+                <ChevronsRight className="size-4" />
+              </Button>
+            </div>
+          </div>
         </div>
       ) : null}
-    </>
+    </div>
   );
 }

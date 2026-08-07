@@ -24,7 +24,7 @@ export async function TopPages({ range }: { range?: string }) {
         </CardAction>
       </CardHeader>
 
-      <CardContent className="px-0 pt-0">
+      <CardContent className="flex flex-1 flex-col px-0 pt-0">
         {!result.success ? (
           <AnalyticsSetupRequired
             error={result.error}

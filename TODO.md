@@ -1,28 +1,26 @@
-# TODO — Site Crawler / SEO Report Tool
+# TODO — Website / SEO Section
 
-Build a crawler that produces per-page keyword reports for the Sarvian site
-(sarviandg.com), like the single-page analyzer but for every page at once.
+**Shipped 2026-08-07** — the Keyword Analyzer lives at
+`/dashboard/seo/keyword-analyzer` (Website → SEO in the sidebar). See
+`apps/dashboard/src/app/(main)/dashboard/seo/AGENTS.md` for the
+architecture and analyzer rules.
 
-## Plan
+- Compare tab: side-by-side single-page keyword reports (own page vs
+  competitor URL), SEOBook-comparable densities, five scopes.
+- Site Crawl tab: manual sitemap-wide crawl, sortable page table with
+  per-page report dialog, duplicated-content and anchor-reuse checks.
+- Caching in-memory only (by design); prod + localhost targets.
 
-- [ ] Decide crawl target: **live site** (default) or localhost dev build
-- [ ] Node script (~150 lines) in `Web/Tools/` alongside the ads tooling
-  - Fetch `sitemap.xml` → fetch each page → parse with `cheerio` (only dependency)
-  - Per page: word count, unique words, 1/2/3-word phrase densities
-    (stop-word filtered), link inventory + anchor-text density, headline
-    structure (H1/H2s), images + missing alts, title/meta description
-- [ ] Output: CSV per page + one site-wide HTML report
+## Later, if worthy
 
-## Site-wide checks the single-page tool can't do
+- Sitewide competitor crawl (same loop pointed at their sitemap) for
+  site-vs-site comparison.
+- Persist crawl history to Firestore (trend over time).
+- Aggregate site-wide keyword view (sum phrase counts across the crawl).
 
-- [ ] Anchor-text distribution across location pages — each city page should
-      link to its county hub + Fort Lauderdale with a **unique** keyword anchor
-- [ ] Duplicated phrases between city pages (copy rules: never reuse a
-      paragraph across cities)
+## Resolved follow-ups
 
-## Follow-up from the sample report
-
-- [ ] Investigate `design groupdesign` / `groupdesign architecture` phrases in
-      the Fort Lauderdale page's link extraction — adjacent link texts running
-      together with no space. Confirm it's the analyzer's parsing, not actual
-      markup on the page.
+- `design groupdesign` in the SEOBook sample report was that tool's parsing
+  (no space inserted between nested elements in the logo anchor), not the
+  site's markup. Our extractor inserts element boundaries, so reports show
+  `sarvian design group` correctly.

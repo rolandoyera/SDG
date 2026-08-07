@@ -89,6 +89,10 @@ function ContractsTable({ data }: { data: Contract[] }) {
   `header: ({ column }) => <SortableHeader column={column} align="right">Views</SortableHeader>`.
   Sort on raw values — a column backed by pre-formatted strings ("1.0k", "3.1%")
   sorts alphabetically; keep numbers in the row data and format in the cell.
+- **Stable `data` reference** — if you derive row objects from a prop
+  (`items.map(...)`), wrap it in `useMemo`. A fresh array every render makes
+  TanStack's `autoResetPageIndex` effect fire after each render, which loops
+  forever (hangs the tab) as soon as pagination state changes.
 - **Search / filters** — wire your toolbar inputs to the `table` instance
   (`table.setGlobalFilter`, `table.getColumn(id)?.setFilterValue`).
 

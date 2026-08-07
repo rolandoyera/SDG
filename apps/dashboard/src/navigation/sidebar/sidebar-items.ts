@@ -9,6 +9,7 @@ import {
   FolderKanban,
   Forklift,
   Gauge,
+  Globe,
   Hammer,
   LayoutDashboard,
   type LucideIcon,
@@ -134,6 +135,18 @@ export const sidebarItems: NavGroup[] = [
   },
   {
     id: 3,
+    label: "Website",
+    items: [
+      {
+        title: "SEO",
+        url: "/dashboard/seo",
+        icon: Globe,
+        isNew: true,
+      },
+    ],
+  },
+  {
+    id: 4,
     label: "Administration",
     items: [
       {

@@ -7,6 +7,10 @@ import { cn } from "@/lib/utils";
 
 const items = [
   { title: "Keyword Analyzer", href: "/dashboard/seo/keyword-analyzer" },
+  {
+    title: "Competitor Analysis",
+    href: "/dashboard/seo/competitor-analysis",
+  },
 ];
 
 export function SeoSidebarNav() {

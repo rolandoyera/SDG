@@ -16,8 +16,8 @@ export default function Page() {
 
       <Tabs defaultValue="compare" className="flex flex-col gap-6">
         <TabsList className="gap-1">
-          <TabsTrigger value="compare">Compare</TabsTrigger>
-          <TabsTrigger value="crawl">Site Crawl</TabsTrigger>
+          <TabsTrigger value="compare">Page</TabsTrigger>
+          <TabsTrigger value="crawl">Site</TabsTrigger>
         </TabsList>
 
         <TabsContent value="compare">

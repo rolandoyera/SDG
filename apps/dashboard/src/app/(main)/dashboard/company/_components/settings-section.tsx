@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import type { Organization } from "@/lib/types";
 
 import { TIMEZONE_OPTIONS } from "./company-constants";
-import { type ComboItem, SearchSelect } from "./search-select";
+import { type ComboItem, SearchSelect } from "@/components/search-select";
 import {
   EditableCardHeader,
   LABEL_CLASS,

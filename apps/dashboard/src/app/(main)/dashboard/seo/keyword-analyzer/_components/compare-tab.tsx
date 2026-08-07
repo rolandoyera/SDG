@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2 } from "lucide-react";
-import { Controller, useForm } from "react-hook-form";
+import { ExternalLink, Loader2 } from "lucide-react";
+import { type Control, Controller, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 
+import { SearchSelect } from "@/components/search-select";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldError } from "@/components/ui/field";
@@ -30,20 +31,66 @@ import {
 import {
   analyzeExternalUrl,
   analyzeSitePage,
+  fetchCompanyName,
+  fetchCompetitors,
+  fetchLiveBaseUrl,
+  fetchSitemapForUrl,
   fetchSitemapPages,
   type PageAnalysis,
+  type SeoCompetitor,
+  type SeoResult,
   type SiteTarget,
 } from "@/server/seo-actions";
 
 import { type ScopeKey, ScopePhraseTables, ScopePicker } from "./scope-report";
 
-const compareSchema = z.object({
-  target: z.enum(["live", "local"]),
-  ownPath: z.string().min(1, "Pick a page to analyze."),
-  competitorUrl: z.string().trim(),
+// Source keys: "live" | "local" | "custom" | "none" | "comp:<index>".
+const sideSchema = z.object({
+  source: z.string(),
+  path: z.string(),
+  url: z.string().trim(),
 });
 
+const compareSchema = z
+  .object({ left: sideSchema, right: sideSchema })
+  .superRefine((data, ctx) => {
+    for (const key of ["left", "right"] as const) {
+      const side = data[key];
+      if (side.source === "none") {
+        if (key === "left") {
+          ctx.addIssue({
+            code: "custom",
+            path: [key, "source"],
+            message: "Choose a source.",
+          });
+        }
+        continue;
+      }
+      if (side.source === "custom") {
+        if (!side.url) {
+          ctx.addIssue({
+            code: "custom",
+            path: [key, "url"],
+            message: "Enter a URL.",
+          });
+        }
+      } else if (!side.path.trim()) {
+        ctx.addIssue({
+          code: "custom",
+          path: [key, "path"],
+          message: "Pick a page.",
+        });
+      }
+    }
+  });
+
 type CompareFormData = z.infer<typeof compareSchema>;
+type SideKey = "left" | "right";
+
+type SitemapState =
+  | { status: "loading" }
+  | { status: "ready"; paths: string[] }
+  | { status: "error"; error: string };
 
 const SUMMARY_METRICS: {
   label: string;
@@ -87,75 +134,297 @@ function reportHeading(page: PageAnalysis): string {
   return `${url.host}${url.pathname}`;
 }
 
-export function CompareTab() {
-  const { control, handleSubmit, watch } = useForm<CompareFormData>({
-    resolver: zodResolver(compareSchema),
-    defaultValues: { target: "live", ownPath: "", competitorUrl: "" },
-  });
-  const target = watch("target");
+function leadingSlash(path: string): string {
+  return path.startsWith("/") ? path : `/${path}`;
+}
 
-  const [paths, setPaths] = useState<string[]>([]);
-  const [pathsError, setPathsError] = useState("");
+function SideFields({
+  side,
+  control,
+  source,
+  companyName,
+  competitors,
+  liveBaseUrl,
+  sitemap,
+  onSourceChange,
+}: {
+  side: SideKey;
+  control: Control<CompareFormData>;
+  source: string;
+  companyName: string | null;
+  competitors: SeoCompetitor[];
+  liveBaseUrl: string | null;
+  sitemap: SitemapState | undefined;
+  onSourceChange: () => void;
+}) {
+  const usesSitemap =
+    source === "live" || source === "local" || source.startsWith("comp:");
+
+  // Resolve the URL the "Visit Page" button opens. With no page picked yet,
+  // sitemap sources fall back to that site's homepage.
+  const path = useWatch({ control, name: `${side}.path` }) ?? "";
+  const urlValue = useWatch({ control, name: `${side}.url` }) ?? "";
+  const suffix = path.trim() ? leadingSlash(path.trim()) : "";
+  let visitHref: string | null = null;
+  if (source === "custom") {
+    const raw = urlValue.trim();
+    visitHref = raw
+      ? /^https?:\/\//i.test(raw)
+        ? raw
+        : `https://${raw}`
+      : null;
+  } else if (source === "live") {
+    visitHref = liveBaseUrl ? `${liveBaseUrl}${suffix}` : null;
+  } else if (source === "local") {
+    visitHref = `http://localhost:3000${suffix}`;
+  } else if (source.startsWith("comp:")) {
+    const competitor = competitors[Number(source.slice(5))];
+    visitHref = competitor ? `${competitor.url}${suffix}` : null;
+  }
+
+  return (
+    // Source + page sit inline; the source select caps at max-w-46.
+    <div className="flex flex-wrap items-start gap-4">
+      <Controller
+        control={control}
+        name={`${side}.source`}
+        render={({ field, fieldState }) => (
+          <Field className="flex w-full max-w-54 flex-col gap-1.5">
+            <Label>{side === "left" ? "Site" : "Against"}</Label>
+            <Select
+              value={field.value}
+              onValueChange={(value) => {
+                field.onChange(value);
+                onSourceChange();
+              }}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Choose a source" />
+              </SelectTrigger>
+              <SelectContent>
+                {side === "right" && <SelectItem value="none">None</SelectItem>}
+                <SelectItem value="live">
+                  {companyName ?? "Live site"}
+                </SelectItem>
+                <SelectItem value="local">Unpublished</SelectItem>
+                {competitors.map((competitor, index) => (
+                  <SelectItem key={competitor.url} value={`comp:${index}`}>
+                    {competitor.name}
+                  </SelectItem>
+                ))}
+                <SelectItem value="custom">Custom URL</SelectItem>
+              </SelectContent>
+            </Select>
+            {fieldState.error && <FieldError errors={[fieldState.error]} />}
+          </Field>
+        )}
+      />
+
+      {source === "custom" && (
+        <Controller
+          control={control}
+          name={`${side}.url`}
+          render={({ field, fieldState }) => (
+            <Field className="flex min-w-56 flex-1 flex-col gap-1.5">
+              <Label>URL</Label>
+              <Input
+                {...field}
+                placeholder="https://example.com/page"
+                inputMode="url"
+              />
+              {fieldState.error && <FieldError errors={[fieldState.error]} />}
+            </Field>
+          )}
+        />
+      )}
+
+      {usesSitemap && (
+        <Controller
+          control={control}
+          name={`${side}.path`}
+          render={({ field, fieldState }) => (
+            <Field className="flex min-w-56 flex-1 flex-col gap-1.5">
+              <Label>Page</Label>
+              {sitemap?.status === "error" ? (
+                // Escape hatch: no sitemap — take the path by hand.
+                <>
+                  <Input {...field} placeholder="/about" />
+                  <p className="text-muted-foreground text-xs">
+                    Sitemap unavailable — enter a page path manually.
+                  </p>
+                </>
+              ) : (
+                <SearchSelect
+                  items={
+                    sitemap?.status === "ready"
+                      ? sitemap.paths.map((path) => ({
+                          code: path,
+                          name: path,
+                        }))
+                      : []
+                  }
+                  value={field.value}
+                  onChange={field.onChange}
+                  placeholder={
+                    sitemap?.status === "ready"
+                      ? "Pick a page"
+                      : "Loading sitemap…"
+                  }
+                  searchPlaceholder="Search pages…"
+                  emptyText="No matching pages."
+                />
+              )}
+              {fieldState.error && <FieldError errors={[fieldState.error]} />}
+            </Field>
+          )}
+        />
+      )}
+
+      <div className="flex flex-col gap-1.5">
+        <Label className="invisible">Visit</Label>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={!visitHref}
+          onClick={() => {
+            if (visitHref) window.open(visitHref, "_blank", "noopener");
+          }}>
+          <ExternalLink className="size-4" />
+          Visit Page
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+export function CompareTab() {
+  const { control, handleSubmit, watch, setValue } = useForm<CompareFormData>({
+    resolver: zodResolver(compareSchema),
+    defaultValues: {
+      left: { source: "live", path: "", url: "" },
+      right: { source: "none", path: "", url: "" },
+    },
+  });
+  const leftSource = watch("left.source");
+  const rightSource = watch("right.source");
+
+  const [companyName, setCompanyName] = useState<string | null>(null);
+  const [liveBaseUrl, setLiveBaseUrl] = useState<string | null>(null);
+  const [competitors, setCompetitors] = useState<SeoCompetitor[]>([]);
+  const [sitemaps, setSitemaps] = useState<Record<string, SitemapState>>({});
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
-  const [own, setOwn] = useState<PageAnalysis | null>(null);
-  const [competitor, setCompetitor] = useState<PageAnalysis | null>(null);
+  const [left, setLeft] = useState<PageAnalysis | null>(null);
+  const [right, setRight] = useState<PageAnalysis | null>(null);
   const [scope, setScope] = useState<ScopeKey>("all");
 
   useEffect(() => {
     let cancelled = false;
-    setPaths([]);
-    setPathsError("");
-    fetchSitemapPages(target)
+    fetchCompetitors()
       .then((result) => {
-        if (cancelled) return;
-        if (result.success && result.data) {
-          setPaths(result.data);
-        } else {
-          setPathsError(result.error ?? "Could not load the sitemap.");
+        if (!cancelled && result.success && result.data) {
+          setCompetitors(result.data);
         }
       })
       .catch(() => {
-        if (!cancelled) setPathsError("Could not load the sitemap.");
+        // The source dropdowns just won't list competitors.
+      });
+    fetchCompanyName()
+      .then((result) => {
+        if (!cancelled && result.success && result.data) {
+          setCompanyName(result.data);
+        }
+      })
+      .catch(() => {
+        // Keep the "Live site" fallback label.
+      });
+    fetchLiveBaseUrl()
+      .then((result) => {
+        if (!cancelled && result.success && result.data) {
+          setLiveBaseUrl(result.data);
+        }
+      })
+      .catch(() => {
+        // Live "Visit Page" just stays disabled.
       });
     return () => {
       cancelled = true;
     };
-  }, [target]);
+  }, []);
+
+  // Load the sitemap for any selected source that needs one, once per source.
+  useEffect(() => {
+    for (const source of [leftSource, rightSource]) {
+      const isCompetitor = source.startsWith("comp:");
+      if (source !== "live" && source !== "local" && !isCompetitor) continue;
+      if (sitemaps[source]) continue;
+      if (isCompetitor && !competitors[Number(source.slice(5))]) continue;
+
+      setSitemaps((prev) => ({ ...prev, [source]: { status: "loading" } }));
+      const request = isCompetitor
+        ? fetchSitemapForUrl(competitors[Number(source.slice(5))].url)
+        : fetchSitemapPages(source as SiteTarget);
+      request
+        .then((result) => {
+          setSitemaps((prev) => ({
+            ...prev,
+            [source]:
+              result.success && result.data
+                ? { status: "ready", paths: result.data }
+                : {
+                    status: "error",
+                    error: result.error ?? "Could not load the sitemap.",
+                  },
+          }));
+        })
+        .catch(() => {
+          setSitemaps((prev) => ({
+            ...prev,
+            [source]: {
+              status: "error",
+              error: "Could not load the sitemap.",
+            },
+          }));
+        });
+    }
+  }, [leftSource, rightSource, competitors, sitemaps]);
+
+  const analyzeSide = async (
+    side: CompareFormData["left"],
+  ): Promise<SeoResult<PageAnalysis> | null> => {
+    if (side.source === "none") return null;
+    if (side.source === "custom") return analyzeExternalUrl(side.url);
+    const path = leadingSlash(side.path.trim());
+    if (side.source === "live" || side.source === "local") {
+      return analyzeSitePage(side.source, path);
+    }
+    const competitor = competitors[Number(side.source.slice(5))];
+    if (!competitor) {
+      return { success: false, error: "Competitor not found." };
+    }
+    return analyzeExternalUrl(new URL(path, competitor.url).href);
+  };
 
   const onSubmit = async (data: CompareFormData) => {
     setLoading(true);
     setErrors([]);
     try {
-      const ownPath = data.ownPath.startsWith("/")
-        ? data.ownPath
-        : `/${data.ownPath}`;
-      const [ownResult, competitorResult] = await Promise.all([
-        analyzeSitePage(data.target as SiteTarget, ownPath),
-        data.competitorUrl
-          ? analyzeExternalUrl(data.competitorUrl)
-          : Promise.resolve(null),
+      const [leftResult, rightResult] = await Promise.all([
+        analyzeSide(data.left),
+        analyzeSide(data.right),
       ]);
 
       const problems: string[] = [];
-      if (ownResult.success && ownResult.data) {
-        setOwn(ownResult.data);
-      } else {
-        setOwn(null);
-        problems.push(ownResult.error ?? "Could not analyze your page.");
-      }
-      if (competitorResult) {
-        if (competitorResult.success && competitorResult.data) {
-          setCompetitor(competitorResult.data);
-        } else {
-          setCompetitor(null);
-          problems.push(
-            competitorResult.error ?? "Could not analyze the competitor URL.",
-          );
-        }
-      } else {
-        setCompetitor(null);
-      }
+      const unpack = (
+        result: SeoResult<PageAnalysis> | null,
+        fallback: string,
+      ): PageAnalysis | null => {
+        if (!result) return null;
+        if (result.success && result.data) return result.data;
+        problems.push(result.error ?? fallback);
+        return null;
+      };
+      setLeft(unpack(leftResult, "Could not analyze the left page."));
+      setRight(unpack(rightResult, "Could not analyze the right page."));
       setErrors(problems);
     } finally {
       setLoading(false);
@@ -166,94 +435,37 @@ export function CompareTab() {
     <div className="flex flex-col gap-6">
       <Card className="gap-2 pt-0">
         <CardHeader className="bg-muted/50 py-3">
-          <CardTitle>Compare Pages</CardTitle>
+          <CardTitle>Page</CardTitle>
         </CardHeader>
         <CardContent>
           <form
             onSubmit={handleSubmit(onSubmit)}
-            className="grid items-start gap-4 lg:grid-cols-[10rem_1fr_1fr_auto]"
-            noValidate
-          >
-            <Controller
-              control={control}
-              name="target"
-              render={({ field }) => (
-                <Field className="flex flex-col gap-1.5">
-                  <Label>Site</Label>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="live">Live site</SelectItem>
-                      <SelectItem value="local">Localhost</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </Field>
-              )}
-            />
+            className="flex flex-col gap-4"
+            noValidate>
+            <div className="grid gap-6 lg:grid-cols-2">
+              <SideFields
+                side="left"
+                control={control}
+                source={leftSource}
+                companyName={companyName}
+                competitors={competitors}
+                liveBaseUrl={liveBaseUrl}
+                sitemap={sitemaps[leftSource]}
+                onSourceChange={() => setValue("left.path", "")}
+              />
+              <SideFields
+                side="right"
+                control={control}
+                source={rightSource}
+                companyName={companyName}
+                competitors={competitors}
+                liveBaseUrl={liveBaseUrl}
+                sitemap={sitemaps[rightSource]}
+                onSourceChange={() => setValue("right.path", "")}
+              />
+            </div>
 
-            <Controller
-              control={control}
-              name="ownPath"
-              render={({ field, fieldState }) => (
-                <Field className="flex flex-col gap-1.5">
-                  <Label>Your page</Label>
-                  {pathsError ? (
-                    // Escape hatch: no sitemap — take the path by hand.
-                    <>
-                      <Input {...field} placeholder="/about" />
-                      <p className="text-muted-foreground text-xs">
-                        Sitemap unavailable — enter a page path manually.
-                      </p>
-                    </>
-                  ) : (
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue
-                          placeholder={
-                            paths.length > 0
-                              ? "Pick a page"
-                              : "Loading sitemap…"
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {paths.map((path) => (
-                          <SelectItem key={path} value={path}>
-                            {path}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                  {fieldState.error && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-
-            <Controller
-              control={control}
-              name="competitorUrl"
-              render={({ field, fieldState }) => (
-                <Field className="flex flex-col gap-1.5">
-                  <Label>Competitor URL (optional)</Label>
-                  <Input
-                    {...field}
-                    placeholder="https://competitor.com/page"
-                    inputMode="url"
-                  />
-                  {fieldState.error && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-
-            <div className="flex flex-col gap-1.5">
-              <Label className="invisible hidden lg:block">Run</Label>
+            <div>
               <Button type="submit" disabled={loading}>
                 {loading && <Loader2 className="size-4 animate-spin" />}
                 Analyze
@@ -273,7 +485,7 @@ export function CompareTab() {
         </CardContent>
       </Card>
 
-      {own && (
+      {left && (
         <>
           <Card className="gap-2 pt-0">
             <CardHeader className="bg-muted/50 py-3">
@@ -284,10 +496,8 @@ export function CompareTab() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-40 pl-4">Metric</TableHead>
-                    <TableHead>{reportHeading(own)}</TableHead>
-                    {competitor && (
-                      <TableHead>{reportHeading(competitor)}</TableHead>
-                    )}
+                    <TableHead>{reportHeading(left)}</TableHead>
+                    {right && <TableHead>{reportHeading(right)}</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -297,11 +507,11 @@ export function CompareTab() {
                         {metric.label}
                       </TableCell>
                       <TableCell className="whitespace-normal">
-                        {metric.value(own)}
+                        {metric.value(left)}
                       </TableCell>
-                      {competitor && (
+                      {right && (
                         <TableCell className="whitespace-normal">
-                          {metric.value(competitor)}
+                          {metric.value(right)}
                         </TableCell>
                       )}
                     </TableRow>
@@ -319,15 +529,15 @@ export function CompareTab() {
               <ScopePicker value={scope} onChange={setScope} />
               <div className="grid gap-8 lg:grid-cols-2">
                 <div className="flex flex-col gap-4">
-                  <p className="font-medium text-sm">{reportHeading(own)}</p>
-                  <ScopePhraseTables scope={own.scopes[scope]} />
+                  <p className="font-medium text-sm">{reportHeading(left)}</p>
+                  <ScopePhraseTables scope={left.scopes[scope]} />
                 </div>
-                {competitor && (
+                {right && (
                   <div className="flex flex-col gap-4">
                     <p className="font-medium text-sm">
-                      {reportHeading(competitor)}
+                      {reportHeading(right)}
                     </p>
-                    <ScopePhraseTables scope={competitor.scopes[scope]} />
+                    <ScopePhraseTables scope={right.scopes[scope]} />
                   </div>
                 )}
               </div>

@@ -64,3 +64,28 @@ export const getActiveOrgWebsite = cache(async (): Promise<string | null> => {
   const website = profile?.website?.trim();
   return website ? website : null;
 });
+
+/** The active tenant's company display name (Company page), or null. */
+export const getActiveOrgCompanyName = cache(
+  async (): Promise<string | null> => {
+    const org = await readActiveOrg();
+    const profile = org.data?.companyProfile as
+      | { displayName?: string }
+      | undefined;
+    const name = profile?.displayName?.trim();
+    return name ? name : null;
+  },
+);
+
+/** The active tenant's saved SEO competitors (`seo.competitors`). */
+export const getActiveOrgSeoCompetitors = cache(
+  async (): Promise<{ name: string; url: string }[]> => {
+    const org = await readActiveOrg();
+    const seo = org.data?.seo as
+      | { competitors?: { name?: string; url?: string }[] }
+      | undefined;
+    return (seo?.competitors ?? []).flatMap((entry) =>
+      entry?.name && entry?.url ? [{ name: entry.name, url: entry.url }] : [],
+    );
+  },
+);

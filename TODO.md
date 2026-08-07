@@ -13,10 +13,22 @@ architecture and analyzer rules.
 
 ## Later, if worthy
 
-- Sitewide competitor crawl (same loop pointed at their sitemap) for
-  site-vs-site comparison.
+- Competitor Analysis page: grow from the saved-competitors list into full
+  site-vs-site analysis (sitewide crawl of a competitor's sitemap).
 - Persist crawl history to Firestore (trend over time).
 - Aggregate site-wide keyword view (sum phrase counts across the crawl).
+- Compare tab: persist last-used sources (localStorage).
+
+## Project: move site content off Sanity into Studio
+
+Idea (2026-08-07): retire Sanity and manage the marketing site's content in
+Lenis Studio. Payoff: content + SEO tooling in one place — analyze a draft
+page straight from Studio ("Unpublished" becomes first-class, no localhost
+needed), and the location-page formula becomes a CRM template with a live
+keyword report before publishing. Cost: rebuild content models (Firestore),
+editing UI, image pipeline (Sanity's CDN transforms are the hard part), and
+a publish/revalidate flow for the Next site. First step when picked up:
+inventory exactly which content types the oshrat site pulls from Sanity.
 
 ## Resolved follow-ups
 

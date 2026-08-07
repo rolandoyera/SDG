@@ -1,8 +1,17 @@
 "use server";
 
+import { cookies } from "next/headers";
+
 import * as cheerio from "cheerio";
 
-import { getActiveOrgWebsite } from "./org-config";
+import { ACTIVE_ORG_COOKIE } from "@/lib/org-cookie";
+
+import { getAdminDb } from "./firebase-admin";
+import {
+  getActiveOrgCompanyName,
+  getActiveOrgSeoCompetitors,
+  getActiveOrgWebsite,
+} from "./org-config";
 import { SEO_STOP_WORDS } from "./seo-stop-words";
 
 // ---------------------------------------------------------------------------
@@ -746,5 +755,123 @@ export async function runSiteCrawl(
       success: false,
       error: getErrorMessage(error, "The crawl failed."),
     };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Competitors (saved on the org document — config data, not cache)
+// ---------------------------------------------------------------------------
+
+export interface SeoCompetitor {
+  name: string;
+  url: string;
+}
+
+const MAX_COMPETITORS = 5;
+
+/** The org's saved competitor list for the Competitor Analysis page. */
+export async function fetchCompetitors(): Promise<SeoResult<SeoCompetitor[]>> {
+  try {
+    return { success: true, data: await getActiveOrgSeoCompetitors() };
+  } catch (error) {
+    console.error("fetchCompetitors failed:", error);
+    return {
+      success: false,
+      error: getErrorMessage(error, "Could not load competitors."),
+    };
+  }
+}
+
+/**
+ * Replace the org's competitor list (max 5). URLs are normalized to their
+ * origin so the Keyword Analyzer can compose page paths against them.
+ */
+export async function saveCompetitors(
+  competitors: SeoCompetitor[],
+): Promise<SeoResult<SeoCompetitor[]>> {
+  const cookieStore = await cookies();
+  const organizationId = cookieStore.get(ACTIVE_ORG_COOKIE)?.value;
+  if (!organizationId) {
+    return { success: false, error: "No active organization." };
+  }
+  if (competitors.length > MAX_COMPETITORS) {
+    return {
+      success: false,
+      error: `Up to ${MAX_COMPETITORS} competitors are supported.`,
+    };
+  }
+
+  const cleaned: SeoCompetitor[] = [];
+  for (const entry of competitors) {
+    const name = entry.name.trim();
+    const raw = entry.url.trim();
+    if (!name || !raw) {
+      return {
+        success: false,
+        error: "Every competitor needs a name and URL.",
+      };
+    }
+    try {
+      const url = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
+      cleaned.push({ name, url: url.origin });
+    } catch {
+      return { success: false, error: `"${raw}" is not a valid URL.` };
+    }
+  }
+
+  try {
+    await getAdminDb()
+      .doc(`organizations/${organizationId}`)
+      .set({ seo: { competitors: cleaned } }, { merge: true });
+    return { success: true, data: cleaned };
+  } catch (error) {
+    console.error("saveCompetitors failed:", error);
+    return {
+      success: false,
+      error: getErrorMessage(error, "Could not save competitors."),
+    };
+  }
+}
+
+/** Sitemap paths for an arbitrary site (competitor page pickers). */
+export async function fetchSitemapForUrl(
+  rawUrl: string,
+): Promise<SeoResult<string[]>> {
+  let origin: string;
+  try {
+    origin = new URL(
+      /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`,
+    ).origin;
+  } catch {
+    return { success: false, error: "Enter a valid URL." };
+  }
+  try {
+    return { success: true, data: await readSitemapPaths(origin) };
+  } catch (error) {
+    console.error("fetchSitemapForUrl failed:", error);
+    return {
+      success: false,
+      error: getErrorMessage(error, "Could not load the sitemap."),
+    };
+  }
+}
+
+/** Company display name for labeling the own-site source in the UI. */
+export async function fetchCompanyName(): Promise<SeoResult<string | null>> {
+  try {
+    return { success: true, data: await getActiveOrgCompanyName() };
+  } catch (error) {
+    console.error("fetchCompanyName failed:", error);
+    return { success: false, error: "Could not load the company name." };
+  }
+}
+
+/** The live site's origin, for client-side "Visit Page" links. */
+export async function fetchLiveBaseUrl(): Promise<SeoResult<string | null>> {
+  try {
+    return { success: true, data: await resolveBaseUrl("live") };
+  } catch {
+    // No website configured — the client just disables live visit links.
+    return { success: true, data: null };
   }
 }

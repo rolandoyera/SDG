@@ -2,13 +2,13 @@ import { SeoSidebarNav } from "./_components/seo-sidebar-nav";
 
 export default function SeoLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative w-full p-6">
-      <aside className="absolute inset-y-6 left-6 hidden w-48 md:block">
+    <div className="flex w-full gap-6 p-6">
+      <aside className="hidden w-48 shrink-0 md:block">
         <div className="sticky top-6">
           <SeoSidebarNav />
         </div>
       </aside>
-      <main className="mx-auto w-full max-w-330">{children}</main>
+      <main className="min-w-0 flex-1">{children}</main>
     </div>
   );
 }

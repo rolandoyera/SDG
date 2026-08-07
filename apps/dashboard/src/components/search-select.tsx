@@ -25,7 +25,11 @@ const COMBO_TRIGGER_CLASS = cn(
   "dark:bg-input/30",
 );
 
-/** Combobox styled to match the form selects, used for Country and Timezone pickers. */
+/**
+ * Combobox styled to match the form selects — a select-looking trigger with a
+ * search box at the top of the popup. Pass `container` when rendering inside
+ * a dialog so the popup portals into it.
+ */
 export function SearchSelect({
   items,
   value,
@@ -41,7 +45,7 @@ export function SearchSelect({
   placeholder: string;
   searchPlaceholder: string;
   emptyText: string;
-  container: HTMLElement | null;
+  container?: HTMLElement | null;
 }) {
   const selected = items.find((i) => i.code === value) ?? null;
   return (
@@ -72,7 +76,9 @@ export function SearchSelect({
       <ComboboxContent container={container}>
         <ComboboxInput showTrigger={false} placeholder={searchPlaceholder} />
         <ComboboxEmpty>{emptyText}</ComboboxEmpty>
-        <ComboboxList>
+        {/* Taller than the kit default (288px): these are long searchable
+            lists, so use the viewport space when it's there. */}
+        <ComboboxList className="max-h-[min(calc(--spacing(160)-(--spacing(9))),calc(var(--available-height)-(--spacing(9))))]">
           {(item: ComboItem) => (
             <ComboboxItem key={item.code} value={item}>
               {item.name}

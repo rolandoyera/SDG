@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import {
   fetchCachedCrawl,
+  fetchCompanyName,
   type PageAnalysis,
   runSiteCrawl,
   type SiteCrawl,
@@ -28,10 +29,27 @@ import { SiteChecks } from "./site-checks";
 
 export function CrawlTab() {
   const [target, setTarget] = useState<SiteTarget>("live");
+  const [companyName, setCompanyName] = useState<string | null>(null);
   const [crawl, setCrawl] = useState<SiteCrawl | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState("");
   const [detailPage, setDetailPage] = useState<PageAnalysis | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchCompanyName()
+      .then((result) => {
+        if (!cancelled && result.success && result.data) {
+          setCompanyName(result.data);
+        }
+      })
+      .catch(() => {
+        // Keep the "Live site" fallback label.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Pull the server's cached crawl (if this instance has one) on mount and
   // whenever the target changes.
@@ -75,8 +93,8 @@ export function CrawlTab() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="live">Live site</SelectItem>
-            <SelectItem value="local">Localhost</SelectItem>
+            <SelectItem value="live">{companyName ?? "Live site"}</SelectItem>
+            <SelectItem value="local">Unpublished</SelectItem>
           </SelectContent>
         </Select>
 

@@ -14,7 +14,7 @@ import {
   countryName,
   regionLabelFor,
 } from "../../vendors/_components/vendor-constants";
-import { SearchSelect } from "./search-select";
+import { SearchSelect } from "@/components/search-select";
 import {
   EditableCardHeader,
   LABEL_CLASS,

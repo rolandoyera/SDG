@@ -88,9 +88,10 @@ just that section. There is no single page-wide "Save."
 - **Each section lives in its own file** — `company-info-section.tsx`, `settings-section.tsx`,
   `logo-section.tsx`, `brand-colors-section.tsx` each export that section's display card **and** its
   edit-dialog field group. Shared shell is in `section-dialog.tsx` (`SectionEditDialog`, `EditableCardHeader`,
-  `LABEL_CLASS`, the `SectionDialogChildProps`/`PatchResult` types); the Country/Timezone combobox is
-  `search-select.tsx`. `company-profile-form.tsx` is now just the orchestrator (load + `persist` +
-  wire the four dialogs: company, Logo, Brand Colors, settings).
+  `LABEL_CLASS`, the `SectionDialogChildProps`/`PatchResult` types); the Country/Timezone combobox
+  is the shared `SearchSelect` at `src/components/search-select.tsx` (promoted out of this feature —
+  the SEO Keyword Analyzer uses it too). `company-profile-form.tsx` is now just the orchestrator
+  (load + `persist` + wire the four dialogs: company, Logo, Brand Colors, settings).
 
 ## Conventions that are easy to break
 

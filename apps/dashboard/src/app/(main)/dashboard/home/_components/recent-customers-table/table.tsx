@@ -174,11 +174,13 @@ export function RecentCustomersTable({ data }: { data: RecentCustomerRow[] }) {
                     .getColumn("status")
                     ?.setFilterValue(value === "all" ? undefined : value);
                   table.setPageIndex(0);
-                }}>
+                }}
+              >
                 {statusOptions.map((status) => (
                   <DropdownMenuRadioItem
                     key={status.value}
-                    value={status.value}>
+                    value={status.value}
+                  >
                     {status.label}
                   </DropdownMenuRadioItem>
                 ))}
@@ -200,11 +202,13 @@ export function RecentCustomersTable({ data }: { data: RecentCustomerRow[] }) {
                     .getColumn("joinedWindow")
                     ?.setFilterValue(value === "all" ? undefined : value);
                   table.setPageIndex(0);
-                }}>
+                }}
+              >
                 {joinedDateOptions.map((option) => (
                   <DropdownMenuRadioItem
                     key={option.value}
-                    value={option.value}>
+                    value={option.value}
+                  >
                     {option.label}
                   </DropdownMenuRadioItem>
                 ))}
@@ -228,11 +232,13 @@ export function RecentCustomersTable({ data }: { data: RecentCustomerRow[] }) {
                     .getColumn("billing")
                     ?.setFilterValue(value === "all" ? undefined : value);
                   table.setPageIndex(0);
-                }}>
+                }}
+              >
                 {billingOptions.map((billing) => (
                   <DropdownMenuRadioItem
                     key={billing.value}
-                    value={billing.value}>
+                    value={billing.value}
+                  >
                     {billing.label}
                   </DropdownMenuRadioItem>
                 ))}
@@ -261,11 +267,13 @@ export function RecentCustomersTable({ data }: { data: RecentCustomerRow[] }) {
 
                   table.setSorting(nextSorting);
                   table.setPageIndex(0);
-                }}>
+                }}
+              >
                 {sortOptions.map((option) => (
                   <DropdownMenuRadioItem
                     key={option.value}
-                    value={option.value}>
+                    value={option.value}
+                  >
                     {option.label}
                   </DropdownMenuRadioItem>
                 ))}
@@ -284,7 +292,8 @@ export function RecentCustomersTable({ data }: { data: RecentCustomerRow[] }) {
                   <TableHead
                     key={header.id}
                     colSpan={header.colSpan}
-                    className="h-11 p-3 font-medium">
+                    className="h-11 p-3 font-medium"
+                  >
                     {header.isPlaceholder
                       ? null
                       : flexRender(
@@ -301,7 +310,8 @@ export function RecentCustomersTable({ data }: { data: RecentCustomerRow[] }) {
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
-                  data-state={row.getIsSelected() && "selected"}>
+                  data-state={row.getIsSelected() && "selected"}
+                >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id} className="p-3 align-middle">
                       {flexRender(
@@ -316,7 +326,8 @@ export function RecentCustomersTable({ data }: { data: RecentCustomerRow[] }) {
               <TableRow>
                 <TableCell
                   colSpan={table.getVisibleLeafColumns().length}
-                  className="h-24 text-center">
+                  className="h-24 text-center"
+                >
                   No results.
                 </TableCell>
               </TableRow>
@@ -334,18 +345,21 @@ export function RecentCustomersTable({ data }: { data: RecentCustomerRow[] }) {
           <div className="hidden items-center gap-2 lg:flex">
             <Label
               htmlFor="recent-customers-rows-per-page"
-              className="font-medium text-sm">
+              className="font-medium text-sm"
+            >
               Rows per page
             </Label>
             <Select
               value={`${table.getState().pagination.pageSize}`}
               onValueChange={(value) => {
                 table.setPageSize(Number(value));
-              }}>
+              }}
+            >
               <SelectTrigger
                 size="sm"
                 className="w-20"
-                id="recent-customers-rows-per-page">
+                id="recent-customers-rows-per-page"
+              >
                 <SelectValue
                   placeholder={table.getState().pagination.pageSize}
                 />
@@ -371,7 +385,8 @@ export function RecentCustomersTable({ data }: { data: RecentCustomerRow[] }) {
               className="hidden size-8 lg:flex"
               size="icon"
               onClick={() => table.setPageIndex(0)}
-              disabled={!table.getCanPreviousPage()}>
+              disabled={!table.getCanPreviousPage()}
+            >
               <span className="sr-only">Go to first page</span>
               <ChevronsLeft className="size-4" />
             </Button>
@@ -380,7 +395,8 @@ export function RecentCustomersTable({ data }: { data: RecentCustomerRow[] }) {
               className="size-8"
               size="icon"
               onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}>
+              disabled={!table.getCanPreviousPage()}
+            >
               <span className="sr-only">Go to previous page</span>
               <ChevronLeft className="size-4" />
             </Button>
@@ -389,7 +405,8 @@ export function RecentCustomersTable({ data }: { data: RecentCustomerRow[] }) {
               className="size-8"
               size="icon"
               onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}>
+              disabled={!table.getCanNextPage()}
+            >
               <span className="sr-only">Go to next page</span>
               <ChevronRight className="size-4" />
             </Button>
@@ -398,7 +415,8 @@ export function RecentCustomersTable({ data }: { data: RecentCustomerRow[] }) {
               className="hidden size-8 lg:flex"
               size="icon"
               onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-              disabled={!table.getCanNextPage()}>
+              disabled={!table.getCanNextPage()}
+            >
               <span className="sr-only">Go to last page</span>
               <ChevronsRight className="size-4" />
             </Button>

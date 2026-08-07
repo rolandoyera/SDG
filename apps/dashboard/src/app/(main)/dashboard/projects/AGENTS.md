@@ -135,6 +135,7 @@ Org-wide Dropbox OAuth, following the **Meta integration** pattern exactly (`ser
   clears both the config (`FieldValue.delete()`) and the secret doc.
 
 OAuth flow (`src/app/api/integrations/dropbox/`):
+
 - `login/route.ts` — org from `ACTIVE_ORG_COOKIE`; a `?returnTo=` query (guarded to `/dashboard/...`)
   rides in `state` (base64url `{organizationId, nonce, returnTo}`) so the user lands back on the same
   project's Settings tab. Sets an httpOnly `dropbox_oauth_state` nonce cookie (CSRF), redirects to
@@ -145,6 +146,7 @@ OAuth flow (`src/app/api/integrations/dropbox/`):
   scrubs the param via `replaceState`.
 
 Folder linking (one folder per project):
+
 - **Data model** → `Project.imagerySets?: Record<string, ProjectImagerySet>` (`@/lib/types`). The map is
   **generic** but the UI links only **one** folder, under the fixed key `"imagery"` (`IMAGERY_SET_ID` in
   `project-settings.tsx`); linking replaces the whole map, unlinking writes `{}`. Each value is
@@ -160,6 +162,7 @@ Folder linking (one folder per project):
 - **UI** → `tabs/_tab_components/dropbox-folder-picker.tsx` (browse/select).
 
 Gallery (designer-facing view of the linked folder's images):
+
 - **Listing** → `listProjectSetImages(projectId, setId)` action (org from cookie, tenant-guards the
   project, resolves `imagerySets[setId].path`) → `listDropboxImages` (top-level image files only,
   keyed by Dropbox file `id` — stable across rename/move, for future portal curation).

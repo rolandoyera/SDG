@@ -188,7 +188,8 @@ export default function UsagePage() {
           </div>
           <Select
             value={range}
-            onValueChange={(value) => setRange(value as RangeValue)}>
+            onValueChange={(value) => setRange(value as RangeValue)}
+          >
             <SelectTrigger className="w-48">
               <SelectValue />
             </SelectTrigger>

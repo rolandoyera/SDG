@@ -79,7 +79,8 @@ function LogoImageUpload({
         className={cn(
           "group/img relative flex aspect-square w-full items-center justify-center overflow-hidden rounded border border-border transition-all hover:border-primary/50",
           dark ? "bg-neutral-900" : "bg-background",
-        )}>
+        )}
+      >
         {uploading ? (
           <div className="flex flex-col items-center justify-center gap-1.5 p-4 text-center text-primary">
             <Loader2 className="size-6 animate-spin" />
@@ -96,13 +97,15 @@ function LogoImageUpload({
             <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/40 opacity-0 transition-opacity group-hover/img:opacity-100">
               <Label
                 htmlFor={id}
-                className="cursor-pointer rounded bg-white px-2 py-1 font-medium text-[10px] text-black hover:bg-gray-100">
+                className="cursor-pointer rounded bg-white px-2 py-1 font-medium text-[10px] text-black hover:bg-gray-100"
+              >
                 Change
               </Label>
               <button
                 type="button"
                 onClick={() => onChange("", "")}
-                className="rounded bg-destructive px-2 py-1 font-medium text-[10px] text-destructive-foreground hover:bg-destructive/90">
+                className="rounded bg-destructive px-2 py-1 font-medium text-[10px] text-destructive-foreground hover:bg-destructive/90"
+              >
                 Remove
               </button>
             </div>
@@ -110,7 +113,8 @@ function LogoImageUpload({
         ) : (
           <Label
             htmlFor={id}
-            className="flex size-full cursor-pointer flex-col items-center justify-center gap-1.5 p-4 text-center text-muted-foreground/60 transition-colors hover:bg-muted/10 hover:text-muted-foreground">
+            className="flex size-full cursor-pointer flex-col items-center justify-center gap-1.5 p-4 text-center text-muted-foreground/60 transition-colors hover:bg-muted/10 hover:text-muted-foreground"
+          >
             <Upload className="size-6 text-muted-foreground/40" />
             <p className="font-medium text-[11px]">Upload {label}</p>
             <p className="text-[9px] text-muted-foreground/50">
@@ -139,7 +143,8 @@ function LogoThumb({
         className={cn(
           "relative flex aspect-square w-full items-center justify-center overflow-hidden rounded border border-border",
           dark ? "bg-neutral-900" : "bg-white",
-        )}>
+        )}
+      >
         {url ? (
           // biome-ignore lint/performance/noImgElement: display uses dynamic logo URLs.
           <img

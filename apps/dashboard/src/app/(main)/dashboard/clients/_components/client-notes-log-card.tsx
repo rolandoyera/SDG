@@ -116,7 +116,8 @@ export function ClientNotesLogCard({
           size="sm"
           variant="secondary"
           onClick={() => setComposerOpen(true)}
-          className="flex items-center gap-1.5">
+          className="flex items-center gap-1.5"
+        >
           <MessageSquarePlus className="size-3.5" />
           Note
         </Button>
@@ -133,7 +134,8 @@ export function ClientNotesLogCard({
           <form
             id="add-note-form"
             onSubmit={handleSubmit(submit)}
-            className="flex flex-col gap-2">
+            className="flex flex-col gap-2"
+          >
             <Controller
               control={control}
               name="body"
@@ -158,14 +160,16 @@ export function ClientNotesLogCard({
               type="button"
               variant="outline"
               disabled={formState.isSubmitting}
-              onClick={() => handleComposerOpenChange(false)}>
+              onClick={() => handleComposerOpenChange(false)}
+            >
               Cancel
             </Button>
             <Button
               type="submit"
               form="add-note-form"
               disabled={formState.isSubmitting}
-              className="flex items-center gap-1.5">
+              className="flex items-center gap-1.5"
+            >
               {formState.isSubmitting && (
                 <Loader2 className="size-3.5 animate-spin" />
               )}
@@ -223,7 +227,8 @@ function NoteItem({ note, isOwn, onDelete }: NoteItemProps) {
                 size="icon-sm"
                 onClick={() => setOpen(true)}
                 aria-label="Delete Note"
-                className="absolute top-2 right-2 size-7 rounded-full text-muted-foreground opacity-0 transition-opacity hover:text-destructive focus-visible:opacity-100 group-hover/note:opacity-100">
+                className="absolute top-2 right-2 size-7 rounded-full text-muted-foreground opacity-0 transition-opacity hover:text-destructive focus-visible:opacity-100 group-hover/note:opacity-100"
+              >
                 <Trash2 className="size-3.5" />
               </Button>
             </TooltipTrigger>
@@ -244,7 +249,8 @@ function NoteItem({ note, isOwn, onDelete }: NoteItemProps) {
                   void handleConfirm();
                 }}
                 disabled={deleting}
-                className="flex items-center gap-1.5 bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                className="flex items-center gap-1.5 bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
                 {deleting && <Loader2 className="size-4 animate-spin" />}
                 Delete Note
               </AlertDialogAction>

@@ -41,7 +41,8 @@ export function PortalSignedState({
       </div>
       <a
         href={`/portal/${accessToken}/contract/${contractId}/download`}
-        className="inline-flex h-10 items-center justify-center gap-2 rounded bg-neutral-900 px-6 font-medium text-sm text-white transition-colors hover:bg-neutral-800">
+        className="inline-flex h-10 items-center justify-center gap-2 rounded bg-neutral-900 px-6 font-medium text-sm text-white transition-colors hover:bg-neutral-800"
+      >
         <Download className="size-4" />
         Download signed PDF
       </a>

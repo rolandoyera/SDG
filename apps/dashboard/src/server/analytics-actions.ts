@@ -84,11 +84,17 @@ export async function testGA4Connection(): Promise<GA4ConnectionResult> {
   }
 }
 
+// Table rows carry raw numbers so client-side sorting works; cells format for
+// display (a pre-formatted "1.0k" sorts alphabetically).
 export interface TopPageItem {
   path: string;
-  views: string;
+  views: number;
+  /** Formatted avg engagement time, e.g. "2m 03s". */
   time: string;
-  bounce: string;
+  /** Raw avg engagement seconds — sort key for the time column. */
+  avgSeconds: number;
+  /** Fraction 0–1. */
+  bounceRate: number;
 }
 
 export async function fetchTopPagesData(
@@ -121,45 +127,27 @@ export async function fetchTopPagesData(
         {
           name: "activeUsers", // Active users to calculate average engagement
         },
+        {
+          name: "bounceRate", // Fraction 0–1: sessions that were not engaged
+        },
       ],
-      limit: 10,
     });
 
     const items: TopPageItem[] = (response.rows || []).map((row) => {
       const path = row.dimensionValues?.[0]?.value || "/";
-      const viewsVal = row.metricValues?.[0]?.value || "0";
-      const durationVal = row.metricValues?.[1]?.value || "0";
-      const usersVal = row.metricValues?.[2]?.value || "1";
+      const views = parseInt(row.metricValues?.[0]?.value || "0", 10);
+      const durationNum = parseFloat(row.metricValues?.[1]?.value || "0");
+      const usersNum = parseInt(row.metricValues?.[2]?.value || "1", 10) || 1;
+      const bounceRate = parseFloat(row.metricValues?.[3]?.value || "0");
 
-      // Format views: e.g. 1000 -> 1.0k
-      const viewsNum = parseInt(viewsVal, 10);
-      const viewsFormatted =
-        viewsNum >= 1000 ? `${(viewsNum / 1000).toFixed(1)}k` : viewsVal;
-
-      // Calculate Average Engagement Time = Total Duration / Active Users
-      const durationNum = parseFloat(durationVal);
-      const usersNum = parseInt(usersVal, 10) || 1;
-      const avgSecsTotal = durationNum / usersNum;
-
-      const mins = Math.floor(avgSecsTotal / 60);
-      const secs = Math.round(avgSecsTotal % 60);
-      const timeFormatted =
+      // Average Engagement Time = Total Duration / Active Users
+      const avgSeconds = durationNum / usersNum;
+      const mins = Math.floor(avgSeconds / 60);
+      const secs = Math.round(avgSeconds % 60);
+      const time =
         mins > 0 ? `${mins}m ${secs.toString().padStart(2, "0")}s` : `${secs}s`;
 
-      // Generate a realistic, stable bounce rate based on a hash of the page path (between 18% and 44%)
-      let hash = 0;
-      for (let i = 0; i < path.length; i++) {
-        hash = path.charCodeAt(i) + ((hash << 5) - hash);
-      }
-      const bouncePct = 18 + Math.abs(hash % 27);
-      const bounceFormatted = `${bouncePct}%`;
-
-      return {
-        path,
-        views: viewsFormatted,
-        time: timeFormatted,
-        bounce: bounceFormatted,
-      };
+      return { path, views, time, avgSeconds, bounceRate };
     });
 
     return {
@@ -185,7 +173,8 @@ export interface KpiCardData {
 
 export interface AnalyticsKpis {
   uniqueVisitors: KpiCardData;
-  visitors: KpiCardData;
+  /** GA4 `sessions` — visits, not people. */
+  visits: KpiCardData;
   pageviews: KpiCardData;
   engagementRate: KpiCardData;
   conversionRate: KpiCardData;
@@ -323,7 +312,7 @@ export async function fetchKpiData(range?: string): Promise<FetchKpiResult> {
       ],
       metrics: [
         { name: "activeUsers" },
-        { name: "totalUsers" },
+        { name: "sessions" },
         { name: "screenPageViews" },
         { name: "engagementRate" },
         { name: "sessionConversionRate" },
@@ -332,7 +321,7 @@ export async function fetchKpiData(range?: string): Promise<FetchKpiResult> {
 
     let currentData = {
       activeUsers: 0,
-      totalUsers: 0,
+      sessions: 0,
       screenPageViews: 0,
       engagementRate: 0,
       sessionConversionRate: 0,
@@ -340,7 +329,7 @@ export async function fetchKpiData(range?: string): Promise<FetchKpiResult> {
 
     let previousData = {
       activeUsers: 0,
-      totalUsers: 0,
+      sessions: 0,
       screenPageViews: 0,
       engagementRate: 0,
       sessionConversionRate: 0,
@@ -351,14 +340,14 @@ export async function fetchKpiData(range?: string): Promise<FetchKpiResult> {
         const rangeName = row.dimensionValues?.[0]?.value;
         const values = row.metricValues || [];
         const activeUsers = parseInt(values[0]?.value || "0", 10);
-        const totalUsers = parseInt(values[1]?.value || "0", 10);
+        const sessions = parseInt(values[1]?.value || "0", 10);
         const screenPageViews = parseInt(values[2]?.value || "0", 10);
         const engagementRate = parseFloat(values[3]?.value || "0");
         const sessionConversionRate = parseFloat(values[4]?.value || "0");
 
         const data = {
           activeUsers,
-          totalUsers,
+          sessions,
           screenPageViews,
           engagementRate,
           sessionConversionRate,
@@ -418,10 +407,7 @@ export async function fetchKpiData(range?: string): Promise<FetchKpiResult> {
           currentData.activeUsers,
           previousData.activeUsers,
         ),
-        visitors: getKpiMetrics(
-          currentData.totalUsers,
-          previousData.totalUsers,
-        ),
+        visits: getKpiMetrics(currentData.sessions, previousData.sessions),
         pageviews: getKpiMetrics(
           currentData.screenPageViews,
           previousData.screenPageViews,
@@ -592,7 +578,8 @@ export async function fetchTrafficSources(
         dimensions: [{ name: dimension }],
         metrics: [{ name: "sessions" }],
         orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
-        limit: 8,
+        // Over-fetch so filtering "(not set)" can't starve the top-8 slice.
+        limit: 10,
       });
 
       return (response.rows || [])
@@ -605,7 +592,7 @@ export async function fetchTrafficSources(
           };
         })
         .filter((item) => item.source !== "(not set)")
-        .slice(0, 5);
+        .slice(0, 8);
     };
 
     const [channels, sources, campaigns] = await Promise.all([
@@ -699,7 +686,6 @@ export async function fetchRealtimeData(): Promise<{
 // Custom events sent by the marketing site (see ANALYTICS_TODO.md).
 const TRACKED_EVENTS = [
   "project_button_click",
-  "contact_drawer_open",
   "form_start",
   "project_form_submit",
   "contact_form_submit",
@@ -712,6 +698,15 @@ export interface ConversionsData {
   trend: { label: string; keyEvents: number }[];
   channels: { channel: string; sessions: number; keyEvents: number }[];
   eventCounts: Record<string, number>;
+  /**
+   * `form_start` counts split by the `form_type` event param ("modal",
+   * "contact_page"). All zeros until the `form_type` custom dimension is
+   * registered in GA4 Admin — GA4 can't query an unregistered param, and only
+   * collects it from the registration date forward.
+   */
+  formStarts: { modal: number; contact: number };
+  /** Pageviews of /contact — the contact funnel's top step. */
+  contactPageViews: number;
 }
 
 export async function fetchConversionsData(
@@ -727,37 +722,77 @@ export async function fetchConversionsData(
   try {
     const client = getGA4Client();
 
-    const [[trendResponse], [channelResponse], [eventsResponse]] =
-      await Promise.all([
-        client.runReport({
-          property: `properties/${propertyId}`,
-          dateRanges,
-          dimensions: [{ name: trendDimension }],
-          metrics: [{ name: "keyEvents" }],
-          orderBys: [{ dimension: { dimensionName: trendDimension } }],
-          limit: 200,
-        }),
-        client.runReport({
-          property: `properties/${propertyId}`,
-          dateRanges,
-          dimensions: [{ name: "sessionDefaultChannelGroup" }],
-          metrics: [{ name: "sessions" }, { name: "keyEvents" }],
-          orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
-          limit: 8,
-        }),
-        client.runReport({
-          property: `properties/${propertyId}`,
-          dateRanges,
-          dimensions: [{ name: "eventName" }],
-          metrics: [{ name: "eventCount" }],
-          dimensionFilter: {
-            filter: {
-              fieldName: "eventName",
-              inListFilter: { values: [...TRACKED_EVENTS] },
-            },
+    const [
+      [trendResponse],
+      [channelResponse],
+      [eventsResponse],
+      [contactViewsResponse],
+    ] = await Promise.all([
+      client.runReport({
+        property: `properties/${propertyId}`,
+        dateRanges,
+        dimensions: [{ name: trendDimension }],
+        metrics: [{ name: "keyEvents" }],
+        orderBys: [{ dimension: { dimensionName: trendDimension } }],
+        limit: 200,
+      }),
+      client.runReport({
+        property: `properties/${propertyId}`,
+        dateRanges,
+        dimensions: [{ name: "sessionDefaultChannelGroup" }],
+        metrics: [{ name: "sessions" }, { name: "keyEvents" }],
+        orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
+      }),
+      client.runReport({
+        property: `properties/${propertyId}`,
+        dateRanges,
+        dimensions: [{ name: "eventName" }],
+        metrics: [{ name: "eventCount" }],
+        dimensionFilter: {
+          filter: {
+            fieldName: "eventName",
+            inListFilter: { values: [...TRACKED_EVENTS] },
           },
-        }),
-      ]);
+        },
+      }),
+      client.runReport({
+        property: `properties/${propertyId}`,
+        dateRanges,
+        metrics: [{ name: "screenPageViews" }],
+        dimensionFilter: {
+          filter: {
+            fieldName: "pagePath",
+            stringFilter: { matchType: "EXACT", value: "/contact" },
+          },
+        },
+      }),
+    ]);
+
+    // Separate call with its own catch: querying an unregistered custom
+    // dimension is a 400 from GA4, and that must not take down the section.
+    const formStarts = { modal: 0, contact: 0 };
+    try {
+      const [formStartsResponse] = await client.runReport({
+        property: `properties/${propertyId}`,
+        dateRanges,
+        dimensions: [{ name: "customEvent:form_type" }],
+        metrics: [{ name: "eventCount" }],
+        dimensionFilter: {
+          filter: {
+            fieldName: "eventName",
+            stringFilter: { matchType: "EXACT", value: "form_start" },
+          },
+        },
+      });
+      for (const row of formStartsResponse.rows || []) {
+        const formType = row.dimensionValues?.[0]?.value || "";
+        const count = parseInt(row.metricValues?.[0]?.value || "0", 10);
+        if (formType === "modal") formStarts.modal = count;
+        else if (formType === "contact_page") formStarts.contact = count;
+      }
+    } catch {
+      // form_type custom dimension not registered yet — leave zeros.
+    }
 
     const trend = (trendResponse.rows || []).map((row) => ({
       label: formatTrendLabel(row.dimensionValues?.[0]?.value || "", hourly),
@@ -777,7 +812,15 @@ export async function fetchConversionsData(
       eventCounts[name] = parseInt(row.metricValues?.[0]?.value || "0", 10);
     }
 
-    return { success: true, data: { trend, channels, eventCounts } };
+    const contactPageViews = parseInt(
+      contactViewsResponse.rows?.[0]?.metricValues?.[0]?.value || "0",
+      10,
+    );
+
+    return {
+      success: true,
+      data: { trend, channels, eventCounts, formStarts, contactPageViews },
+    };
   } catch (error: unknown) {
     console.error("Failed to fetch conversions data from GA4:", error);
     return {
@@ -793,9 +836,10 @@ export async function fetchConversionsData(
 
 export interface LandingPageItem {
   path: string;
-  sessions: string;
+  sessions: number;
   keyEvents: number;
-  conversionRate: string;
+  /** Fraction 0–1 (keyEvents / sessions). */
+  conversionRate: number;
 }
 
 export async function fetchLandingPages(
@@ -813,7 +857,6 @@ export async function fetchLandingPages(
       dimensions: [{ name: "landingPage" }],
       metrics: [{ name: "sessions" }, { name: "keyEvents" }],
       orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
-      limit: 10,
     });
 
     // GA4 can return an empty-string landing page (sessions with no recorded
@@ -828,12 +871,9 @@ export async function fetchLandingPages(
         const keyEvents = parseInt(row.metricValues?.[1]?.value || "0", 10);
         return {
           path: row.dimensionValues?.[0]?.value as string,
-          sessions: formatCount(sessions),
+          sessions,
           keyEvents,
-          conversionRate:
-            sessions > 0
-              ? `${((keyEvents / sessions) * 100).toFixed(1)}%`
-              : "0.0%",
+          conversionRate: sessions > 0 ? keyEvents / sessions : 0,
         };
       });
 
@@ -1008,16 +1048,17 @@ export async function fetchAudienceData(
 
 export interface ChannelRow {
   channel: string;
-  sessions: string;
-  users: string;
-  engagementRate: string;
+  sessions: number;
+  users: number;
+  /** Fraction 0–1. */
+  engagementRate: number;
   keyEvents: number;
 }
 
 export interface SourceMediumRow {
   source: string;
   medium: string;
-  sessions: string;
+  sessions: number;
   keyEvents: number;
 }
 
@@ -1049,7 +1090,6 @@ export async function fetchAcquisitionData(
           { name: "keyEvents" },
         ],
         orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
-        limit: 10,
       }),
       client.runReport({
         property: `properties/${propertyId}`,
@@ -1057,22 +1097,21 @@ export async function fetchAcquisitionData(
         dimensions: [{ name: "sessionSource" }, { name: "sessionMedium" }],
         metrics: [{ name: "sessions" }, { name: "keyEvents" }],
         orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
-        limit: 10,
       }),
     ]);
 
     const channels = (channelResponse.rows || []).map((row) => ({
       channel: row.dimensionValues?.[0]?.value || "(unknown)",
-      sessions: formatCount(parseInt(row.metricValues?.[0]?.value || "0", 10)),
-      users: formatCount(parseInt(row.metricValues?.[1]?.value || "0", 10)),
-      engagementRate: `${(parseFloat(row.metricValues?.[2]?.value || "0") * 100).toFixed(1)}%`,
+      sessions: parseInt(row.metricValues?.[0]?.value || "0", 10),
+      users: parseInt(row.metricValues?.[1]?.value || "0", 10),
+      engagementRate: parseFloat(row.metricValues?.[2]?.value || "0"),
       keyEvents: parseInt(row.metricValues?.[3]?.value || "0", 10),
     }));
 
     const sourceMedium = (sourceMediumResponse.rows || []).map((row) => ({
       source: row.dimensionValues?.[0]?.value || "(unknown)",
       medium: row.dimensionValues?.[1]?.value || "(unknown)",
-      sessions: formatCount(parseInt(row.metricValues?.[0]?.value || "0", 10)),
+      sessions: parseInt(row.metricValues?.[0]?.value || "0", 10),
       keyEvents: parseInt(row.metricValues?.[1]?.value || "0", 10),
     }));
 

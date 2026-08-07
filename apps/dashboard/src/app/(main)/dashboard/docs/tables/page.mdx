@@ -83,8 +83,12 @@ function ContractsTable({ data }: { data: Contract[] }) {
 
 - **Checkboxes** — spread `selectionColumn<TData>()` into your `columns` (and set
   `enableRowSelection: true`). It renders the select-all / select-row checkboxes.
-- **Sorting** — make a header clickable by rendering a sort toggle (see the
-  `SortableHeader` example in the playground) and add `getSortedRowModel()`.
+- **Sorting** — render the shared `SortableHeader` (exported from
+  `@/components/ui/tan-table`) in the column's `header` and add
+  `getSortedRowModel()`:
+  `header: ({ column }) => <SortableHeader column={column} align="right">Views</SortableHeader>`.
+  Sort on raw values — a column backed by pre-formatted strings ("1.0k", "3.1%")
+  sorts alphabetically; keep numbers in the row data and format in the cell.
 - **Search / filters** — wire your toolbar inputs to the `table` instance
   (`table.setGlobalFilter`, `table.getColumn(id)?.setFilterValue`).
 

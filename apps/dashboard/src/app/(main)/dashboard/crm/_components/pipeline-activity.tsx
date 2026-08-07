@@ -89,18 +89,21 @@ export function PipelineActivity() {
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
             <ChartContainer
               config={pipelineChartConfig}
-              className="h-72 w-full lg:col-span-8">
+              className="h-72 w-full lg:col-span-8"
+            >
               <BarChart
                 data={pipelineChartData}
                 margin={{ left: 0, right: 0, top: 0, bottom: 0 }}
-                barSize={38}>
+                barSize={38}
+              >
                 <defs>
                   <pattern
                     id="crm-qualified-pattern"
                     width="4"
                     height="4"
                     patternUnits="userSpaceOnUse"
-                    patternTransform="rotate(45)">
+                    patternTransform="rotate(45)"
+                  >
                     <rect
                       width="6"
                       height="6"

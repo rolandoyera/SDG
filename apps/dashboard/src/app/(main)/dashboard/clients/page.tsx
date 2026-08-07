@@ -167,11 +167,13 @@ export default function ClientsPage() {
                 <Card
                   variant="panel"
                   key={client.uid}
-                  className="group relative flex h-full flex-col overflow-hidden transition-all duration-200 has-[.detail-link:hover]:-translate-y-0.5 has-[.detail-link:hover]:border-primary/30 has-[.detail-link:hover]:shadow-md">
+                  className="group relative flex h-full flex-col overflow-hidden transition-all duration-200 has-[.detail-link:hover]:-translate-y-0.5 has-[.detail-link:hover]:border-primary/30 has-[.detail-link:hover]:shadow-md"
+                >
                   <CardHeader className="gap-2">
                     <Link
                       href={`/dashboard/clients/${client.uid}`}
-                      className="detail-link shrink-0 cursor-pointer">
+                      className="detail-link shrink-0 cursor-pointer"
+                    >
                       <>
                         {client.company ? (
                           <Building2 className="icons" />
@@ -184,7 +186,8 @@ export default function ClientsPage() {
                       <H3 className="truncate transition-colors group-has-[.detail-link:hover]:text-primary">
                         <Link
                           href={`/dashboard/clients/${client.uid}`}
-                          className="detail-link cursor-pointer">
+                          className="detail-link cursor-pointer"
+                        >
                           {client.company
                             ? client.company
                             : `${firstName} ${lastName}`}
@@ -198,19 +201,22 @@ export default function ClientsPage() {
                       <DataField
                         variant="icon"
                         label={<Mail />}
-                        empty="Not set">
+                        empty="Not set"
+                      >
                         {client.email}
                       </DataField>
                       <DataField
                         variant="icon"
                         label={<Phone />}
-                        empty="Not set">
+                        empty="Not set"
+                      >
                         {client.phone && formatPhone(client.phone)}
                       </DataField>
                       <DataField
                         variant="icon"
                         label={<MapPin />}
-                        empty="Not set">
+                        empty="Not set"
+                      >
                         {[client.city, client.state].filter(Boolean).join(", ")}
                       </DataField>
                     </div>
@@ -220,11 +226,13 @@ export default function ClientsPage() {
                       variant="link"
                       size="sm"
                       asChild
-                      className="ml-auto -mr-2 detail-link">
+                      className="ml-auto -mr-2 detail-link"
+                    >
                       <Link
                         href={`/dashboard/clients/${client.uid}`}
                         prefetch={false}
-                        className="group/btn flex items-center gap-0.5">
+                        className="group/btn flex items-center gap-0.5"
+                      >
                         View Client
                         <ArrowRight className="size-3 transition-transform group-hover/btn:translate-x-1" />
                       </Link>

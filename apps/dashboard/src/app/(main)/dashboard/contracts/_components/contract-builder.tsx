@@ -158,7 +158,8 @@ function renderSegments(text: string, resolved: Record<string, string>) {
       <span
         // biome-ignore lint/suspicious/noArrayIndexKey: static template, stable order
         key={i}
-        className="contract-placeholder rounded bg-yellow-100 px-1.5 py-0.5 font-semibold text-[13px] text-yellow-800">
+        className="contract-placeholder rounded bg-yellow-100 px-1.5 py-0.5 font-semibold text-[13px] text-yellow-800"
+      >
         {def?.label ?? name}
       </span>
     );
@@ -185,7 +186,8 @@ function DocumentBody({
         <p
           // biome-ignore lint/suspicious/noArrayIndexKey: static template, stable order
           key={i}
-          className={`whitespace-pre-wrap${isHeadingLine(line) ? " text-center" : ""}`}>
+          className={`whitespace-pre-wrap${isHeadingLine(line) ? " text-center" : ""}`}
+        >
           {line ? renderSegments(line, resolved) : " "}
         </p>
       ))}
@@ -321,7 +323,8 @@ function ScopeListField({
               variant="ghost"
               size="icon"
               className="shrink-0 text-muted-foreground hover:text-destructive"
-              onClick={() => onRemove(item.id)}>
+              onClick={() => onRemove(item.id)}
+            >
               <Trash2 className="size-4" />
               <span className="sr-only">Remove item</span>
             </Button>
@@ -333,7 +336,8 @@ function ScopeListField({
         variant="outline"
         size="sm"
         className="self-start"
-        onClick={onAdd}>
+        onClick={onAdd}
+      >
         <Plus className="size-4" />
         Add item
       </Button>
@@ -785,7 +789,8 @@ export function ContractBuilder({
               <Button
                 variant="outline"
                 size="icon"
-                disabled={saving || sending || resending}>
+                disabled={saving || sending || resending}
+              >
                 {saving || sending || resending ? (
                   <Loader2 className="size-4 animate-spin" />
                 ) : (
@@ -799,7 +804,8 @@ export function ContractBuilder({
                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
                 <DropdownMenuItem
                   onClick={handleSendContract}
-                  disabled={isLocked || sending}>
+                  disabled={isLocked || sending}
+                >
                   <Send className="size-4" />
                   Send
                 </DropdownMenuItem>
@@ -808,7 +814,8 @@ export function ContractBuilder({
                     onClick={() => {
                       void handleResend();
                     }}
-                    disabled={resending}>
+                    disabled={resending}
+                  >
                     <RefreshCw className="size-4" />
                     Resend signing link
                   </DropdownMenuItem>
@@ -817,12 +824,14 @@ export function ContractBuilder({
                   onClick={() => {
                     void handleSaveDraft();
                   }}
-                  disabled={isLocked || saving}>
+                  disabled={isLocked || saving}
+                >
                   <Save className="size-4" />
                   Save Draft
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={() => guard("print", () => window.print())}>
+                  onClick={() => guard("print", () => window.print())}
+                >
                   <Printer className="size-4" />
                   Print / PDF
                 </DropdownMenuItem>
@@ -862,7 +871,8 @@ export function ContractBuilder({
                           item.name
                             .toLowerCase()
                             .includes(inputValue.toLowerCase())
-                        }>
+                        }
+                      >
                         <ComboboxTrigger
                           render={
                             <button
@@ -875,7 +885,8 @@ export function ContractBuilder({
                                   "cursor-not-allowed bg-muted/40 text-muted-foreground opacity-70",
                                 !selectedProject && "text-muted-foreground",
                               )}
-                              disabled={isLocked}>
+                              disabled={isLocked}
+                            >
                               {selectedProject
                                 ? selectedProject.name
                                 : projects.length
@@ -974,7 +985,8 @@ export function ContractBuilder({
                                 def.type === "textarea"
                                   ? "basis-full"
                                   : "min-w-40 basis-[calc(50%-0.5rem)]"
-                              }>
+                              }
+                            >
                               <Field label={def.label}>
                                 <PageFieldInput
                                   def={def}
@@ -1013,7 +1025,8 @@ export function ContractBuilder({
                 page.page === activePage
                   ? "border-primary/40 shadow-lg ring-1 ring-primary/20"
                   : "border-border"
-              }`}>
+              }`}
+            >
               {/* Editing-only page marker — hidden when printing. */}
               <span className="contract-page-meta absolute top-3 right-4 text-muted-foreground/70 text-xs">
                 {page.page} / {totalPages}
@@ -1039,7 +1052,8 @@ export function ContractBuilder({
         open={!!pendingProject}
         onOpenChange={(open) => {
           if (!open) setPendingProject(null);
-        }}>
+        }}
+      >
         <AlertDialogContent className="sm:max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle>Change this contract's project?</AlertDialogTitle>
@@ -1076,7 +1090,8 @@ export function ContractBuilder({
                 e.preventDefault();
                 void runSend();
               }}
-              disabled={sending}>
+              disabled={sending}
+            >
               {sending ? "Sending…" : "Send Contract"}
             </AlertDialogAction>
           </AlertDialogFooter>

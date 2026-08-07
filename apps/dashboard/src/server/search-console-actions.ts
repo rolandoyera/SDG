@@ -143,12 +143,14 @@ export async function fetchSearchTotals(
   }
 }
 
+// Raw numbers so client-side sorting works; cells format for display.
 export interface SearchQueryItem {
   query: string;
   clicks: number;
   impressions: number;
-  ctr: string;
-  position: string;
+  /** Fraction 0–1. */
+  ctr: number;
+  position: number;
 }
 
 /** Top search queries (clicks, impressions, CTR, average position). */
@@ -169,7 +171,7 @@ export async function fetchTopSearchQueries(
         startDate,
         endDate,
         dimensions: ["query"],
-        rowLimit: 10,
+        rowLimit: 1000,
       },
     });
 
@@ -177,8 +179,8 @@ export async function fetchTopSearchQueries(
       query: row.keys?.[0] || "(unknown)",
       clicks: row.clicks ?? 0,
       impressions: row.impressions ?? 0,
-      ctr: `${((row.ctr ?? 0) * 100).toFixed(1)}%`,
-      position: (row.position ?? 0).toFixed(1),
+      ctr: row.ctr ?? 0,
+      position: row.position ?? 0,
     }));
 
     return { success: true, data };
@@ -199,8 +201,9 @@ export interface SearchPageItem {
   page: string;
   clicks: number;
   impressions: number;
-  ctr: string;
-  position: string;
+  /** Fraction 0–1. */
+  ctr: number;
+  position: number;
 }
 
 /** Top landing pages from Google Search (clicks, impressions, CTR, avg position). */
@@ -221,7 +224,7 @@ export async function fetchTopSearchPages(
         startDate,
         endDate,
         dimensions: ["page"],
-        rowLimit: 10,
+        rowLimit: 1000,
       },
     });
 
@@ -229,8 +232,8 @@ export async function fetchTopSearchPages(
       page: row.keys?.[0] || "(unknown)",
       clicks: row.clicks ?? 0,
       impressions: row.impressions ?? 0,
-      ctr: `${((row.ctr ?? 0) * 100).toFixed(1)}%`,
-      position: (row.position ?? 0).toFixed(1),
+      ctr: row.ctr ?? 0,
+      position: row.position ?? 0,
     }));
 
     return { success: true, data };

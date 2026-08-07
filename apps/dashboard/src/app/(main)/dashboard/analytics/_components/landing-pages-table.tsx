@@ -10,9 +10,9 @@ import {
 } from "@tanstack/react-table";
 
 import { SortableHeader, TanTable } from "@/components/ui/tan-table";
-import type { TopPageItem } from "@/server/analytics-actions";
+import type { LandingPageItem } from "@/server/analytics-actions";
 
-const columns: ColumnDef<TopPageItem>[] = [
+const columns: ColumnDef<LandingPageItem>[] = [
   {
     accessorKey: "path",
     header: ({ column }) => (
@@ -23,48 +23,45 @@ const columns: ColumnDef<TopPageItem>[] = [
     ),
   },
   {
-    accessorKey: "views",
+    accessorKey: "sessions",
     header: ({ column }) => (
       <SortableHeader column={column} align="right">
-        Views
+        Sessions
       </SortableHeader>
     ),
     cell: ({ row }) => (
       <div className="text-right tabular-nums">
-        {row.original.views.toLocaleString()}
+        {row.original.sessions.toLocaleString()}
       </div>
     ),
   },
   {
-    // Sorts on the raw seconds; displays the formatted time.
-    accessorKey: "avgSeconds",
+    accessorKey: "keyEvents",
     header: ({ column }) => (
       <SortableHeader column={column} align="right">
-        Avg Time
+        Key Events
       </SortableHeader>
     ),
     cell: ({ row }) => (
-      <div className="text-right text-muted-foreground tabular-nums">
-        {row.original.time}
-      </div>
+      <div className="text-right tabular-nums">{row.original.keyEvents}</div>
     ),
   },
   {
-    accessorKey: "bounceRate",
+    accessorKey: "conversionRate",
     header: ({ column }) => (
       <SortableHeader column={column} align="right">
-        Bounce
+        Conv Rate
       </SortableHeader>
     ),
     cell: ({ row }) => (
       <div className="text-right text-muted-foreground tabular-nums">
-        {`${(row.original.bounceRate * 100).toFixed(0)}%`}
+        {`${(row.original.conversionRate * 100).toFixed(1)}%`}
       </div>
     ),
   },
 ];
 
-export function TopPagesTable({ data }: { data: TopPageItem[] }) {
+export function LandingPagesTable({ data }: { data: LandingPageItem[] }) {
   const table = useReactTable({
     data,
     columns,
@@ -80,7 +77,7 @@ export function TopPagesTable({ data }: { data: TopPageItem[] }) {
       borderTop={false}
       pagination
       noun="pages"
-      emptyMessage="No page performance data available."
+      emptyMessage="No landing page data available."
     />
   );
 }

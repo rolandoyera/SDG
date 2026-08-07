@@ -46,7 +46,8 @@ export function NotificationBell() {
           variant="secondary"
           size="icon"
           aria-label="Notifications"
-          className="relative">
+          className="relative"
+        >
           <Bell />
           {unreadCount > 0 && (
             <>
@@ -89,7 +90,8 @@ export function NotificationBell() {
                           unread
                             ? "font-medium"
                             : "font-normal text-muted-foreground",
-                        )}>
+                        )}
+                      >
                         {n.title}
                       </p>
                       {n.body && (
@@ -110,7 +112,8 @@ export function NotificationBell() {
                           title="Mark as read"
                           onClick={() =>
                             void markNotificationRead(n.notificationId, uid)
-                          }>
+                          }
+                        >
                           <Check />
                         </Button>
                       )}
@@ -120,7 +123,8 @@ export function NotificationBell() {
                           size="icon-xs"
                           aria-label="View"
                           title="View"
-                          onClick={() => handleView(n)}>
+                          onClick={() => handleView(n)}
+                        >
                           <ExternalLink />
                         </Button>
                       )}
@@ -131,7 +135,8 @@ export function NotificationBell() {
                         title="Delete"
                         onClick={() =>
                           void dismissNotification(n.notificationId, uid)
-                        }>
+                        }
+                      >
                         <Trash2 />
                       </Button>
                     </div>

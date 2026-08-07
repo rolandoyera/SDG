@@ -264,14 +264,16 @@ export default function LeadDetailPage({ params }: PageProps) {
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => setIsConvertOpen(true)}
-                  disabled={isConverted}>
+                  disabled={isConverted}
+                >
                   <ArrowRightLeft className="size-4" />
                   {isConverted ? "Converted" : "Convert to Client"}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   variant="destructive"
                   onClick={() => setIsDeleteOpen(true)}
-                  disabled={isConverted}>
+                  disabled={isConverted}
+                >
                   <Trash2 className="size-4" />
                   Delete Lead
                 </DropdownMenuItem>
@@ -325,7 +327,8 @@ export default function LeadDetailPage({ params }: PageProps) {
                 {lead.phone ? (
                   <a
                     href={`tel:${normalizePhone(lead.phone)}`}
-                    className="hover:text-primary">
+                    className="hover:text-primary"
+                  >
                     {formatPhone(lead.phone)}
                   </a>
                 ) : null}
@@ -451,7 +454,8 @@ export default function LeadDetailPage({ params }: PageProps) {
                 void handleConvert();
               }}
               disabled={converting}
-              className="flex items-center gap-1.5">
+              className="flex items-center gap-1.5"
+            >
               {converting && <Loader2 className="size-4 animate-spin" />}
               Convert to Client
             </AlertDialogAction>
@@ -482,7 +486,8 @@ export default function LeadDetailPage({ params }: PageProps) {
                 void handleDelete();
               }}
               disabled={deleting}
-              className="flex items-center gap-1.5 bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              className="flex items-center gap-1.5 bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               {deleting && <Loader2 className="size-4 animate-spin" />}
               Delete Lead
             </AlertDialogAction>

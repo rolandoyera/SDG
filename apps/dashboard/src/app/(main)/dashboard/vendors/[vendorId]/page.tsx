@@ -263,7 +263,8 @@ export default function VendorDetailPage({ params }: PageProps) {
             <DataField
               label="Address"
               empty="Not provided"
-              className="min-h-21">
+              className="min-h-21"
+            >
               {addressLines.length > 0 && (
                 <AddressValue lines={addressLines} query={addressText} />
               )}
@@ -271,7 +272,8 @@ export default function VendorDetailPage({ params }: PageProps) {
             <DataField
               label="Sourcing Notes"
               empty="Not provided"
-              className="h-21">
+              className="h-21"
+            >
               {vendor.notes}
             </DataField>
           </CardContent>
@@ -330,14 +332,16 @@ export default function VendorDetailPage({ params }: PageProps) {
                       {items.map((item) => (
                         <div
                           key={item.itemId}
-                          className="flex items-center justify-between p-2.5 text-xs">
+                          className="flex items-center justify-between p-2.5 text-xs"
+                        >
                           <span className="max-w-60 truncate font-medium">
                             {item.name}
                           </span>
                           <Link
                             href={`/dashboard/library/${item.itemId}`}
                             onClick={() => setIsDeleteOpen(false)}
-                            className="font-semibold text-primary hover:underline">
+                            className="font-semibold text-primary hover:underline"
+                          >
                             View Item
                           </Link>
                         </div>
@@ -365,7 +369,8 @@ export default function VendorDetailPage({ params }: PageProps) {
                   variant="destructive"
                   onClick={handleDelete}
                   disabled={deleting}
-                  className="gap-2">
+                  className="gap-2"
+                >
                   {deleting && <Loader2 className="size-4 animate-spin" />}
                   Delete Vendor
                 </AlertDialogAction>

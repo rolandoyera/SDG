@@ -67,7 +67,8 @@ export function ItemGalleryCard({
                     ? "scale-105 border-primary ring-2 ring-primary/20"
                     : "border-border/60 hover:border-border"
                 }`}
-                onClick={() => onSelectImage(url)}>
+                onClick={() => onSelectImage(url)}
+              >
                 <DashboardImage
                   src={url}
                   alt="thumbnail"

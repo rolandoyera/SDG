@@ -208,7 +208,8 @@ export default function ProjectsPage() {
             {!searchQuery && clients.length > 0 && (
               <Button
                 onClick={handleOpenAdd}
-                className="mt-4 flex items-center gap-2">
+                className="mt-4 flex items-center gap-2"
+              >
                 <Plus className="size-4" />
                 Start Project
               </Button>
@@ -225,12 +226,14 @@ export default function ProjectsPage() {
                 <Card
                   variant="panel"
                   key={project.projectId}
-                  className="group transition-all duration-200 has-[.detail-link:hover]:-translate-y-0.5 has-[.detail-link:hover]:border-primary/30 has-[.detail-link:hover]:shadow-md">
+                  className="group transition-all duration-200 has-[.detail-link:hover]:-translate-y-0.5 has-[.detail-link:hover]:border-primary/30 has-[.detail-link:hover]:shadow-md"
+                >
                   <CardHeader className="justify-between">
                     <CardTitle className="transition-colors group-has-[.detail-link:hover]:text-primary">
                       <Link
                         href={`/dashboard/projects/${project.clientId}`}
-                        className="detail-link shrink-0 cursor-pointer">
+                        className="detail-link shrink-0 cursor-pointer"
+                      >
                         <Avatar className="size-8">
                           {parentClient?.company ? (
                             <Building2 className="size-4" />
@@ -242,7 +245,8 @@ export default function ProjectsPage() {
                       <Link
                         href={`/dashboard/projects/${project.projectId}`}
                         prefetch={false}
-                        className="detail-link cursor-pointer">
+                        className="detail-link cursor-pointer"
+                      >
                         {project.name}
                       </Link>
                     </CardTitle>
@@ -256,7 +260,8 @@ export default function ProjectsPage() {
                       <DataField
                         variant="icon"
                         label={parentClient?.company ? <Building2 /> : <User />}
-                        empty="Not set">
+                        empty="Not set"
+                      >
                         {parentClient
                           ? parentClient.company ||
                             `${parentClient.firstName ?? ""} ${parentClient.lastName ?? ""}`.trim()
@@ -265,7 +270,8 @@ export default function ProjectsPage() {
                       <DataField
                         variant="icon"
                         label={<DollarSign />}
-                        empty="Not set">
+                        empty="Not set"
+                      >
                         {project.budget
                           ? formatCurrency(project.budget, {
                               noDecimals: true,
@@ -275,7 +281,8 @@ export default function ProjectsPage() {
                       <DataField
                         variant="icon"
                         label={<MapPin />}
-                        empty="Not set">
+                        empty="Not set"
+                      >
                         {[project.city, project.state, project.zip]
                           .filter(Boolean)
                           .join(", ")}
@@ -287,11 +294,13 @@ export default function ProjectsPage() {
                       variant="link"
                       size="sm"
                       asChild
-                      className="ml-auto p-0 detail-link">
+                      className="ml-auto p-0 detail-link"
+                    >
                       <Link
                         href={`/dashboard/projects/${project.projectId}`}
                         prefetch={false}
-                        className="group/btn flex items-center gap-0.5">
+                        className="group/btn flex items-center gap-0.5"
+                      >
                         View Project
                         <ArrowRight className="size-3 transition-transform group-hover/btn:translate-x-1" />
                       </Link>

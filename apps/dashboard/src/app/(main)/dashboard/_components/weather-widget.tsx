@@ -99,7 +99,8 @@ export function WeatherWidget() {
   return (
     <div
       title={`Current weather in ${cityName}: ${conditionText}`}
-      className="flex shrink-0 select-none items-center px-3 font-normal text-card-foreground text-sm normal-case tracking-normal mt-1">
+      className="flex shrink-0 select-none items-center px-3 font-normal text-card-foreground text-sm normal-case tracking-normal mt-1"
+    >
       <div className="relative size-14 shrink-0">
         <DashboardImage
           src={iconUrl}

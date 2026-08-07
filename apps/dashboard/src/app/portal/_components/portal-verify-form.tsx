@@ -88,7 +88,8 @@ export function PortalVerifyForm({
           inputMode="numeric"
           disabled={submitting || locked}
           onChange={(value) => setCode(value.replace(/\D/g, "").slice(0, 4))}
-          onComplete={handleVerify}>
+          onComplete={handleVerify}
+        >
           <InputOTPGroup className="gap-2">
             <InputOTPSlot
               index={0}
@@ -118,7 +119,8 @@ export function PortalVerifyForm({
         type="button"
         onClick={handleVerify}
         disabled={!canSubmit}
-        className="inline-flex h-10 w-full items-center justify-center rounded bg-neutral-900 px-6 font-medium text-sm text-white transition-colors hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-40">
+        className="inline-flex h-10 w-full items-center justify-center rounded bg-neutral-900 px-6 font-medium text-sm text-white transition-colors hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-40"
+      >
         {submitting ? "Verifying…" : "Continue to Contract"}
       </button>
     </div>

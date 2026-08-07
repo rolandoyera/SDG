@@ -61,13 +61,15 @@ export function ItemPricingCard({ item }: ItemPricingCardProps) {
               profitable
                 ? "flex flex-col gap-1 bg-card bg-linear-to-t from-emerald-600/10 to-card p-3.5 shadow-xs"
                 : "flex flex-col gap-1 bg-card bg-linear-to-t from-red-500/10 to-card p-3.5 shadow-xs"
-            }>
+            }
+          >
             <span
               className={`flex items-center justify-center gap-1 font-medium text-[10px] uppercase tracking-wider ${
                 profitable
                   ? "text-emerald-700 dark:text-emerald-400"
                   : "text-red-700 dark:text-red-400"
-              }`}>
+              }`}
+            >
               {profitable ? (
                 <TrendingUp className="size-3" />
               ) : (
@@ -80,7 +82,8 @@ export function ItemPricingCard({ item }: ItemPricingCardProps) {
                 profitable
                   ? "text-emerald-700 dark:text-emerald-400"
                   : "text-red-700 dark:text-red-400"
-              }`}>
+              }`}
+            >
               {formatCurrency(profit)}
             </span>
           </div>

@@ -99,7 +99,8 @@ export function RealtimeCard({ initialData }: { initialData: RealtimeData }) {
                   index < 2
                     ? "border-border/50 border-b pt-1 pb-4"
                     : "pt-4 pb-1",
-                )}>
+                )}
+              >
                 <span
                   aria-hidden="true"
                   className={`flag:${country.code} shrink-0 rounded-xs text-lg ring-1 ring-foreground/5`}

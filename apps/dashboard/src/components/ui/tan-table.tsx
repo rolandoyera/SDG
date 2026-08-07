@@ -3,9 +3,15 @@
 
 import type * as React from "react";
 
-import type { ColumnDef, Table as TanstackTable } from "@tanstack/react-table";
+import type {
+  Column,
+  ColumnDef,
+  Table as TanstackTable,
+} from "@tanstack/react-table";
 import { flexRender } from "@tanstack/react-table";
+import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Pagination,
@@ -67,6 +73,44 @@ export function selectionColumn<TData>(): ColumnDef<TData> {
     enableSorting: false,
     enableHiding: false,
   };
+}
+
+/**
+ * Sortable column header: cycles asc/desc on click and shows the sort state.
+ * Use inside a column def (with `getSortedRowModel()` on the table):
+ * `header: ({ column }) => <SortableHeader column={column}>Views</SortableHeader>`
+ */
+export function SortableHeader<TData>({
+  column,
+  children,
+  align = "left",
+}: {
+  column: Column<TData, unknown>;
+  children: React.ReactNode;
+  align?: "left" | "right";
+}) {
+  const sorted = column.getIsSorted();
+  const Icon =
+    sorted === "asc" ? ArrowUp : sorted === "desc" ? ArrowDown : ArrowUpDown;
+
+  return (
+    <Button
+      variant="ghost"
+      onClick={() => column.toggleSorting(sorted === "asc")}
+      className={cn(
+        "-mx-3 h-8 gap-1.5 px-3 font-medium text-foreground text-sm hover:bg-transparent",
+        align === "right" && "-mx-3 ml-auto flex flex-row-reverse",
+      )}
+    >
+      {children}
+      <Icon
+        className={cn(
+          "size-3.5",
+          sorted ? "text-foreground" : "text-muted-foreground/60",
+        )}
+      />
+    </Button>
+  );
 }
 
 function preventPaginationNavigation(

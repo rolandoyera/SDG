@@ -29,7 +29,8 @@ export function DocsSidebarNav({ items }: { items: DocsNavItem[] }) {
               isActive
                 ? "bg-muted font-medium text-foreground"
                 : "text-muted-foreground",
-            )}>
+            )}
+          >
             {item.title}
           </Link>
         );

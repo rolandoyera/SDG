@@ -43,7 +43,7 @@ tenant. The Admin SDK in `org-config.ts` bypasses security rules; keep it server
 - **All tab sections render server-side every request, even inactive tabs.** Sections passed as
   `children` into the client `<Tabs>`/`<TabsContent>` (see [page.tsx](./page.tsx)) are still
   executed on the server to build the RSC payload. So one page load fans out **every** section's
-  actions, not just the visible tab's — ~19 GA4 reports total.
+  actions, not just the visible tab's — ~21 GA4 reports total.
 - **GA4 has a concurrent-request cap.** That ~19-report fan-out (plus dev Fast Refresh re-firing
   it on every save) blows the quota → `RESOURCE_EXHAUSTED`. The limiter in `ga4.ts`
   (`MAX_CONCURRENT_GA4_REQUESTS = 5`) is the guard: it queues excess calls instead of failing.
@@ -58,6 +58,20 @@ tenant. The Admin SDK in `org-config.ts` bypasses security rules; keep it server
 - **Connection status is checked during SSR.** `page.tsx` awaits `testGA4Connection()` and renders the
   result as a ping indicator next to the page title (green = connected, red = not). No separate
   client-side check, so a page visit produces a single `getActiveOrgConfig` read from this path.
+- **The Conversions form funnels depend on a GA4 custom dimension.** `fetchConversionsData`
+  splits `form_start` by the `form_type` event param via `customEvent:form_type`. GA4 400s on
+  unregistered custom dimensions, so that query runs in its own try/catch and falls back to
+  zeros; the card then shows the aggregate `form_start` count with a register-the-dimension
+  hint. The dimension must be registered in GA4 Admin (event scope, param `form_type`) and only
+  collects from registration onward. Registration tooling: `Web/Tools/ga4-tools/ga4.py`.
+- **Analytics tables are TanTable + raw numbers.** All tab tables (Top Pages, Landing Pages,
+  Leads by Channel, Acquisition, Google Search, and the shared `GeoTable`) render through
+  `@/components/ui/tan-table` (`TanTable` + `SortableHeader`) with client-side sorting and a
+  10-per-page pagination footer. Their server actions return **raw numbers** (counts, fractions)
+  and cells format for display — never reintroduce pre-formatted strings ("1.0k", "3.1%") into
+  row data, they sort alphabetically. GA4 table queries run uncapped (API default limit);
+  GSC uses `rowLimit: 1000`. The PDF report (`AnalyticsReport`) shows top-10 slices of the same
+  uncapped data and does its own formatting.
 - **Range comes from `?range=` search param**, default `today`, threaded as a `range` prop
   into sections. The single-day ranges (`today`, `yesterday`) switch GA4 trend dimensions to
   hourly (`dateHour`); there is no rolling "last 24 hours" — GA4 date ranges are whole calendar

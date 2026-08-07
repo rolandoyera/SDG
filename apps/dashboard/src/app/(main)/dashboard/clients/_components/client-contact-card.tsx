@@ -1,8 +1,5 @@
 import { CircleAlert, Mail, Phone, User } from "lucide-react";
-import {
-  AddressValue,
-  hasAddressLines,
-} from "@/components/ui/address-value";
+import { AddressValue, hasAddressLines } from "@/components/ui/address-value";
 import { Button } from "@/components/ui/button";
 import {
   Card,

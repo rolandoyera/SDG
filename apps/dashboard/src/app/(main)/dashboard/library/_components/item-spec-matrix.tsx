@@ -75,7 +75,8 @@ export function ItemSpecMatrix({ item }: ItemSpecMatrixProps) {
               <a
                 href={withProtocol(item.sourcingLink)}
                 target="_blank"
-                rel="noopener noreferrer">
+                rel="noopener noreferrer"
+              >
                 <Button variant="secondary" size="sm">
                   <ExternalLink className="size-4" />
                   Product Website

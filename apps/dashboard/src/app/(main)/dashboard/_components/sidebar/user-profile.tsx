@@ -55,7 +55,8 @@ export function UserProfile() {
         className="mt-2 min-w-56 space-y-1 rounded"
         side="bottom"
         align="end"
-        sideOffset={4}>
+        sideOffset={4}
+      >
         <DropdownMenuGroup>
           <DropdownMenuItem asChild>
             <Link href="/dashboard/profile" className="hover:cursor-pointer">

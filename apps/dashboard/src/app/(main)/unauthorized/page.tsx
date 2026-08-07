@@ -18,7 +18,8 @@ export default function page() {
           <Link
             href="dashboard"
             className="inline-flex items-center rounded bg-primary px-4 py-2 font-medium text-primary-foreground text-sm shadow-xs transition-colors hover:bg-primary/90 focus:outline-hidden focus:ring-2 focus:ring-primary focus:ring-offset-2"
-            prefetch={false}>
+            prefetch={false}
+          >
             Go to Homepage
           </Link>
         </div>

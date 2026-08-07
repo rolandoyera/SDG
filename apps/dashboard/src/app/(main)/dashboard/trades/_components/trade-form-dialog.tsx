@@ -94,13 +94,15 @@ export function TradeFormDialog({
       open={open}
       onOpenChange={(v) => {
         if (!isSubmitting) onOpenChange(v);
-      }}>
+      }}
+    >
       <DialogContent className="sm:max-w-3xl">
         <form
           onSubmit={handleSubmit(onSubmit)}
           className="flex flex-col gap-4"
           noValidate
-          autoComplete="off">
+          autoComplete="off"
+        >
           <DialogHeader>
             <DialogTitle className="text-xl">
               {mode === "edit" ? "Edit Trade Profile" : "Add Trade Profile"}
@@ -124,7 +126,8 @@ export function TradeFormDialog({
                   render={({ field, fieldState }) => (
                     <Field
                       className="flex flex-col gap-1.5 sm:col-span-2"
-                      data-invalid={fieldState.invalid}>
+                      data-invalid={fieldState.invalid}
+                    >
                       <Label className={LABEL_CLASS}>
                         Company Name{" "}
                         <span className="ml-0.5 text-destructive">*</span>
@@ -146,7 +149,8 @@ export function TradeFormDialog({
                           ? "flex flex-col gap-1.5"
                           : "flex flex-col gap-1.5 sm:col-span-2"
                       }
-                      data-invalid={fieldState.invalid}>
+                      data-invalid={fieldState.invalid}
+                    >
                       <Label className={LABEL_CLASS}>
                         Trade Type{" "}
                         <span className="ml-0.5 text-destructive">*</span>
@@ -156,7 +160,8 @@ export function TradeFormDialog({
                         onValueChange={(val) => {
                           field.onChange(val);
                           setValue("tradeSubcategory", "");
-                        }}>
+                        }}
+                      >
                         <SelectTrigger aria-invalid={fieldState.invalid}>
                           <SelectValue placeholder="Select trade type..." />
                         </SelectTrigger>
@@ -181,7 +186,8 @@ export function TradeFormDialog({
                     render={({ field, fieldState }) => (
                       <Field
                         className="flex flex-col gap-1.5"
-                        data-invalid={fieldState.invalid}>
+                        data-invalid={fieldState.invalid}
+                      >
                         <Label className={LABEL_CLASS}>
                           {tradeTypeValue === "Contractors"
                             ? "Contractor Subcategory"
@@ -194,7 +200,8 @@ export function TradeFormDialog({
                         </Label>
                         <Select
                           value={field.value}
-                          onValueChange={field.onChange}>
+                          onValueChange={field.onChange}
+                        >
                           <SelectTrigger aria-invalid={fieldState.invalid}>
                             <SelectValue placeholder="Select subcategory..." />
                           </SelectTrigger>
@@ -226,7 +233,8 @@ export function TradeFormDialog({
                   render={({ field, fieldState }) => (
                     <Field
                       className="flex flex-col gap-1.5"
-                      data-invalid={fieldState.invalid}>
+                      data-invalid={fieldState.invalid}
+                    >
                       <Label className={LABEL_CLASS}>Contact First Name</Label>
                       <Input {...field} aria-invalid={fieldState.invalid} />
                       {fieldState.invalid && (
@@ -241,7 +249,8 @@ export function TradeFormDialog({
                   render={({ field, fieldState }) => (
                     <Field
                       className="flex flex-col gap-1.5"
-                      data-invalid={fieldState.invalid}>
+                      data-invalid={fieldState.invalid}
+                    >
                       <Label className={LABEL_CLASS}>Contact Last Name</Label>
                       <Input {...field} aria-invalid={fieldState.invalid} />
                       {fieldState.invalid && (
@@ -265,7 +274,8 @@ export function TradeFormDialog({
                   render={({ field, fieldState }) => (
                     <Field
                       className="flex flex-col gap-1.5"
-                      data-invalid={fieldState.invalid}>
+                      data-invalid={fieldState.invalid}
+                    >
                       <Label className={LABEL_CLASS}>Email Address</Label>
                       <Input
                         {...field}
@@ -284,7 +294,8 @@ export function TradeFormDialog({
                   render={({ field, fieldState }) => (
                     <Field
                       className="flex flex-col gap-1.5"
-                      data-invalid={fieldState.invalid}>
+                      data-invalid={fieldState.invalid}
+                    >
                       <Label className={LABEL_CLASS}>Phone Number</Label>
                       <Input
                         {...field}
@@ -305,7 +316,8 @@ export function TradeFormDialog({
                   render={({ field, fieldState }) => (
                     <Field
                       className="flex flex-col gap-1.5"
-                      data-invalid={fieldState.invalid}>
+                      data-invalid={fieldState.invalid}
+                    >
                       <Label className={LABEL_CLASS}>Website URL</Label>
                       <Input
                         {...field}
@@ -333,7 +345,8 @@ export function TradeFormDialog({
                   render={({ field, fieldState }) => (
                     <Field
                       className="flex flex-col gap-1.5"
-                      data-invalid={fieldState.invalid}>
+                      data-invalid={fieldState.invalid}
+                    >
                       <Label className={LABEL_CLASS}>Street Address</Label>
                       <Input {...field} aria-invalid={fieldState.invalid} />
                       {fieldState.invalid && (
@@ -349,7 +362,8 @@ export function TradeFormDialog({
                     render={({ field, fieldState }) => (
                       <Field
                         className="col-span-2 flex flex-col gap-1.5"
-                        data-invalid={fieldState.invalid}>
+                        data-invalid={fieldState.invalid}
+                      >
                         <Label className={LABEL_CLASS}>City</Label>
                         <Input {...field} aria-invalid={fieldState.invalid} />
                         {fieldState.invalid && (
@@ -364,7 +378,8 @@ export function TradeFormDialog({
                     render={({ field, fieldState }) => (
                       <Field
                         className="flex flex-col gap-1.5"
-                        data-invalid={fieldState.invalid}>
+                        data-invalid={fieldState.invalid}
+                      >
                         <Label className={LABEL_CLASS}>State</Label>
                         <Input
                           {...field}
@@ -386,7 +401,8 @@ export function TradeFormDialog({
                     render={({ field, fieldState }) => (
                       <Field
                         className="flex flex-col gap-1.5"
-                        data-invalid={fieldState.invalid}>
+                        data-invalid={fieldState.invalid}
+                      >
                         <Label className={LABEL_CLASS}>ZIP Code</Label>
                         <Input
                           {...field}
@@ -421,7 +437,8 @@ export function TradeFormDialog({
                     render={({ field, fieldState }) => (
                       <Field
                         className="flex flex-col gap-1.5"
-                        data-invalid={fieldState.invalid}>
+                        data-invalid={fieldState.invalid}
+                      >
                         <Label className={LABEL_CLASS}>License #</Label>
                         <Input
                           {...field}
@@ -440,7 +457,8 @@ export function TradeFormDialog({
                     render={({ field, fieldState }) => (
                       <Field
                         className="flex flex-col gap-1.5"
-                        data-invalid={fieldState.invalid}>
+                        data-invalid={fieldState.invalid}
+                      >
                         <Label className={LABEL_CLASS}>
                           License Expiration Date
                         </Label>
@@ -466,7 +484,8 @@ export function TradeFormDialog({
                     render={({ field, fieldState }) => (
                       <Field
                         className="flex flex-col gap-1.5"
-                        data-invalid={fieldState.invalid}>
+                        data-invalid={fieldState.invalid}
+                      >
                         <Label className={LABEL_CLASS}>
                           Insurance Policy #
                         </Label>
@@ -487,7 +506,8 @@ export function TradeFormDialog({
                     render={({ field, fieldState }) => (
                       <Field
                         className="flex flex-col gap-1.5"
-                        data-invalid={fieldState.invalid}>
+                        data-invalid={fieldState.invalid}
+                      >
                         <Label className={LABEL_CLASS}>
                           Insurance Provider
                         </Label>
@@ -508,7 +528,8 @@ export function TradeFormDialog({
                     render={({ field, fieldState }) => (
                       <Field
                         className="flex flex-col gap-1.5"
-                        data-invalid={fieldState.invalid}>
+                        data-invalid={fieldState.invalid}
+                      >
                         <Label className={LABEL_CLASS}>
                           Insurance Expiration Date
                         </Label>
@@ -533,13 +554,15 @@ export function TradeFormDialog({
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              disabled={isSubmitting}>
+              disabled={isSubmitting}
+            >
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="flex items-center gap-2">
+              className="flex items-center gap-2"
+            >
               {isSubmitting && <Loader2 className="size-4 animate-spin" />}
               {mode === "edit" ? "Save Changes" : "Create Trade Profile"}
             </Button>

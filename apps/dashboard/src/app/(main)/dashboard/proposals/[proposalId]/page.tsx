@@ -154,13 +154,15 @@ function SortableRow({ item, onDelete, renderIcon }: SortableRowProps) {
       className={cn(
         isDragging &&
           "relative z-10 bg-white! shadow-[0_12px_30px_rgba(60,50,40,0.15)] dark:bg-white/20!",
-      )}>
+      )}
+    >
       {/* Grip Handle Cell */}
       <TableCell className="px-4 py-5">
         <div
           {...attributes}
           {...listeners}
-          className="drag-handle flex cursor-grab touch-none items-center justify-center p-1 text-muted-foreground/30 hover:text-muted-foreground active:cursor-grabbing">
+          className="drag-handle flex cursor-grab touch-none items-center justify-center p-1 text-muted-foreground/30 hover:text-muted-foreground active:cursor-grabbing"
+        >
           <GripVertical className="size-4" />
         </div>
       </TableCell>
@@ -202,12 +204,14 @@ function SortableRow({ item, onDelete, renderIcon }: SortableRowProps) {
       </TableCell>
       <TableCell
         className="text-[12px] text-muted-foreground"
-        style={{ textAlign: "left" }}>
+        style={{ textAlign: "left" }}
+      >
         {item.dimensions ?? "—"}
       </TableCell>
       <TableCell
         className="text-[12px] text-muted-foreground"
-        style={{ textAlign: "left" }}>
+        style={{ textAlign: "left" }}
+      >
         {item.unitType}
       </TableCell>
       <TableCell className="text-right text-[12px] text-muted-foreground">
@@ -226,7 +230,8 @@ function SortableRow({ item, onDelete, renderIcon }: SortableRowProps) {
           variant="secondary"
           size="icon"
           onClick={() => onDelete(item.id)}
-          className="bg-destructive/10 opacity-20 transition-all hover:text-destructive hover:opacity-100">
+          className="bg-destructive/10 opacity-20 transition-all hover:text-destructive hover:opacity-100"
+        >
           <Trash2 className="size-4" />
         </Button>
       </TableCell>
@@ -309,7 +314,8 @@ function RoomSection({
           sensors={sensors}
           collisionDetection={closestCenter}
           modifiers={[restrictToVerticalAxis]}
-          onDragEnd={(event) => onDragEnd(room, event)}>
+          onDragEnd={(event) => onDragEnd(room, event)}
+        >
           <Table>
             <TableHeader>
               <TableRow className="px-4 py-3.5 text-xs uppercase tracking-widest">
@@ -329,7 +335,8 @@ function RoomSection({
             </TableHeader>
             <SortableContext
               items={items.map((item) => item.id)}
-              strategy={verticalListSortingStrategy}>
+              strategy={verticalListSortingStrategy}
+            >
               <TableBody className="border-b-0">
                 {items.map((item) => (
                   <SortableRow
@@ -483,13 +490,15 @@ export default function ProposalDetailPage() {
           rightSidebarOpen && !isMobile
             ? "calc(var(--spacing) * 90)"
             : undefined,
-      }}>
+      }}
+    >
       {/* Right Sidebar Toggle Button */}
       <Button
         variant="outline"
         size="icon"
         onClick={toggleRightSidebar}
-        className="fixed top-[72px] right-6 z-50 h-9 w-9 border border-border bg-sidebar text-sidebar-foreground shadow-sm transition-all duration-200 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
+        className="fixed top-[72px] right-6 z-50 h-9 w-9 border border-border bg-sidebar text-sidebar-foreground shadow-sm transition-all duration-200 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+      >
         {rightSidebarOpen ? (
           <X className="size-4" />
         ) : (
@@ -511,7 +520,8 @@ export default function ProposalDetailPage() {
         className={cn(
           "fixed inset-y-0 right-0 z-40 flex w-90 transform flex-col border-border border-l bg-sidebar pt-14 text-sidebar-foreground shadow-sm transition-transform duration-200 ease-linear lg:top-[56px] lg:right-[9px] lg:bottom-[12px] lg:rounded-br-lg lg:pt-0",
           rightSidebarOpen ? "translate-x-0" : "translate-x-full",
-        )}>
+        )}
+      >
         <div className="flex h-12 shrink-0 items-center px-6">
           <span className="font-light font-serif text-foreground text-lg italic">
             Actions

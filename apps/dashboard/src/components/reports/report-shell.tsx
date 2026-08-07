@@ -126,7 +126,8 @@ export function ReportSection({
         breakBefore && "report-break-before",
         "flex flex-col gap-4",
         className,
-      )}>
+      )}
+    >
       <div className="flex flex-col gap-1">
         <h2 className="font-semibold text-base tracking-tight">{title}</h2>
         {description ? (

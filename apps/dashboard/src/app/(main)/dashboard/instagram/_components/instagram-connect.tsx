@@ -124,7 +124,8 @@ export function InstagramConnect({
             {pendingPages.map((page) => (
               <div
                 key={page.pageId}
-                className="flex items-center gap-3 rounded border border-border p-3">
+                className="flex items-center gap-3 rounded border border-border p-3"
+              >
                 <Avatar>
                   <AvatarFallback>
                     {(page.instagramUsername ?? page.pageName)
@@ -144,7 +145,8 @@ export function InstagramConnect({
                   size="sm"
                   variant="outline"
                   disabled={!page.hasInstagram || isPending}
-                  onClick={() => choose(page.pageId)}>
+                  onClick={() => choose(page.pageId)}
+                >
                   {selecting === page.pageId ? "Connecting…" : "Select"}
                 </Button>
               </div>

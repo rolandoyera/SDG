@@ -281,7 +281,8 @@ export function PerformanceOverview() {
       <CardContent>
         <ChartContainer
           config={chartConfig}
-          className="aspect-auto h-80 w-full">
+          className="aspect-auto h-80 w-full"
+        >
           <ComposedChart data={chartData} margin={{ top: 0 }}>
             <defs>
               <linearGradient id="fillNewCustomers" x1="0" y1="0" x2="0" y2="1">

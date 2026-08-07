@@ -34,18 +34,13 @@ export async function AnalyticsKpiStrip({
     );
   }
 
-  const {
-    uniqueVisitors,
-    visitors,
-    pageviews,
-    engagementRate,
-    conversionRate,
-  } = result.data;
+  const { uniqueVisitors, visits, pageviews, engagementRate, conversionRate } =
+    result.data;
   const labelText = result.comparisonLabel;
 
   const kpis = [
     { title: "Unique Visitors", metric: uniqueVisitors },
-    { title: "Visitors", metric: visitors },
+    { title: "Visits", metric: visits },
     { title: "Pageviews", metric: pageviews },
     { title: "Engagement Rate", metric: engagementRate },
     { title: "Conversion Rate", metric: conversionRate },
@@ -72,7 +67,8 @@ export async function AnalyticsKpiStrip({
                   </span>
                 ) : (
                   <Badge
-                    variant={metric.isPositive ? "trendingUp" : "trendingDown"}>
+                    variant={metric.isPositive ? "trendingUp" : "trendingDown"}
+                  >
                     {metric.isPositive ? <TrendingUp /> : <TrendingDown />}
                     {metric.change}
                   </Badge>

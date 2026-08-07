@@ -32,7 +32,7 @@ export interface AnalyticsReportData {
 
 const KPI_ORDER: { key: keyof AnalyticsKpis; label: string }[] = [
   { key: "uniqueVisitors", label: "Unique visitors" },
-  { key: "visitors", label: "Visits" },
+  { key: "visits", label: "Visits" },
   { key: "pageviews", label: "Pageviews" },
   { key: "engagementRate", label: "Engagement rate" },
   { key: "conversionRate", label: "Conversion rate" },
@@ -134,7 +134,8 @@ export function AnalyticsReport({ data }: { data: AnalyticsReportData }) {
               </tr>
             </thead>
             <tbody>
-              {topPages.map((page) => (
+              {/* The action now returns every page; the document shows the top 10. */}
+              {topPages.slice(0, 10).map((page) => (
                 <tr
                   key={page.path}
                   className="border-border/60 border-b last:border-0"
@@ -142,10 +143,12 @@ export function AnalyticsReport({ data }: { data: AnalyticsReportData }) {
                   <td className="max-w-[40ch] truncate py-2 font-medium">
                     {page.path}
                   </td>
-                  <td className="py-2 text-right tabular-nums">{page.views}</td>
+                  <td className="py-2 text-right tabular-nums">
+                    {page.views.toLocaleString()}
+                  </td>
                   <td className="py-2 text-right tabular-nums">{page.time}</td>
                   <td className="py-2 text-right tabular-nums">
-                    {page.bounce}
+                    {`${(page.bounceRate * 100).toFixed(0)}%`}
                   </td>
                 </tr>
               ))}

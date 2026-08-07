@@ -169,7 +169,8 @@ export function ProjectSettings({ project }: { project: Project }) {
         <SectionHeader label="Timelines" />
         <Card
           variant="panel"
-          className="flex min-h-[160px] items-center justify-center border-dashed">
+          className="flex min-h-[160px] items-center justify-center border-dashed"
+        >
           <p className="text-muted-foreground text-sm">
             Timeline configuration coming soon.
           </p>
@@ -239,7 +240,8 @@ function DropboxAccount({
               toast.error("Failed to disconnect Dropbox.");
             }
           })
-        }>
+        }
+      >
         {isPending ? <Loader2 className="size-3.5 animate-spin" /> : null}
         Disconnect
       </Button>

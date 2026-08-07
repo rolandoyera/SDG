@@ -84,7 +84,8 @@ export async function InstagramKpiStrip({ range }: { range?: string }) {
                       <Badge
                         variant={
                           metric.isPositive ? "trendingUp" : "trendingDown"
-                        }>
+                        }
+                      >
                         {metric.isPositive ? <TrendingUp /> : <TrendingDown />}
                         {metric.change}
                       </Badge>

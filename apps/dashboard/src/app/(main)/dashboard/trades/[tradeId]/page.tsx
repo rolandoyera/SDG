@@ -185,7 +185,8 @@ export default function TradeDetailPage({ params }: PageProps) {
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => setIsDeleteOpen(true)}
-                variant="destructive">
+                variant="destructive"
+              >
                 <Trash2 size={4} />
                 Delete Profile
               </DropdownMenuItem>
@@ -217,7 +218,8 @@ export default function TradeDetailPage({ params }: PageProps) {
                 <Label>Email Address</Label>
                 <a
                   href={`mailto:${trade.email}`}
-                  className="flex items-center gap-2 text-foreground/80 hover:text-primary hover:underline">
+                  className="flex items-center gap-2 text-foreground/80 hover:text-primary hover:underline"
+                >
                   <Mail className="size-4 shrink-0 text-muted-foreground" />
                   {trade.email}
                 </a>
@@ -229,7 +231,8 @@ export default function TradeDetailPage({ params }: PageProps) {
                 <Label>Phone Number</Label>
                 <a
                   href={`tel:${normalizePhone(trade.phone)}`}
-                  className="flex items-center gap-2 text-foreground/80 hover:text-primary hover:underline">
+                  className="flex items-center gap-2 text-foreground/80 hover:text-primary hover:underline"
+                >
                   <Phone className="size-4 shrink-0 text-muted-foreground" />
                   {formatPhone(trade.phone)}
                 </a>
@@ -247,7 +250,8 @@ export default function TradeDetailPage({ params }: PageProps) {
                   }
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-foreground/80 hover:text-primary hover:underline">
+                  className="flex items-center gap-2 text-foreground/80 hover:text-primary hover:underline"
+                >
                   <Globe className="size-4 shrink-0 text-muted-foreground" />
                   {trade.website}
                   <ExternalLink className="size-3 text-muted-foreground" />
@@ -402,7 +406,8 @@ export default function TradeDetailPage({ params }: PageProps) {
               variant="destructive"
               onClick={handleDelete}
               disabled={deleting}
-              className="gap-2">
+              className="gap-2"
+            >
               {deleting && <Loader2 className="size-4 animate-spin" />}
               Delete Profile
             </AlertDialogAction>

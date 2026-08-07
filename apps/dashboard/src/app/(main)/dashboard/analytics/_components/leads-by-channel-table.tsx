@@ -10,61 +10,63 @@ import {
 } from "@tanstack/react-table";
 
 import { SortableHeader, TanTable } from "@/components/ui/tan-table";
-import type { TopPageItem } from "@/server/analytics-actions";
+import type { ConversionsData } from "@/server/analytics-actions";
 
-const columns: ColumnDef<TopPageItem>[] = [
+type ChannelLeadRow = ConversionsData["channels"][number];
+
+const columns: ColumnDef<ChannelLeadRow>[] = [
   {
-    accessorKey: "path",
+    accessorKey: "channel",
     header: ({ column }) => (
-      <SortableHeader column={column}>Page</SortableHeader>
+      <SortableHeader column={column}>Channel</SortableHeader>
     ),
     cell: ({ row }) => (
-      <div className="truncate font-medium">{row.original.path}</div>
+      <div className="font-medium">{row.original.channel}</div>
     ),
   },
   {
-    accessorKey: "views",
+    accessorKey: "sessions",
     header: ({ column }) => (
       <SortableHeader column={column} align="right">
-        Views
+        Sessions
       </SortableHeader>
     ),
     cell: ({ row }) => (
       <div className="text-right tabular-nums">
-        {row.original.views.toLocaleString()}
+        {row.original.sessions.toLocaleString()}
       </div>
     ),
   },
   {
-    // Sorts on the raw seconds; displays the formatted time.
-    accessorKey: "avgSeconds",
+    accessorKey: "keyEvents",
     header: ({ column }) => (
       <SortableHeader column={column} align="right">
-        Avg Time
+        Key Events
       </SortableHeader>
     ),
     cell: ({ row }) => (
-      <div className="text-right text-muted-foreground tabular-nums">
-        {row.original.time}
-      </div>
+      <div className="text-right tabular-nums">{row.original.keyEvents}</div>
     ),
   },
   {
-    accessorKey: "bounceRate",
+    id: "convRate",
+    accessorFn: (row) => (row.sessions > 0 ? row.keyEvents / row.sessions : 0),
     header: ({ column }) => (
       <SortableHeader column={column} align="right">
-        Bounce
+        Conv Rate
       </SortableHeader>
     ),
     cell: ({ row }) => (
       <div className="text-right text-muted-foreground tabular-nums">
-        {`${(row.original.bounceRate * 100).toFixed(0)}%`}
+        {row.original.sessions > 0
+          ? `${((row.original.keyEvents / row.original.sessions) * 100).toFixed(1)}%`
+          : "0.0%"}
       </div>
     ),
   },
 ];
 
-export function TopPagesTable({ data }: { data: TopPageItem[] }) {
+export function LeadsByChannelTable({ data }: { data: ChannelLeadRow[] }) {
   const table = useReactTable({
     data,
     columns,
@@ -79,8 +81,8 @@ export function TopPagesTable({ data }: { data: TopPageItem[] }) {
       table={table}
       borderTop={false}
       pagination
-      noun="pages"
-      emptyMessage="No page performance data available."
+      noun="channels"
+      emptyMessage="No channel data available for this range."
     />
   );
 }

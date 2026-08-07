@@ -114,7 +114,8 @@ export function VendorHero({ vendor }: VendorHeroProps) {
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) => e.currentTarget.blur()}
-                    className="cursor-pointer text-muted-foreground transition-colors hover:text-primary border border-border bg-background dark:border-input dark:bg-input/30 rounded-full p-1 shadow">
+                    className="cursor-pointer text-muted-foreground transition-colors hover:text-primary border border-border bg-background dark:border-input dark:bg-input/30 rounded-full p-1 shadow"
+                  >
                     <Icon strokeWidth={1.25} />
                   </a>
                 </TooltipTrigger>
@@ -123,7 +124,8 @@ export function VendorHero({ vendor }: VendorHeroProps) {
             ) : (
               <span
                 key={key}
-                className="cursor-not-allowed text-muted-foreground/20">
+                className="cursor-not-allowed text-muted-foreground/20"
+              >
                 <Icon strokeWidth={1.5} />
               </span>
             ),

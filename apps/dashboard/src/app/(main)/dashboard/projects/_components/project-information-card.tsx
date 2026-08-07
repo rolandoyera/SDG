@@ -2,10 +2,7 @@
 
 import Link from "next/link";
 import { Building2 } from "lucide-react";
-import {
-  AddressValue,
-  hasAddressLines,
-} from "@/components/ui/address-value";
+import { AddressValue, hasAddressLines } from "@/components/ui/address-value";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataField } from "@/components/ui/data-field";
 import type { Client, Project } from "@/lib/types";

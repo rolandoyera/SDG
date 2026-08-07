@@ -100,7 +100,8 @@ export function PortalSignForm({
         type="button"
         onClick={handleSign}
         disabled={!canSign}
-        className="inline-flex h-10 items-center justify-center rounded bg-neutral-900 px-6 font-medium text-sm text-white transition-colors hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-40">
+        className="inline-flex h-10 items-center justify-center rounded bg-neutral-900 px-6 font-medium text-sm text-white transition-colors hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-40"
+      >
         {submitting ? "Signing…" : "Sign contract"}
       </button>
     </div>

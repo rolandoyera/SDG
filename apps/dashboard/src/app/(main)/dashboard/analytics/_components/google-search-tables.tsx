@@ -2,9 +2,14 @@
 "use no memo";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { getCoreRowModel, useReactTable } from "@tanstack/react-table";
+import {
+  getCoreRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
+} from "@tanstack/react-table";
 
-import { TanTable } from "@/components/ui/tan-table";
+import { SortableHeader, TanTable } from "@/components/ui/tan-table";
 import type {
   SearchPageItem,
   SearchQueryItem,
@@ -19,92 +24,95 @@ function toPath(url: string): string {
   }
 }
 
+/** The clicks/impressions/CTR/position columns shared by both tables. */
+function metricColumns<
+  T extends {
+    clicks: number;
+    impressions: number;
+    ctr: number;
+    position: number;
+  },
+>(): ColumnDef<T>[] {
+  return [
+    {
+      accessorKey: "clicks",
+      header: ({ column }) => (
+        <SortableHeader column={column} align="right">
+          Clicks
+        </SortableHeader>
+      ),
+      cell: ({ row }) => (
+        <div className="text-right tabular-nums">
+          {row.original.clicks.toLocaleString()}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "impressions",
+      header: ({ column }) => (
+        <SortableHeader column={column} align="right">
+          Impr.
+        </SortableHeader>
+      ),
+      cell: ({ row }) => (
+        <div className="text-right text-muted-foreground tabular-nums">
+          {row.original.impressions.toLocaleString()}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "ctr",
+      header: ({ column }) => (
+        <SortableHeader column={column} align="right">
+          CTR
+        </SortableHeader>
+      ),
+      cell: ({ row }) => (
+        <div className="text-right text-muted-foreground tabular-nums">
+          {`${(row.original.ctr * 100).toFixed(1)}%`}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "position",
+      header: ({ column }) => (
+        <SortableHeader column={column} align="right">
+          Pos.
+        </SortableHeader>
+      ),
+      cell: ({ row }) => (
+        <div className="text-right text-muted-foreground tabular-nums">
+          {row.original.position.toFixed(1)}
+        </div>
+      ),
+    },
+  ];
+}
+
 const queryColumns: ColumnDef<SearchQueryItem>[] = [
   {
     accessorKey: "query",
-    header: "Query",
+    header: ({ column }) => (
+      <SortableHeader column={column}>Query</SortableHeader>
+    ),
     cell: ({ row }) => (
       <div className="truncate font-medium">{row.original.query}</div>
     ),
   },
-  {
-    accessorKey: "clicks",
-    header: () => <div className="text-right">Clicks</div>,
-    cell: ({ row }) => (
-      <div className="text-right tabular-nums">{row.original.clicks}</div>
-    ),
-  },
-  {
-    accessorKey: "impressions",
-    header: () => <div className="text-right">Impr.</div>,
-    cell: ({ row }) => (
-      <div className="text-right text-muted-foreground tabular-nums">
-        {row.original.impressions}
-      </div>
-    ),
-  },
-  {
-    accessorKey: "ctr",
-    header: () => <div className="text-right">CTR</div>,
-    cell: ({ row }) => (
-      <div className="text-right text-muted-foreground tabular-nums">
-        {row.original.ctr}
-      </div>
-    ),
-  },
-  {
-    accessorKey: "position",
-    header: () => <div className="text-right">Pos.</div>,
-    cell: ({ row }) => (
-      <div className="text-right text-muted-foreground tabular-nums">
-        {row.original.position}
-      </div>
-    ),
-  },
+  ...metricColumns<SearchQueryItem>(),
 ];
 
 const pageColumns: ColumnDef<SearchPageItem>[] = [
   {
     accessorKey: "page",
-    header: "Page",
+    header: ({ column }) => (
+      <SortableHeader column={column}>Page</SortableHeader>
+    ),
     cell: ({ row }) => (
       <div className="truncate font-medium">{toPath(row.original.page)}</div>
     ),
   },
-  {
-    accessorKey: "clicks",
-    header: () => <div className="text-right">Clicks</div>,
-    cell: ({ row }) => (
-      <div className="text-right tabular-nums">{row.original.clicks}</div>
-    ),
-  },
-  {
-    accessorKey: "impressions",
-    header: () => <div className="text-right">Impr.</div>,
-    cell: ({ row }) => (
-      <div className="text-right text-muted-foreground tabular-nums">
-        {row.original.impressions}
-      </div>
-    ),
-  },
-  {
-    accessorKey: "ctr",
-    header: () => <div className="text-right">CTR</div>,
-    cell: ({ row }) => (
-      <div className="text-right text-muted-foreground tabular-nums">
-        {row.original.ctr}
-      </div>
-    ),
-  },
-  {
-    accessorKey: "position",
-    header: () => <div className="text-right">Pos.</div>,
-    cell: ({ row }) => (
-      <div className="text-right text-muted-foreground tabular-nums">
-        {row.original.position}
-      </div>
-    ),
-  },
+  ...metricColumns<SearchPageItem>(),
 ];
 
 export function SearchQueriesTable({ data }: { data: SearchQueryItem[] }) {
@@ -112,12 +120,17 @@ export function SearchQueriesTable({ data }: { data: SearchQueryItem[] }) {
     data,
     columns: queryColumns,
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: 10 } },
   });
 
   return (
     <TanTable
       table={table}
       borderTop={false}
+      pagination
+      noun="queries"
       emptyMessage="No query data available for this range."
     />
   );
@@ -128,12 +141,17 @@ export function SearchPagesTable({ data }: { data: SearchPageItem[] }) {
     data,
     columns: pageColumns,
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: 10 } },
   });
 
   return (
     <TanTable
       table={table}
       borderTop={false}
+      pagination
+      noun="pages"
       emptyMessage="No page data available for this range."
     />
   );

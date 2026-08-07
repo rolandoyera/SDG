@@ -283,18 +283,21 @@ export function KpiStrip() {
             <CardContent>
               <ChartContainer
                 config={revenueOverviewConfig}
-                className="h-74 w-full">
+                className="h-74 w-full"
+              >
                 <ComposedChart
                   accessibilityLayer
                   data={revenueOverviewData}
-                  margin={{ bottom: 0, left: 0, right: 0, top: 0 }}>
+                  margin={{ bottom: 0, left: 0, right: 0, top: 0 }}
+                >
                   <defs>
                     <filter
                       id="sales-line-glow"
                       x="-20%"
                       y="-20%"
                       width="140%"
-                      height="140%">
+                      height="140%"
+                    >
                       <feGaussianBlur stdDeviation="4" result="blur" />
                       <feFlood
                         floodColor="var(--color-revenue)"

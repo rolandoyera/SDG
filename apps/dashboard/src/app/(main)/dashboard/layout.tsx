@@ -32,19 +32,22 @@ export default async function Layout({
         {
           "--sidebar-width": "calc(var(--spacing) * 68)",
         } as React.CSSProperties
-      }>
+      }
+    >
       <DbStatsProbe />
       <AppSidebar brand={brand} variant="inset" collapsible="icon" />
       <SidebarInset
         className={cn(
           "peer-data-[variant=inset]:border",
           "[--dashboard-header-height:--spacing(12)]",
-        )}>
+        )}
+      >
         <header
           className={cn(
             "flex h-12 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12",
             "sticky top-0 z-50 overflow-hidden rounded-t-[inherit] bg-background/50 backdrop-blur-md",
-          )}>
+          )}
+        >
           <div className="flex w-full items-center justify-between px-4 lg:px-6">
             <div className="flex items-center gap-1 lg:gap-2">
               <SidebarTrigger className="-ml-1" />

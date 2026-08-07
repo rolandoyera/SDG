@@ -51,7 +51,8 @@ export function SearchSelect({
       items={items}
       filter={(item: ComboItem, inputValue: string) =>
         item.name.toLowerCase().includes(inputValue.toLowerCase())
-      }>
+      }
+    >
       <ComboboxTrigger
         render={
           <button
@@ -59,7 +60,8 @@ export function SearchSelect({
             className={cn(
               COMBO_TRIGGER_CLASS,
               !selected && "text-muted-foreground",
-            )}>
+            )}
+          >
             <span className="truncate">
               {selected ? selected.name : placeholder}
             </span>

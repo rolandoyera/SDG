@@ -248,7 +248,8 @@ export default function TenantDetailPage({ params }: PageProps) {
             {/* Quick Actions */}
             <div className="flex items-center gap-2">
               <Badge
-                variant={org.status === "Active" ? "success" : "destructive"}>
+                variant={org.status === "Active" ? "success" : "destructive"}
+              >
                 {org.status}
               </Badge>
               <Button
@@ -256,7 +257,8 @@ export default function TenantDetailPage({ params }: PageProps) {
                 variant="outline"
                 size="sm"
                 disabled={togglingStatus}
-                className="flex items-center gap-1.5">
+                className="flex items-center gap-1.5"
+              >
                 {org.status === "Active" ? (
                   <>
                     <UserX className="size-3.5 text-rose-500" />
@@ -292,7 +294,8 @@ export default function TenantDetailPage({ params }: PageProps) {
                 <form
                   onSubmit={handleSubmit(handleSaveConfig)}
                   className="flex flex-col gap-4"
-                  autoComplete="off">
+                  autoComplete="off"
+                >
                   {/* Dummy inputs to prevent Chrome autofill */}
                   <input
                     type="text"
@@ -318,10 +321,12 @@ export default function TenantDetailPage({ params }: PageProps) {
                     render={({ field, fieldState }) => (
                       <Field
                         className="gap-1.5"
-                        data-invalid={fieldState.invalid}>
+                        data-invalid={fieldState.invalid}
+                      >
                         <FieldLabel
                           htmlFor="ga-id"
-                          className="flex items-center gap-1.5">
+                          className="flex items-center gap-1.5"
+                        >
                           <LineChart className="size-3.5 text-muted-foreground" />
                           Google Analytics Property ID
                         </FieldLabel>
@@ -351,10 +356,12 @@ export default function TenantDetailPage({ params }: PageProps) {
                     render={({ field, fieldState }) => (
                       <Field
                         className="gap-1.5"
-                        data-invalid={fieldState.invalid}>
+                        data-invalid={fieldState.invalid}
+                      >
                         <FieldLabel
                           htmlFor="gsc-site"
-                          className="flex items-center gap-1.5">
+                          className="flex items-center gap-1.5"
+                        >
                           <Search className="size-3.5 text-muted-foreground" />
                           Search Console Site URL
                         </FieldLabel>
@@ -386,10 +393,12 @@ export default function TenantDetailPage({ params }: PageProps) {
                     render={({ field, fieldState }) => (
                       <Field
                         className="gap-1.5"
-                        data-invalid={fieldState.invalid}>
+                        data-invalid={fieldState.invalid}
+                      >
                         <FieldLabel
                           htmlFor="drive-id"
-                          className="flex items-center gap-1.5">
+                          className="flex items-center gap-1.5"
+                        >
                           <Folder className="size-3.5 text-muted-foreground" />
                           Google Drive Folder ID
                         </FieldLabel>
@@ -419,10 +428,12 @@ export default function TenantDetailPage({ params }: PageProps) {
                     render={({ field, fieldState }) => (
                       <Field
                         className="gap-1.5"
-                        data-invalid={fieldState.invalid}>
+                        data-invalid={fieldState.invalid}
+                      >
                         <FieldLabel
                           htmlFor="gemini-key"
-                          className="flex items-center gap-1.5">
+                          className="flex items-center gap-1.5"
+                        >
                           <Key className="size-3.5 text-muted-foreground" />
                           Custom Gemini API Key
                         </FieldLabel>
@@ -453,10 +464,12 @@ export default function TenantDetailPage({ params }: PageProps) {
                     render={({ field, fieldState }) => (
                       <Field
                         className="gap-1.5"
-                        data-invalid={fieldState.invalid}>
+                        data-invalid={fieldState.invalid}
+                      >
                         <FieldLabel
                           htmlFor="ai-limit"
-                          className="flex items-center gap-1.5">
+                          className="flex items-center gap-1.5"
+                        >
                           <CreditCard className="size-3.5 text-muted-foreground" />
                           Monthly AI Scraping Limit
                         </FieldLabel>
@@ -483,7 +496,8 @@ export default function TenantDetailPage({ params }: PageProps) {
                     <Button
                       type="submit"
                       disabled={saving}
-                      className="flex items-center gap-2">
+                      className="flex items-center gap-2"
+                    >
                       {saving ? (
                         <>
                           <Loader2 className="size-4 animate-spin" />
@@ -590,7 +604,8 @@ export default function TenantDetailPage({ params }: PageProps) {
                 <TableRow>
                   <TableCell
                     colSpan={6}
-                    className="h-24 text-center text-muted-foreground">
+                    className="h-24 text-center text-muted-foreground"
+                  >
                     No registered users found for this organization.
                   </TableCell>
                 </TableRow>
@@ -615,7 +630,8 @@ export default function TenantDetailPage({ params }: PageProps) {
                       <Badge
                         variant={
                           user.status === "Active" ? "success" : "warning"
-                        }>
+                        }
+                      >
                         {user.status}
                       </Badge>
                     </TableCell>

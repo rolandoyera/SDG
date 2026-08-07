@@ -124,7 +124,8 @@ export function ProjectFormDialog({
         <form
           onSubmit={handleSubmit(onSubmit)}
           className="flex flex-col gap-4"
-          noValidate>
+          noValidate
+        >
           <DialogHeader>
             <DialogTitle className="text-xl">{title}</DialogTitle>
             <DialogDescription>
@@ -160,7 +161,8 @@ export function ProjectFormDialog({
                 render={({ field, fieldState }) => (
                   <Field
                     className="flex flex-col gap-1.5"
-                    data-invalid={fieldState.invalid}>
+                    data-invalid={fieldState.invalid}
+                  >
                     <Label className={LABEL_CLASS}>
                       Parent Client{" "}
                       <span className="ml-0.5 text-destructive">*</span>
@@ -195,7 +197,8 @@ export function ProjectFormDialog({
               render={({ field, fieldState }) => (
                 <Field
                   className="flex flex-col gap-1.5"
-                  data-invalid={fieldState.invalid}>
+                  data-invalid={fieldState.invalid}
+                >
                   <Label className={LABEL_CLASS}>
                     Project Title{" "}
                     <span className="ml-0.5 text-destructive">*</span>
@@ -219,7 +222,8 @@ export function ProjectFormDialog({
                 render={({ field, fieldState }) => (
                   <Field
                     className="flex flex-col gap-1.5"
-                    data-invalid={fieldState.invalid}>
+                    data-invalid={fieldState.invalid}
+                  >
                     <Label className={LABEL_CLASS}>Project Budget</Label>
                     <InputGroup>
                       <InputGroupAddon align="inline-start">
@@ -273,7 +277,8 @@ export function ProjectFormDialog({
                 render={({ field, fieldState }) => (
                   <Field
                     className="flex flex-col gap-1.5"
-                    data-invalid={fieldState.invalid}>
+                    data-invalid={fieldState.invalid}
+                  >
                     <Label className={LABEL_CLASS}>Status</Label>
                     <Select value={field.value} onValueChange={field.onChange}>
                       <SelectTrigger aria-invalid={fieldState.invalid}>
@@ -309,7 +314,8 @@ export function ProjectFormDialog({
                     <Label
                       size="large"
                       htmlFor="same-as-main-checkbox"
-                      className="cursor-pointer select-none leading-none">
+                      className="cursor-pointer select-none leading-none"
+                    >
                       Same as client's main address
                     </Label>
                   </div>
@@ -319,7 +325,8 @@ export function ProjectFormDialog({
 
             <div
               className="grid transition-all duration-300 ease-in-out"
-              style={{ gridTemplateRows: !sameAsMain ? "1fr" : "0fr" }}>
+              style={{ gridTemplateRows: !sameAsMain ? "1fr" : "0fr" }}
+            >
               <div className="-mx-1 overflow-hidden px-1">
                 <div className="flex flex-col gap-4 pt-1 pb-4">
                   <Controller
@@ -328,7 +335,8 @@ export function ProjectFormDialog({
                     render={({ field, fieldState }) => (
                       <Field
                         className="flex flex-col gap-1.5"
-                        data-invalid={fieldState.invalid}>
+                        data-invalid={fieldState.invalid}
+                      >
                         <Label className={LABEL_CLASS}>Street Address</Label>
                         <Input
                           {...field}
@@ -348,7 +356,8 @@ export function ProjectFormDialog({
                       render={({ field, fieldState }) => (
                         <Field
                           className="col-span-2 flex flex-col gap-1.5"
-                          data-invalid={fieldState.invalid}>
+                          data-invalid={fieldState.invalid}
+                        >
                           <Label className={LABEL_CLASS}>City</Label>
                           <Input
                             {...field}
@@ -367,7 +376,8 @@ export function ProjectFormDialog({
                       render={({ field, fieldState }) => (
                         <Field
                           className="flex flex-col gap-1.5"
-                          data-invalid={fieldState.invalid}>
+                          data-invalid={fieldState.invalid}
+                        >
                           <Label className={LABEL_CLASS}>State</Label>
                           <Input
                             {...field}
@@ -387,7 +397,8 @@ export function ProjectFormDialog({
                       render={({ field, fieldState }) => (
                         <Field
                           className="flex flex-col gap-1.5"
-                          data-invalid={fieldState.invalid}>
+                          data-invalid={fieldState.invalid}
+                        >
                           <Label className={LABEL_CLASS}>ZIP</Label>
                           <Input
                             {...field}
@@ -416,7 +427,8 @@ export function ProjectFormDialog({
               render={({ field, fieldState }) => (
                 <Field
                   className="flex flex-col gap-1.5"
-                  data-invalid={fieldState.invalid}>
+                  data-invalid={fieldState.invalid}
+                >
                   <Label className={LABEL_CLASS}>Project Brief</Label>
                   <Textarea
                     {...field}
@@ -437,13 +449,15 @@ export function ProjectFormDialog({
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              disabled={submitting}>
+              disabled={submitting}
+            >
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={submitting}
-              className="flex items-center gap-2">
+              className="flex items-center gap-2"
+            >
               {submitting && <Loader2 className="size-4 animate-spin" />}
               {submitLabel}
             </Button>

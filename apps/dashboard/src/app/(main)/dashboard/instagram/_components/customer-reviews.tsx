@@ -57,7 +57,8 @@ export function CustomerReviews() {
               <Button
                 aria-label="Previous review"
                 size="icon-xs"
-                variant="outline">
+                variant="outline"
+              >
                 <ArrowLeft />
               </Button>
               <Button aria-label="Next review" size="icon-xs" variant="outline">

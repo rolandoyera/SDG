@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import {
   Bar,
   BarChart,
@@ -30,7 +31,6 @@ export interface HatchBarDatum {
   flagCode?: string;
 }
 
-const PATTERN_ID = "hatch-bar-background-pattern";
 // Left gutter reserved for flags so rows align even when one has no flag (e.g. Unknown).
 const FLAG_SLOT = 28;
 const FLAG_HEIGHT = 14;
@@ -44,7 +44,7 @@ export function HatchBarChart({
   data,
   seriesLabel,
   barSize = 40,
-  rowHeight = 56,
+  rowHeight = 53,
   showPercentage = false,
   className = "w-full",
   emptyMessage = "No data for this range.",
@@ -63,6 +63,33 @@ export function HatchBarChart({
     value: { color: "var(--chart-1)", label: seriesLabel },
   } satisfies ChartConfig;
 
+  // Unique per instance: several charts render per page, and SVG url(#id)
+  // refs resolve document-wide, so a shared id makes every chart depend on
+  // the first instance's pattern (fragile against hidden/unmounted siblings).
+  const patternId = `hatch-bar-pattern-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
+
+  // Custom renderer instead of position="insideLeft": recharts constrains an
+  // inside label to the filled bar's width and word-wraps it to fit, so short
+  // bars render bunched multi-line text. Anchoring to the row's left edge with
+  // no width limit keeps the label on one line — the hatched background spans
+  // the full row, so overflowing the fill is fine.
+  const renderBarText = (props: LabelProps) => {
+    const { height, value, x, y } = props;
+
+    return (
+      <text
+        className="fill-foreground"
+        dominantBaseline="middle"
+        dx={12}
+        fontSize={14}
+        x={Number(x)}
+        y={Number(y) + Number(height) / 2}
+      >
+        {value}
+      </text>
+    );
+  };
+
   const renderValueLabel = (props: LabelProps) => {
     const { height, value, y } = props;
 
@@ -74,7 +101,8 @@ export function HatchBarChart({
         fontSize={14}
         textAnchor="end"
         x="100%"
-        y={Number(y) + Number(height) / 2}>
+        y={Number(y) + Number(height) / 2}
+      >
         {value}
       </text>
     );
@@ -89,11 +117,15 @@ export function HatchBarChart({
   }
 
   // YAxis category drives the tooltip's heading, so resolve the fallback up front.
+  // Per-entry `fill` paints zero rows' minPointSize stub transparent, so a
+  // zero row shows pure hatch (Cell is deprecated; recharts reads fill from
+  // the data entry).
   const total = data.reduce((sum, d) => sum + d.value, 0);
   const rows = data.map((d) => ({
     ...d,
     tooltipLabel: d.tooltipLabel ?? d.barText,
     pct: total > 0 ? Math.round((d.value / total) * 100) : 0,
+    fill: d.value === 0 ? "transparent" : "var(--color-value)",
   }));
 
   const hasFlags = data.some((d) => d.flagCode !== undefined);
@@ -114,7 +146,8 @@ export function HatchBarChart({
         x={Number(x) - FLAG_SLOT + 2}
         y={Number(y) + (Number(height) - FLAG_HEIGHT) / 2}
         width={FLAG_WIDTH}
-        height={FLAG_HEIGHT}>
+        height={FLAG_HEIGHT}
+      >
         <span
           aria-hidden="true"
           className={`flag:${row.flagCode} block rounded-xs ring-1 ring-foreground/5`}
@@ -128,19 +161,22 @@ export function HatchBarChart({
     <ChartContainer
       config={config}
       className={className}
-      style={{ height: rows.length * rowHeight }}>
+      style={{ height: rows.length * rowHeight }}
+    >
       <BarChart
         accessibilityLayer
         data={rows}
         layout="vertical"
-        margin={{ left: hasFlags ? FLAG_SLOT : 0, right: 48 }}>
+        margin={{ left: hasFlags ? FLAG_SLOT : 0, right: 48 }}
+      >
         <defs>
           <pattern
             height="4"
-            id={PATTERN_ID}
+            id={patternId}
             patternTransform="rotate(45)"
             patternUnits="userSpaceOnUse"
-            width="4">
+            width="4"
+          >
             <rect height="6" width="6" fill="var(--muted)" fillOpacity="0.5" />
             <line
               stroke="var(--muted-foreground)"
@@ -188,19 +224,20 @@ export function HatchBarChart({
           }
         />
         <Bar
-          background={{ fill: `url(#${PATTERN_ID})`, radius: 8 }}
+          background={{ fill: `url(#${patternId})`, radius: 8 }}
           barSize={barSize}
           dataKey="value"
           fill="var(--color-value)"
           fillOpacity={0.5}
-          radius={8}>
-          <LabelList
-            className="fill-foreground"
-            dataKey="barText"
-            fontSize={14}
-            offset={12}
-            position="insideLeft"
-          />
+          // Render zero-value rows: recharts skips a 0 bar entirely, and its
+          // background track and LabelList labels are skipped with it — the
+          // row shows literally nothing. A 1px stub keeps the bar (and thus
+          // track + labels) in the tree; the Cells below paint the stub
+          // transparent so a zero row shows pure hatch.
+          minPointSize={1}
+          radius={8}
+        >
+          <LabelList content={renderBarText} dataKey="barText" />
           {hasFlags && <LabelList content={renderFlag} dataKey="flagCode" />}
           <LabelList content={renderValueLabel} dataKey="valueLabel" />
         </Bar>

@@ -96,7 +96,11 @@ const queryColumns: ColumnDef<SearchQueryItem>[] = [
       <SortableHeader column={column}>Query</SortableHeader>
     ),
     cell: ({ row }) => (
-      <div className="truncate font-medium">{row.original.query}</div>
+      // Long queries wrap instead of stretching the table into a horizontal
+      // scroll (TableCell is whitespace-nowrap by default).
+      <div className="font-medium wrap-break-word whitespace-normal">
+        {row.original.query}
+      </div>
     ),
   },
   ...metricColumns<SearchQueryItem>(),
@@ -109,7 +113,9 @@ const pageColumns: ColumnDef<SearchPageItem>[] = [
       <SortableHeader column={column}>Page</SortableHeader>
     ),
     cell: ({ row }) => (
-      <div className="truncate font-medium">{toPath(row.original.page)}</div>
+      <div className="font-medium wrap-break-word whitespace-normal">
+        {toPath(row.original.page)}
+      </div>
     ),
   },
   ...metricColumns<SearchPageItem>(),

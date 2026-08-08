@@ -1,15 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ExternalLink, Loader2 } from "lucide-react";
+import { Eraser, ExternalLink, Loader2, MoreVertical } from "lucide-react";
 import { type Control, Controller, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 
 import { SearchSelect } from "@/components/search-select";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  TooltipDropdownMenu,
+} from "@/components/ui/dropdown-menu";
 import { Field, FieldError } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,14 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import {
   analyzeExternalUrl,
   analyzeSitePage,
@@ -85,11 +84,27 @@ const compareSchema = z
   });
 
 type CompareFormData = z.infer<typeof compareSchema>;
+type SideFormData = CompareFormData["left"];
 type SideKey = "left" | "right";
 
-// Last-used sources live in localStorage so a return visit restores the
-// comparison; the analyses themselves come from the server-side page cache.
-const STORAGE_KEY = "seo-compare-form";
+// Each side's last-used source lives in its own localStorage key so the sides
+// restore (and clear) independently; the analyses themselves come from the
+// server-side page cache.
+const SIDE_STORAGE_KEYS: Record<SideKey, string> = {
+  left: "seo-compare-left",
+  right: "seo-compare-right",
+};
+
+const SIDE_DEFAULTS: Record<SideKey, SideFormData> = {
+  left: { source: "live", path: "", url: "" },
+  right: { source: "none", path: "", url: "" },
+};
+
+// Stored sides must carry a source this build understands — stale keys from
+// older builds fall back to the side's default instead of restoring blank.
+const storedSideSchema = sideSchema.extend({
+  source: z.string().regex(/^(live|local|custom|none|comp:\d+)$/),
+});
 
 type SitemapState =
   | { status: "loading" }
@@ -98,17 +113,33 @@ type SitemapState =
 
 const SUMMARY_METRICS: {
   label: string;
-  value: (page: PageAnalysis) => string;
+  value: (page: PageAnalysis) => ReactNode;
 }[] = [
-  { label: "Title", value: (page) => page.title || "—" },
-  { label: "Title length", value: (page) => `${page.title.length} chars` },
+  {
+    label: "Title",
+    value: (page) =>
+      page.title || (
+        <span className="text-destructive">
+          Missing — pages need a title tag
+        </span>
+      ),
+  },
+  {
+    label: "Title length",
+    value: (page) => `${page.title.length} chars (50–60 max)`,
+  },
   {
     label: "Meta description",
-    value: (page) => page.metaDescription || "—",
+    value: (page) =>
+      page.metaDescription || (
+        <span className="text-destructive">
+          Missing — pages need a meta description
+        </span>
+      ),
   },
   {
     label: "Meta length",
-    value: (page) => `${page.metaDescription.length} chars`,
+    value: (page) => `${page.metaDescription.length} chars (120–160 max)`,
   },
   {
     label: "Word count",
@@ -120,7 +151,17 @@ const SUMMARY_METRICS: {
     value: (page) =>
       `${page.scopes.all.unique.toLocaleString()} (${page.scopes.all.uniqueWithStop.toLocaleString()} incl. stop words)`,
   },
-  { label: "H1", value: (page) => page.h1s.join(" · ") || "—" },
+  {
+    label: "H1",
+    value: (page) =>
+      page.h1s.length ? (
+        page.h1s.join(" · ")
+      ) : (
+        <span className="text-destructive">
+          Missing — pages need one H1 heading
+        </span>
+      ),
+  },
   { label: "H2s", value: (page) => `${page.h2s.length}` },
   {
     label: "Links",
@@ -151,6 +192,7 @@ function SideFields({
   liveBaseUrl,
   sitemap,
   onSourceChange,
+  onClearResults,
 }: {
   side: SideKey;
   control: Control<CompareFormData>;
@@ -160,6 +202,7 @@ function SideFields({
   liveBaseUrl: string | null;
   sitemap: SitemapState | undefined;
   onSourceChange: () => void;
+  onClearResults: () => void;
 }) {
   const usesSitemap =
     source === "live" || source === "local" || source.startsWith("comp:");
@@ -285,18 +328,30 @@ function SideFields({
       )}
 
       <div className="flex flex-col gap-1.5">
-        <Label className="invisible">Visit</Label>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={!visitHref}
-          onClick={() => {
-            if (visitHref) window.open(visitHref, "_blank", "noopener");
-          }}
-        >
-          <ExternalLink className="size-4" />
-          Visit Page
-        </Button>
+        <Label className="invisible">Actions</Label>
+        <TooltipDropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button type="button" variant="ghost" size="icon">
+              <MoreVertical className="size-4" />
+              <span className="sr-only">Actions Menu</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuItem
+              disabled={!visitHref}
+              onClick={() => {
+                if (visitHref) window.open(visitHref, "_blank", "noopener");
+              }}
+            >
+              <ExternalLink className="size-4" />
+              Visit Page
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onClearResults}>
+              <Eraser className="size-4" />
+              Clear Results
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </TooltipDropdownMenu>
       </div>
     </div>
   );
@@ -306,10 +361,7 @@ export function CompareTab() {
   const { control, handleSubmit, watch, setValue, reset } =
     useForm<CompareFormData>({
       resolver: zodResolver(compareSchema),
-      defaultValues: {
-        left: { source: "live", path: "", url: "" },
-        right: { source: "none", path: "", url: "" },
-      },
+      defaultValues: { left: SIDE_DEFAULTS.left, right: SIDE_DEFAULTS.right },
     });
   const leftSource = watch("left.source");
   const rightSource = watch("right.source");
@@ -323,26 +375,41 @@ export function CompareTab() {
   const [left, setLeft] = useState<PageAnalysis | null>(null);
   const [right, setRight] = useState<PageAnalysis | null>(null);
   const [scope, setScope] = useState<ScopeKey>("all");
-  const [pendingRestore, setPendingRestore] = useState<CompareFormData | null>(
-    null,
-  );
+  const [pendingRestore, setPendingRestore] = useState<{
+    left?: SideFormData;
+    right?: SideFormData;
+  } | null>(null);
   const [competitorsReady, setCompetitorsReady] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
 
-    // Restore the last-used sources; the auto-rerun waits for the competitor
-    // list below (comp:<i> sources resolve against it).
-    try {
-      const saved = compareSchema.safeParse(
-        JSON.parse(localStorage.getItem(STORAGE_KEY) ?? ""),
-      );
-      if (saved.success) {
-        reset(saved.data);
-        setPendingRestore(saved.data);
+    // Restore each side independently — a stale or unreadable side falls back
+    // to its default without blocking the other. The auto-rerun waits for the
+    // competitor list below (comp:<i> sources resolve against it).
+    localStorage.removeItem("seo-compare-form"); // pre-split blob
+    const restored: { left?: SideFormData; right?: SideFormData } = {};
+    for (const key of ["left", "right"] as const) {
+      try {
+        const saved = storedSideSchema.safeParse(
+          JSON.parse(localStorage.getItem(SIDE_STORAGE_KEYS[key]) ?? ""),
+        );
+        if (
+          saved.success &&
+          !(key === "left" && saved.data.source === "none")
+        ) {
+          restored[key] = saved.data;
+        }
+      } catch {
+        // Nothing saved for this side.
       }
-    } catch {
-      // Nothing saved (or unreadable) — start from the defaults.
+    }
+    if (restored.left || restored.right) {
+      reset({
+        left: restored.left ?? SIDE_DEFAULTS.left,
+        right: restored.right ?? SIDE_DEFAULTS.right,
+      });
+      setPendingRestore(restored);
     }
 
     fetchCompetitors()
@@ -418,37 +485,34 @@ export function CompareTab() {
   }, [leftSource, rightSource, competitors, sitemaps]);
 
   const analyzeSide = useCallback(
-    async (
-      side: CompareFormData["left"],
-    ): Promise<SeoResult<PageAnalysis> | null> => {
-      if (side.source === "none") return null;
+    async (side: SideFormData): Promise<SeoResult<PageAnalysis> | null> => {
       if (side.source === "custom") return analyzeExternalUrl(side.url);
       const path = leadingSlash(side.path.trim());
       if (side.source === "live" || side.source === "local") {
         return analyzeSitePage(side.source, path);
       }
-      const competitor = competitors[Number(side.source.slice(5))];
-      if (!competitor) {
-        return { success: false, error: "Competitor not found." };
+      if (side.source.startsWith("comp:")) {
+        const competitor = competitors[Number(side.source.slice(5))];
+        if (!competitor) {
+          return { success: false, error: "Competitor not found." };
+        }
+        return analyzeExternalUrl(new URL(path, competitor.url).href);
       }
-      return analyzeExternalUrl(new URL(path, competitor.url).href);
+      // "none" or an unrecognized source — nothing to analyze.
+      return null;
     },
     [competitors],
   );
 
-  const onSubmit = useCallback(
-    async (data: CompareFormData) => {
+  // Analyze the given sides; a side left out keeps its current results.
+  const runSides = useCallback(
+    async (sides: { left?: SideFormData; right?: SideFormData }) => {
       setLoading(true);
       setErrors([]);
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-      } catch {
-        // Storage unavailable — the analysis still runs, it just won't restore.
-      }
-      try {
         const [leftResult, rightResult] = await Promise.all([
-          analyzeSide(data.left),
-          analyzeSide(data.right),
+          sides.left ? analyzeSide(sides.left) : undefined,
+          sides.right ? analyzeSide(sides.right) : undefined,
         ]);
 
         const problems: string[] = [];
@@ -461,8 +525,16 @@ export function CompareTab() {
           problems.push(result.error ?? fallback);
           return null;
         };
-        setLeft(unpack(leftResult, "Could not analyze the left page."));
-        setRight(unpack(rightResult, "Could not analyze the right page."));
+        if (sides.left) {
+          setLeft(
+            unpack(leftResult ?? null, "Could not analyze the left page."),
+          );
+        }
+        if (sides.right) {
+          setRight(
+            unpack(rightResult ?? null, "Could not analyze the right page."),
+          );
+        }
         setErrors(problems);
       } finally {
         setLoading(false);
@@ -471,29 +543,68 @@ export function CompareTab() {
     [analyzeSide],
   );
 
-  // Re-run the restored comparison once the competitor list is in. Saved data
-  // already passed the schema; a comp:<i> whose competitor was since deleted
-  // just skips the rerun (the form still shows the restored selections).
+  const onSubmit = useCallback(
+    async (data: CompareFormData) => {
+      try {
+        localStorage.setItem(SIDE_STORAGE_KEYS.left, JSON.stringify(data.left));
+        localStorage.setItem(
+          SIDE_STORAGE_KEYS.right,
+          JSON.stringify(data.right),
+        );
+      } catch {
+        // Storage unavailable — the analysis still runs, it just won't restore.
+      }
+      await runSides({ left: data.left, right: data.right });
+    },
+    [runSides],
+  );
+
+  // Clear one side: results, form selection, and its saved restore state.
+  const clearResults = useCallback(
+    (side: SideKey) => {
+      setValue(side, SIDE_DEFAULTS[side]);
+      (side === "left" ? setLeft : setRight)(null);
+      setErrors([]);
+      try {
+        localStorage.removeItem(SIDE_STORAGE_KEYS[side]);
+      } catch {
+        // Storage unavailable — nothing saved to clear.
+      }
+    },
+    [setValue],
+  );
+
+  // Re-run the restored sides once the competitor list is in (comp:<i>
+  // resolves against it). A side whose competitor was since deleted skips its
+  // rerun alone — the other side still repopulates.
   useEffect(() => {
     if (!pendingRestore || !competitorsReady) return;
     setPendingRestore(null);
-    const missingCompetitor = [pendingRestore.left, pendingRestore.right].some(
-      (side) =>
-        side.source.startsWith("comp:") &&
-        !competitors[Number(side.source.slice(5))],
-    );
-    if (!missingCompetitor) {
-      onSubmit(pendingRestore).catch(() => {
-        // onSubmit reports its own errors; nothing extra to do here.
+    const resolvable = (side?: SideFormData) =>
+      side &&
+      (!side.source.startsWith("comp:") ||
+        competitors[Number(side.source.slice(5))])
+        ? side
+        : undefined;
+    const sides = {
+      left: resolvable(pendingRestore.left),
+      right: resolvable(pendingRestore.right),
+    };
+    if (sides.left || sides.right) {
+      runSides(sides).catch(() => {
+        // runSides reports its own errors; nothing extra to do here.
       });
     }
-  }, [pendingRestore, competitorsReady, competitors, onSubmit]);
+  }, [pendingRestore, competitorsReady, competitors, runSides]);
+
+  // Whichever sides have results — left alone, right alone, or both.
+  const pages = [left, right].filter((page): page is PageAnalysis => !!page);
 
   return (
     <div className="flex flex-col gap-6">
       <Card className="gap-2 pt-0">
         <CardHeader className="bg-muted/50 py-3">
-          <CardTitle>Page</CardTitle>
+          <CardTitle>Site Page</CardTitle>
         </CardHeader>
         <CardContent>
           <form
@@ -511,6 +622,7 @@ export function CompareTab() {
                 liveBaseUrl={liveBaseUrl}
                 sitemap={sitemaps[leftSource]}
                 onSourceChange={() => setValue("left.path", "")}
+                onClearResults={() => clearResults("left")}
               />
               <SideFields
                 side="right"
@@ -521,6 +633,7 @@ export function CompareTab() {
                 liveBaseUrl={liveBaseUrl}
                 sitemap={sitemaps[rightSource]}
                 onSourceChange={() => setValue("right.path", "")}
+                onClearResults={() => clearResults("right")}
               />
             </div>
 
@@ -544,39 +657,37 @@ export function CompareTab() {
         </CardContent>
       </Card>
 
-      {left && (
+      {pages.length > 0 && (
         <>
           <Card className="gap-2 pt-0">
             <CardHeader className="bg-muted/50 py-3">
               <CardTitle>Summary</CardTitle>
             </CardHeader>
-            <CardContent className="px-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-40 pl-4">Metric</TableHead>
-                    <TableHead>{reportHeading(left)}</TableHead>
-                    {right && <TableHead>{reportHeading(right)}</TableHead>}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {SUMMARY_METRICS.map((metric) => (
-                    <TableRow key={metric.label}>
-                      <TableCell className="pl-4 font-medium">
-                        {metric.label}
-                      </TableCell>
-                      <TableCell className="whitespace-normal">
-                        {metric.value(left)}
-                      </TableCell>
-                      {right && (
-                        <TableCell className="whitespace-normal">
-                          {metric.value(right)}
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+            <CardContent>
+              {/* Same grid as the Keyword Report: one block per page, so long
+                  values wrap inside their own half instead of pushing the
+                  other page's column. */}
+              <div className="grid gap-8 lg:grid-cols-2">
+                {pages.map((page) => (
+                  <div key={page.url} className="flex flex-col gap-4">
+                    <p className="font-medium text-sm">{reportHeading(page)}</p>
+                    <Table className="table-fixed">
+                      <TableBody>
+                        {SUMMARY_METRICS.map((metric) => (
+                          <TableRow key={metric.label}>
+                            <TableCell className="w-40 align-top font-medium">
+                              {metric.label}
+                            </TableCell>
+                            <TableCell className="wrap-break-word whitespace-normal">
+                              {metric.value(page)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ))}
+              </div>
             </CardContent>
           </Card>
 
@@ -587,18 +698,12 @@ export function CompareTab() {
             <CardContent className="flex flex-col gap-6">
               <ScopePicker value={scope} onChange={setScope} />
               <div className="grid gap-8 lg:grid-cols-2">
-                <div className="flex flex-col gap-4">
-                  <p className="font-medium text-sm">{reportHeading(left)}</p>
-                  <ScopePhraseTables scope={left.scopes[scope]} />
-                </div>
-                {right && (
-                  <div className="flex flex-col gap-4">
-                    <p className="font-medium text-sm">
-                      {reportHeading(right)}
-                    </p>
-                    <ScopePhraseTables scope={right.scopes[scope]} />
+                {pages.map((page) => (
+                  <div key={page.url} className="flex flex-col gap-4">
+                    <p className="font-medium text-sm">{reportHeading(page)}</p>
+                    <ScopePhraseTables scope={page.scopes[scope]} />
                   </div>
-                )}
+                ))}
               </div>
             </CardContent>
           </Card>

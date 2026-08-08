@@ -1,5 +1,17 @@
 # TODO — Website / SEO Section
 
+## Lenis Studio website (`apps/website`)
+
+**2026-08-07** — wiped the stale Oshrat copy (real home: `oshrat/web`) and
+scaffolded the studio's own site from scratch: landing page + `/privacy`,
+`/terms`, `/data-deletion` for the Meta app submission. PRD at
+`/WEBSITE-PRD.md`.
+
+- [ ] Confirm domain (lenisstudio.com?) and set `NEXT_PUBLIC_SITE_URL`.
+- [ ] Deploy to Vercel, attach domain, paste legal URLs into Meta app
+      settings.
+- [ ] Rolando: review legal copy + landing positioning line.
+
 **Shipped 2026-08-07** — the Keyword Analyzer lives at
 `/dashboard/seo/keyword-analyzer` (Website → SEO in the sidebar). See
 `apps/dashboard/src/app/(main)/dashboard/seo/AGENTS.md` for the
@@ -9,7 +21,8 @@ architecture and analyzer rules.
   competitor URL), SEOBook-comparable densities, five scopes.
 - Site Crawl tab: manual sitemap-wide crawl, sortable page table with
   per-page report dialog, duplicated-content and anchor-reuse checks.
-- Caching in-memory only (by design); prod + localhost targets.
+- Caching in-memory only (by design); prod + localhost targets. Compare
+  selections persist in localStorage and auto-rerun on return.
 
 ## Later, if worthy
 
@@ -17,7 +30,6 @@ architecture and analyzer rules.
   site-vs-site analysis (sitewide crawl of a competitor's sitemap).
 - Persist crawl history to Firestore (trend over time).
 - Aggregate site-wide keyword view (sum phrase counts across the crawl).
-- Compare tab: persist last-used sources (localStorage).
 
 ## Project: move site content off Sanity into Studio
 

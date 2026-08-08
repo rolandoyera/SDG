@@ -17,7 +17,12 @@ Two tabs backed by `src/server/seo-actions.ts`:
   sources get a searchable page picker (the shared `SearchSelect` from
   `src/components/`, loaded lazily per source, manual-path fallback);
   left defaults to Live, right to None. The before/after workflow is
-  Unpublished left vs Live right of the same path. Form is RHF + Zod.
+  Unpublished left vs Live right of the same path. Form is RHF + Zod. Each side
+  has a Visit Page button (new tab; homepage when no page is picked yet). The
+  last-used selections persist in localStorage (`seo-compare-form`) and the
+  comparison auto-reruns on mount — instant while the server page cache is
+  warm. Both tabs are `forceMount`ed (hidden via `data-[state=inactive]:hidden`)
+  so switching tabs doesn't wipe results.
 - **Site Crawl** — manual "Run Crawl" over every sitemap page (~30s,
   concurrency 8), TanTable of per-page metrics (row click opens the full
   report dialog), plus the site-wide checks: duplicated 8-word content runs
@@ -59,4 +64,6 @@ competitor analysis will grow later.
 - Caching is **in-memory per server instance** (page analyses 10 min TTL; last
   crawl per target kept until re-run). A restart loses it by design — no
   Firestore. If persistence ever earns its keep, a single JSON blob per crawl
-  is the intended upgrade.
+  is the intended upgrade. The UI rehydrates from it: the Site tab pulls the
+  cached crawl on mount (`fetchCachedCrawl`), the Compare tab re-runs its
+  localStorage-saved selections.

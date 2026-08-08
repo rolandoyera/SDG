@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ExternalLink, Loader2 } from "lucide-react";
@@ -86,6 +86,10 @@ const compareSchema = z
 
 type CompareFormData = z.infer<typeof compareSchema>;
 type SideKey = "left" | "right";
+
+// Last-used sources live in localStorage so a return visit restores the
+// comparison; the analyses themselves come from the server-side page cache.
+const STORAGE_KEY = "seo-compare-form";
 
 type SitemapState =
   | { status: "loading" }
@@ -196,7 +200,8 @@ function SideFields({
               onValueChange={(value) => {
                 field.onChange(value);
                 onSourceChange();
-              }}>
+              }}
+            >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Choose a source" />
               </SelectTrigger>
@@ -287,7 +292,8 @@ function SideFields({
           disabled={!visitHref}
           onClick={() => {
             if (visitHref) window.open(visitHref, "_blank", "noopener");
-          }}>
+          }}
+        >
           <ExternalLink className="size-4" />
           Visit Page
         </Button>
@@ -297,13 +303,14 @@ function SideFields({
 }
 
 export function CompareTab() {
-  const { control, handleSubmit, watch, setValue } = useForm<CompareFormData>({
-    resolver: zodResolver(compareSchema),
-    defaultValues: {
-      left: { source: "live", path: "", url: "" },
-      right: { source: "none", path: "", url: "" },
-    },
-  });
+  const { control, handleSubmit, watch, setValue, reset } =
+    useForm<CompareFormData>({
+      resolver: zodResolver(compareSchema),
+      defaultValues: {
+        left: { source: "live", path: "", url: "" },
+        right: { source: "none", path: "", url: "" },
+      },
+    });
   const leftSource = watch("left.source");
   const rightSource = watch("right.source");
 
@@ -316,9 +323,28 @@ export function CompareTab() {
   const [left, setLeft] = useState<PageAnalysis | null>(null);
   const [right, setRight] = useState<PageAnalysis | null>(null);
   const [scope, setScope] = useState<ScopeKey>("all");
+  const [pendingRestore, setPendingRestore] = useState<CompareFormData | null>(
+    null,
+  );
+  const [competitorsReady, setCompetitorsReady] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
+
+    // Restore the last-used sources; the auto-rerun waits for the competitor
+    // list below (comp:<i> sources resolve against it).
+    try {
+      const saved = compareSchema.safeParse(
+        JSON.parse(localStorage.getItem(STORAGE_KEY) ?? ""),
+      );
+      if (saved.success) {
+        reset(saved.data);
+        setPendingRestore(saved.data);
+      }
+    } catch {
+      // Nothing saved (or unreadable) — start from the defaults.
+    }
+
     fetchCompetitors()
       .then((result) => {
         if (!cancelled && result.success && result.data) {
@@ -327,6 +353,9 @@ export function CompareTab() {
       })
       .catch(() => {
         // The source dropdowns just won't list competitors.
+      })
+      .finally(() => {
+        if (!cancelled) setCompetitorsReady(true);
       });
     fetchCompanyName()
       .then((result) => {
@@ -349,7 +378,7 @@ export function CompareTab() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reset]);
 
   // Load the sitemap for any selected source that needs one, once per source.
   useEffect(() => {
@@ -388,48 +417,77 @@ export function CompareTab() {
     }
   }, [leftSource, rightSource, competitors, sitemaps]);
 
-  const analyzeSide = async (
-    side: CompareFormData["left"],
-  ): Promise<SeoResult<PageAnalysis> | null> => {
-    if (side.source === "none") return null;
-    if (side.source === "custom") return analyzeExternalUrl(side.url);
-    const path = leadingSlash(side.path.trim());
-    if (side.source === "live" || side.source === "local") {
-      return analyzeSitePage(side.source, path);
-    }
-    const competitor = competitors[Number(side.source.slice(5))];
-    if (!competitor) {
-      return { success: false, error: "Competitor not found." };
-    }
-    return analyzeExternalUrl(new URL(path, competitor.url).href);
-  };
+  const analyzeSide = useCallback(
+    async (
+      side: CompareFormData["left"],
+    ): Promise<SeoResult<PageAnalysis> | null> => {
+      if (side.source === "none") return null;
+      if (side.source === "custom") return analyzeExternalUrl(side.url);
+      const path = leadingSlash(side.path.trim());
+      if (side.source === "live" || side.source === "local") {
+        return analyzeSitePage(side.source, path);
+      }
+      const competitor = competitors[Number(side.source.slice(5))];
+      if (!competitor) {
+        return { success: false, error: "Competitor not found." };
+      }
+      return analyzeExternalUrl(new URL(path, competitor.url).href);
+    },
+    [competitors],
+  );
 
-  const onSubmit = async (data: CompareFormData) => {
-    setLoading(true);
-    setErrors([]);
-    try {
-      const [leftResult, rightResult] = await Promise.all([
-        analyzeSide(data.left),
-        analyzeSide(data.right),
-      ]);
+  const onSubmit = useCallback(
+    async (data: CompareFormData) => {
+      setLoading(true);
+      setErrors([]);
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      } catch {
+        // Storage unavailable — the analysis still runs, it just won't restore.
+      }
+      try {
+        const [leftResult, rightResult] = await Promise.all([
+          analyzeSide(data.left),
+          analyzeSide(data.right),
+        ]);
 
-      const problems: string[] = [];
-      const unpack = (
-        result: SeoResult<PageAnalysis> | null,
-        fallback: string,
-      ): PageAnalysis | null => {
-        if (!result) return null;
-        if (result.success && result.data) return result.data;
-        problems.push(result.error ?? fallback);
-        return null;
-      };
-      setLeft(unpack(leftResult, "Could not analyze the left page."));
-      setRight(unpack(rightResult, "Could not analyze the right page."));
-      setErrors(problems);
-    } finally {
-      setLoading(false);
+        const problems: string[] = [];
+        const unpack = (
+          result: SeoResult<PageAnalysis> | null,
+          fallback: string,
+        ): PageAnalysis | null => {
+          if (!result) return null;
+          if (result.success && result.data) return result.data;
+          problems.push(result.error ?? fallback);
+          return null;
+        };
+        setLeft(unpack(leftResult, "Could not analyze the left page."));
+        setRight(unpack(rightResult, "Could not analyze the right page."));
+        setErrors(problems);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [analyzeSide],
+  );
+
+  // Re-run the restored comparison once the competitor list is in. Saved data
+  // already passed the schema; a comp:<i> whose competitor was since deleted
+  // just skips the rerun (the form still shows the restored selections).
+  useEffect(() => {
+    if (!pendingRestore || !competitorsReady) return;
+    setPendingRestore(null);
+    const missingCompetitor = [pendingRestore.left, pendingRestore.right].some(
+      (side) =>
+        side.source.startsWith("comp:") &&
+        !competitors[Number(side.source.slice(5))],
+    );
+    if (!missingCompetitor) {
+      onSubmit(pendingRestore).catch(() => {
+        // onSubmit reports its own errors; nothing extra to do here.
+      });
     }
-  };
+  }, [pendingRestore, competitorsReady, competitors, onSubmit]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -441,7 +499,8 @@ export function CompareTab() {
           <form
             onSubmit={handleSubmit(onSubmit)}
             className="flex flex-col gap-4"
-            noValidate>
+            noValidate
+          >
             <div className="grid gap-6 lg:grid-cols-2">
               <SideFields
                 side="left"

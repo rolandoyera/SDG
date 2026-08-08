@@ -20,11 +20,21 @@ export default function Page() {
           <TabsTrigger value="crawl">Site</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="compare">
+        {/* forceMount keeps the inactive tab alive so switching tabs doesn't
+            wipe its results; with forceMount Radix leaves hiding to us. */}
+        <TabsContent
+          value="compare"
+          forceMount
+          className="data-[state=inactive]:hidden"
+        >
           <CompareTab />
         </TabsContent>
 
-        <TabsContent value="crawl">
+        <TabsContent
+          value="crawl"
+          forceMount
+          className="data-[state=inactive]:hidden"
+        >
           <CrawlTab />
         </TabsContent>
       </Tabs>

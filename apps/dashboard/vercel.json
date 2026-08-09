@@ -3,6 +3,14 @@
     {
       "path": "/api/cron/instagram-snapshots",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/position-tracking",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/form-error-alert",
+      "schedule": "0 12 * * *"
     }
   ]
 }

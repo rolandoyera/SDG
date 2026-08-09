@@ -65,6 +65,20 @@ export const getActiveOrgWebsite = cache(async (): Promise<string | null> => {
   return website ? website : null;
 });
 
+/** The active tenant's company address state/country codes (Company page). */
+export const getActiveOrgCompanyAddress = cache(
+  async (): Promise<{ state: string | null; country: string | null }> => {
+    const org = await readActiveOrg();
+    const profile = org.data?.companyProfile as
+      | { address?: { state?: string; country?: string } }
+      | undefined;
+    return {
+      state: profile?.address?.state?.trim() || null,
+      country: profile?.address?.country?.trim() || null,
+    };
+  },
+);
+
 /** The active tenant's company display name (Company page), or null. */
 export const getActiveOrgCompanyName = cache(
   async (): Promise<string | null> => {

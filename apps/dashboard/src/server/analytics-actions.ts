@@ -705,6 +705,8 @@ export interface ConversionsData {
    * collects it from the registration date forward.
    */
   formStarts: { modal: number; contact: number };
+  /** `contact_form_error` counts split the same way — the funnels' Failed bars. */
+  formErrors: { modal: number; contact: number };
   /** Pageviews of /contact — the contact funnel's top step. */
   contactPageViews: number;
 }
@@ -771,24 +773,27 @@ export async function fetchConversionsData(
     // Separate call with its own catch: querying an unregistered custom
     // dimension is a 400 from GA4, and that must not take down the section.
     const formStarts = { modal: 0, contact: 0 };
+    const formErrors = { modal: 0, contact: 0 };
     try {
-      const [formStartsResponse] = await client.runReport({
+      const [formTypeResponse] = await client.runReport({
         property: `properties/${propertyId}`,
         dateRanges,
-        dimensions: [{ name: "customEvent:form_type" }],
+        dimensions: [{ name: "eventName" }, { name: "customEvent:form_type" }],
         metrics: [{ name: "eventCount" }],
         dimensionFilter: {
           filter: {
             fieldName: "eventName",
-            stringFilter: { matchType: "EXACT", value: "form_start" },
+            inListFilter: { values: ["form_start", "contact_form_error"] },
           },
         },
       });
-      for (const row of formStartsResponse.rows || []) {
-        const formType = row.dimensionValues?.[0]?.value || "";
+      for (const row of formTypeResponse.rows || []) {
+        const eventName = row.dimensionValues?.[0]?.value || "";
+        const formType = row.dimensionValues?.[1]?.value || "";
         const count = parseInt(row.metricValues?.[0]?.value || "0", 10);
-        if (formType === "modal") formStarts.modal = count;
-        else if (formType === "contact_page") formStarts.contact = count;
+        const target = eventName === "form_start" ? formStarts : formErrors;
+        if (formType === "modal") target.modal = count;
+        else if (formType === "contact_page") target.contact = count;
       }
     } catch {
       // form_type custom dimension not registered yet — leave zeros.
@@ -819,7 +824,14 @@ export async function fetchConversionsData(
 
     return {
       success: true,
-      data: { trend, channels, eventCounts, formStarts, contactPageViews },
+      data: {
+        trend,
+        channels,
+        eventCounts,
+        formStarts,
+        formErrors,
+        contactPageViews,
+      },
     };
   } catch (error: unknown) {
     console.error("Failed to fetch conversions data from GA4:", error);

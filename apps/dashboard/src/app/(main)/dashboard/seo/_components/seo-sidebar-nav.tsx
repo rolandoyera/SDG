@@ -6,6 +6,10 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 const items = [
+  {
+    title: "Position Tracking",
+    href: "/dashboard/seo/position-tracking",
+  },
   { title: "Keyword Analyzer", href: "/dashboard/seo/keyword-analyzer" },
   {
     title: "Competitor Analysis",
@@ -27,8 +31,7 @@ export function SeoSidebarNav() {
             pathname === item.href
               ? "bg-muted font-medium text-foreground"
               : "text-muted-foreground",
-          )}
-        >
+          )}>
           {item.title}
         </Link>
       ))}

@@ -9,7 +9,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { PhraseRow, ScopeReport } from "@/server/seo-actions";
+import type { PageHeading, PhraseRow, ScopeReport } from "@/server/seo-actions";
 
 export type ScopeKey = "all" | "body" | "headlines" | "links" | "images";
 
@@ -75,8 +75,58 @@ function PhraseTable({ title, rows }: { title: string; rows: PhraseRow[] }) {
   );
 }
 
-/** The 1/2/3-word phrase tables for one scope, with its word totals. */
-export function ScopePhraseTables({ scope }: { scope: ScopeReport }) {
+function HeadingsTable({ headings }: { headings: PageHeading[] }) {
+  // Key rows by content + occurrence (repeated headings are legitimate).
+  const occurrences = new Map<string, number>();
+  const rows = headings.map((heading) => {
+    const base = `${heading.tag}:${heading.text}`;
+    const nth = occurrences.get(base) ?? 0;
+    occurrences.set(base, nth + 1);
+    return { ...heading, key: `${base}#${nth}` };
+  });
+
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="font-bold text-sm text-primary">Page Headings</p>
+      {rows.length === 0 ? (
+        <p className="text-muted-foreground text-sm">
+          No headings on the page.
+        </p>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-16">Tag</TableHead>
+              <TableHead>Heading</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((heading) => (
+              <TableRow key={heading.key}>
+                <TableCell className="font-medium">{heading.tag}</TableCell>
+                <TableCell className="wrap-break-word whitespace-normal">
+                  {heading.text || "—"}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The 1/2/3-word phrase tables for one scope, with its word totals. Pass
+ * `headings` (Headlines scope only) to list the page's actual headings below.
+ */
+export function ScopePhraseTables({
+  scope,
+  headings,
+}: {
+  scope: ScopeReport;
+  headings?: PageHeading[];
+}) {
   return (
     <div className="flex flex-col gap-6">
       <p className="text-muted-foreground text-sm">
@@ -87,6 +137,7 @@ export function ScopePhraseTables({ scope }: { scope: ScopeReport }) {
       <PhraseTable title="Words" rows={scope.one} />
       <PhraseTable title="2-Word Phrases" rows={scope.two} />
       <PhraseTable title="3-Word Phrases" rows={scope.three} />
+      {headings && <HeadingsTable headings={headings} />}
     </div>
   );
 }

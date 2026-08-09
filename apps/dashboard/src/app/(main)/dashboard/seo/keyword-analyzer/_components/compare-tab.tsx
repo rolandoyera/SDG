@@ -718,7 +718,12 @@ export function CompareTab() {
                 {pages.map((page) => (
                   <div key={page.url} className="flex flex-col gap-4">
                     <p className="font-medium text-sm">{reportHeading(page)}</p>
-                    <ScopePhraseTables scope={page.scopes[scope]} />
+                    <ScopePhraseTables
+                      scope={page.scopes[scope]}
+                      headings={
+                        scope === "headlines" ? page.headings : undefined
+                      }
+                    />
                   </div>
                 ))}
               </div>

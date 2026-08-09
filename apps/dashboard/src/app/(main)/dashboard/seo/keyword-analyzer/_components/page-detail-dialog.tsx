@@ -45,7 +45,10 @@ function DetailBody({ page }: { page: PageAnalysis }) {
       </dl>
 
       <ScopePicker value={scope} onChange={setScope} />
-      <ScopePhraseTables scope={page.scopes[scope]} />
+      <ScopePhraseTables
+        scope={page.scopes[scope]}
+        headings={scope === "headlines" ? page.headings : undefined}
+      />
     </div>
   );
 }

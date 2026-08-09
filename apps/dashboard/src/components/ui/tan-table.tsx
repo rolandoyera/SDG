@@ -41,8 +41,18 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 
+declare module "@tanstack/react-table" {
+  // biome-ignore lint/correctness/noUnusedVariables: augmentation must match the library's type parameters
+  interface ColumnMeta<TData, TValue> {
+    /** Class for the column's `<th>` — e.g. a `w-*` width with `table-fixed`. */
+    headClassName?: string;
+  }
+}
+
 interface TanTableProps<TData> {
   table: TanstackTable<TData>;
+  /** Extra classes for the `<table>` itself, e.g. `table-fixed`. */
+  tableClassName?: string;
   /** Message shown when there are no rows to display. */
   emptyMessage?: string;
   /** Render the count + pager footer below the table. */
@@ -129,6 +139,7 @@ export function SortableHeader<TData>({
  */
 export function TanTable<TData>({
   table,
+  tableClassName,
   emptyMessage = "No results.",
   pagination = false,
   noun = "rows",
@@ -147,7 +158,12 @@ export function TanTable<TData>({
     // the parent stretches the table (e.g. side-by-side cards of equal height).
     <div className="flex h-full flex-col">
       <div className="overflow-hidden">
-        <Table className="**:data-[slot='table-cell']:px-4 **:data-[slot='table-head']:px-4 **:data-[slot='table-cell']:py-4">
+        <Table
+          className={cn(
+            "**:data-[slot='table-cell']:px-4 **:data-[slot='table-head']:px-4 **:data-[slot='table-cell']:py-4",
+            tableClassName,
+          )}
+        >
           <TableHeader
             className={cn(
               "h-16 **:data-[slot='table-head']:h-11 **:data-[slot='table-head']:font-medium **:data-[slot='table-head']:text-foreground **:data-[slot='table-head']:text-sm",
@@ -157,7 +173,11 @@ export function TanTable<TData>({
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id} className="hover:bg-transparent">
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id} colSpan={header.colSpan}>
+                  <TableHead
+                    key={header.id}
+                    colSpan={header.colSpan}
+                    className={header.column.columnDef.meta?.headClassName}
+                  >
                     {header.isPlaceholder
                       ? null
                       : flexRender(

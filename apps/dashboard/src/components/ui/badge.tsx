@@ -23,8 +23,12 @@ const badgeVariants = cva(
           "text-green-600 dark:text-green-400/60 font-mono uppercase tracking-wider before:size-1.5 before:shrink-0 before:rounded-full before:bg-current before:content-['']",
         trendingUp:
           "text-green-600 dark:text-green-400/60 font-mono uppercase tracking-wider text-[12px]",
+        trendingUp2:
+          "text-green-600 dark:text-green-400/60 uppercase tracking-wider text-sm px-0",
         trendingDown:
           "text-destructive dark:text-red-400 font-mono uppercase tracking-wider text-[12px]",
+        trendingDown2:
+          "text-destructive dark:text-red-400 uppercase tracking-wider text-sm px-0",
         warning:
           "text-yellow-700 dark:text-yellow-300/60 font-mono uppercase tracking-wider before:size-1.5 before:shrink-0 before:rounded-full before:bg-current before:content-['']",
         info: "text-cyan-600 dark:text-cyan-400 font-mono uppercase tracking-wider before:size-1.5 before:shrink-0 before:rounded-full before:bg-current before:content-['']",

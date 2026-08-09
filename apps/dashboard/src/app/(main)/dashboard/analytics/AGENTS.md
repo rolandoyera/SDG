@@ -59,11 +59,16 @@ tenant. The Admin SDK in `org-config.ts` bypasses security rules; keep it server
   result as a ping indicator next to the page title (green = connected, red = not). No separate
   client-side check, so a page visit produces a single `getActiveOrgConfig` read from this path.
 - **The Conversions form funnels depend on a GA4 custom dimension.** `fetchConversionsData`
-  splits `form_start` by the `form_type` event param via `customEvent:form_type`. GA4 400s on
-  unregistered custom dimensions, so that query runs in its own try/catch and falls back to
-  zeros; the card then shows the aggregate `form_start` count with a register-the-dimension
-  hint. The dimension must be registered in GA4 Admin (event scope, param `form_type`) and only
-  collects from registration onward. Registration tooling: `Web/Tools/ga4-tools/ga4.py`.
+  splits `form_start` **and** `contact_form_error` by the `form_type` event param in one guarded
+  query (`customEvent:form_type`). GA4 400s on unregistered custom dimensions, so that query runs
+  in its own try/catch and falls back to zeros; the card then shows the aggregate `form_start`
+  count with a register-the-dimension hint. The dimension must be registered in GA4 Admin (event
+  scope, param `form_type`) and only collects from registration onward. Registration tooling:
+  `Web/Tools/ga4-tools/ga4.py`. The error split feeds each funnel's **"Failed"** bar —
+  `contact_form_error` is fired by the marketing site on any failed submit (reasons:
+  turnstile_pending / server / network; `reason`/`status` params are visible in GA4's UI but not
+  queried here — `reason` isn't a registered dimension). Failed isn't a funnel stage, so its
+  tooltip rate reads vs Started, not the previous step; zero is the healthy state.
 - **Analytics tables are TanTable + raw numbers.** All tab tables (Top Pages, Landing Pages,
   Leads by Channel, Acquisition, Google Search, and the shared `GeoTable`) render through
   `@/components/ui/tan-table` (`TanTable` + `SortableHeader`) with client-side sorting and a
@@ -77,6 +82,17 @@ tenant. The Admin SDK in `org-config.ts` bypasses security rules; keep it server
   hourly (`dateHour`); there is no rolling "last 24 hours" — GA4 date ranges are whole calendar
   days. Search Console ignores single-day ranges (its data lags ~3 days) and falls back to its
   28-day default.
+
+## Form-error alert cron (`src/server/form-error-alert.ts`)
+
+A daily Vercel cron (`vercel.json`, 12:00 UTC, `/api/cron/form-error-alert`, CRON_SECRET bearer —
+same pattern as the other crons) queries yesterday's `contact_form_error` + `turnstile_error`
+counts for every org with a `config.gaPropertyId` and emails an alert (via `brevo.ts`;
+sender/recipient constants at the top of the module — the sender must stay on Brevo's verified
+list) only when nonzero. It exists because GA4 custom insights cannot target a specific event
+name (no Event name segment dimension; metrics are property-wide aggregates), and marking the
+error events as Key Events would inflate the `keyEvents` metric this tab reports. Daily, not
+hourly, because GA4 standard reporting data lags up to a day. No email = no errors.
 
 ## Document / PDF export — separate from the dashboard UI
 

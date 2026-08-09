@@ -84,6 +84,11 @@ export interface PageLink {
   internal: boolean;
 }
 
+export interface PageHeading {
+  tag: string;
+  text: string;
+}
+
 export interface PageAnalysis {
   url: string;
   path: string;
@@ -92,6 +97,8 @@ export interface PageAnalysis {
   metaDescription: string;
   h1s: string[];
   h2s: string[];
+  /** Every body heading in document order. */
+  headings: PageHeading[];
   imageCount: number;
   missingAltCount: number;
   missingAltSrcs: string[];
@@ -345,12 +352,17 @@ function analyzeHtml(url: string, html: string): PageAnalysis {
     $('meta[name="description"]').attr("content") ?? ""
   ).trim();
 
-  const h1s = $("body h1")
+  const headings: PageHeading[] = $(
+    "body h1, body h2, body h3, body h4, body h5, body h6",
+  )
     .toArray()
-    .map((el) => elementText(el));
-  const h2s = $("body h2")
-    .toArray()
-    .map((el) => elementText(el));
+    .map((el) => ({ tag: el.tagName.toUpperCase(), text: elementText(el) }));
+  const h1s = headings
+    .filter((heading) => heading.tag === "H1")
+    .map((heading) => heading.text);
+  const h2s = headings
+    .filter((heading) => heading.tag === "H2")
+    .map((heading) => heading.text);
 
   // Link inventory (http/https + relative hrefs only).
   const links: PageLink[] = [];
@@ -406,6 +418,7 @@ function analyzeHtml(url: string, html: string): PageAnalysis {
     metaDescription,
     h1s,
     h2s,
+    headings,
     imageCount: images.length,
     missingAltCount: missingAltSrcs.length,
     missingAltSrcs: missingAltSrcs.slice(0, 20),

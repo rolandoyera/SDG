@@ -33,6 +33,44 @@ Two tabs backed by `src/server/seo-actions.ts`:
   report dialog), plus the site-wide checks: duplicated 8-word content runs
   between pages and internal-link anchor text reused across source pages.
 
+## Position Tracking page (`position-tracking/`)
+
+SEMrush-replacement rank tracker backed by DataForSEO (core in
+`src/server/position-tracking.ts`, `"use server"` wrappers in
+`position-tracking-actions.ts`; `DATAFORSEO_LOGIN`/`DATAFORSEO_PASSWORD`,
+server-side only).
+
+- Tracked keywords live on the org doc at `seo.trackedKeywords` (max 50:
+  keyword + DataForSEO `location_name` + cached volume/CPC/difficulty/intent
+  metadata, batch-refreshed when older than 30 days). The Add dialog takes a
+  bare city; `composeLocation` title-cases it and appends the company
+  profile's state/country ("aventura" → "Aventura,Florida,United States").
+  Blank = country-wide; a comma in the input passes through as a full
+  `location_name`; non-US companies fall back to country-wide. Daily results are one
+  doc per America/New_York day at
+  `organizations/{org}/positionSnapshots/{YYYY-MM-DD}` — the SEO section's
+  deliberate exception to "no Firestore": trend history can't be recomputed.
+  Both paths are admin-SDK-only; no rules changes.
+- Positions come from the live SERP endpoint (depth 50 = 5 pages;
+  `rank_absolute` of the first organic item matching the org's website
+  domain). Not found within depth → `position: null`, rendered ">50" and
+  counted as 100 in averages. A keyword whose check errors is omitted from
+  that day's snapshot — no data is not the same as not ranked. A saved
+  location DataForSEO rejects is retried against "United States" and the
+  downgrade persisted.
+- The daily run is a Vercel cron (`vercel.json`, 7:00 UTC) hitting
+  `/api/cron/position-tracking` (CRON_SECRET bearer, same pattern as
+  instagram-snapshots) for every org with tracked keywords. "Add & Check"
+  and "Run Check Now" do the same work on demand; the page exports
+  `maxDuration = 60` because its server actions run live checks (~6s each,
+  5 concurrent).
+- Chart is a straight-segment line (`type="linear"` — deliberately not the
+  app's usual monotone smoothing) with a reversed Y axis. The date range
+  uses the shared `src/components/date-range-picker.tsx` (two-month
+  calendar + presets + Apply/Reset; built for reuse — the Analytics page is
+  the next intended consumer). Visibility % is a client-side CTR-curve
+  share of the tracker total, SEMrush-style.
+
 ## Competitor Analysis page (`competitor-analysis/`)
 
 Manages up to 5 competitors (name + URL). Stored on the org document at
@@ -49,7 +87,10 @@ competitor analysis will grow later.
   total (stop words excluded from the total), phrases contain no stop words,
   words under 2 chars are dropped, tables list phrases occurring ≥ 2 times.
   Scopes: all text (incl. title + meta description), body (minus headlines +
-  anchors), headlines, links, images (alt text).
+  anchors), headlines, links, images (alt text). The Headlines scope also
+  lists the page's actual headings (tag + text, document order,
+  `PageAnalysis.headings`) below the phrase tables — in the Compare tab and
+  the crawl's page-detail dialog.
 - `seo-stop-words.ts` is SEOBook's own list, verbatim — do not curate it.
 - Text extraction inserts element boundaries so adjacent anchors never run
   together (SEOBook's "design groupdesign" artifact); phrases never span

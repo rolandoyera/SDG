@@ -20,6 +20,23 @@ import { LeadsByChannelTable } from "./leads-by-channel-table";
 interface FunnelStep {
   label: string;
   count: number;
+  /** Overrides the default "% of previous" tooltip (for non-step bars). */
+  tooltipLabel?: string;
+}
+
+/**
+ * The funnel's leak bar: failed submits aren't a funnel stage, so their rate
+ * reads against attempts (Started), not the previous step (Submitted).
+ */
+function failedStep(failed: number, started: number): FunnelStep {
+  return {
+    label: "Failed",
+    count: failed,
+    tooltipLabel:
+      started > 0
+        ? `Failed (${((failed / started) * 100).toFixed(0)}% of started)`
+        : "Failed",
+  };
 }
 
 /**
@@ -43,7 +60,9 @@ function FunnelSteps({ title, steps }: { title: string; steps: FunnelStep[] }) {
             barText: step.label,
             value: step.count,
             valueLabel: step.count.toLocaleString(),
-            tooltipLabel: stepRate ? `${step.label} (${stepRate})` : step.label,
+            tooltipLabel:
+              step.tooltipLabel ??
+              (stepRate ? `${step.label} (${stepRate})` : step.label),
           };
         })}
         seriesLabel="Users"
@@ -112,8 +131,14 @@ export async function ConversionsSection({ range }: { range?: string }) {
     );
   }
 
-  const { trend, channels, eventCounts, formStarts, contactPageViews } =
-    result.data;
+  const {
+    trend,
+    channels,
+    eventCounts,
+    formStarts,
+    formErrors,
+    contactPageViews,
+  } = result.data;
   const hasKeyEvents = trend.some((point) => point.keyEvents > 0);
   // Aggregate starts exist but the per-form split is empty → the form_type
   // custom dimension isn't registered (or predates registration).
@@ -176,6 +201,7 @@ export async function ConversionsSection({ range }: { range?: string }) {
                   label: "Submitted",
                   count: eventCounts.project_form_submit || 0,
                 },
+                failedStep(formErrors.modal, formStarts.modal),
               ]}
             />
             <FunnelSteps
@@ -187,6 +213,7 @@ export async function ConversionsSection({ range }: { range?: string }) {
                   label: "Submitted",
                   count: eventCounts.contact_form_submit || 0,
                 },
+                failedStep(formErrors.contact, formStarts.contact),
               ]}
             />
             {startsUnsplit && (

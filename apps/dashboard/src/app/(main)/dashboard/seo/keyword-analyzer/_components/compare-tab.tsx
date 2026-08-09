@@ -544,6 +544,12 @@ export function CompareTab() {
           );
         }
         setErrors(problems);
+      } catch {
+        // The action call itself failed (e.g. a stale tab calling actions
+        // from an older deployment) — surface it instead of doing nothing.
+        setErrors([
+          "The analysis request failed — refresh the page and try again.",
+        ]);
       } finally {
         setLoading(false);
       }

@@ -67,6 +67,8 @@ competitor analysis will grow later.
 - Caching is **in-memory per server instance** (page analyses 10 min TTL; last
   crawl per target kept until re-run). A restart loses it by design — no
   Firestore. If persistence ever earns its keep, a single JSON blob per crawl
-  is the intended upgrade. The UI rehydrates from it: the Site tab pulls the
-  cached crawl on mount (`fetchCachedCrawl`), the Compare tab re-runs its
-  localStorage-saved sides.
+  is the intended upgrade. The cache exists ONLY to serve leave-and-return
+  restores: the Site tab pulls the cached crawl on mount (`fetchCachedCrawl`),
+  the Compare tab re-runs its localStorage-saved sides against the cache.
+  Every explicit run is fresh — Analyze passes `fresh=true` (bypasses the page
+  cache, then updates it) and Run Crawl always refetches.

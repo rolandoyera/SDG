@@ -449,10 +449,17 @@ function mainContentView(
 const pageCache = new Map<string, PageAnalysis>();
 const crawlCache = new Map<SiteTarget, SiteCrawl>();
 
-async function analyzeWithCache(url: string): Promise<PageAnalysis> {
-  const cached = pageCache.get(url);
-  if (cached && Date.now() - cached.fetchedAt < PAGE_CACHE_TTL_MS) {
-    return cached;
+// The cache exists to serve leave-and-return restores; an explicit Analyze
+// passes fresh=true to refetch (and update the cache for the next restore).
+async function analyzeWithCache(
+  url: string,
+  fresh: boolean,
+): Promise<PageAnalysis> {
+  if (!fresh) {
+    const cached = pageCache.get(url);
+    if (cached && Date.now() - cached.fetchedAt < PAGE_CACHE_TTL_MS) {
+      return cached;
+    }
   }
   const analysis = analyzeHtml(url, await fetchHtml(url));
   pageCache.set(url, analysis);
@@ -618,11 +625,12 @@ export async function fetchSitemapPages(
 export async function analyzeSitePage(
   target: SiteTarget,
   path: string,
+  fresh = false,
 ): Promise<SeoResult<PageAnalysis>> {
   try {
     const baseUrl = await resolveBaseUrl(target);
     const url = new URL(path, baseUrl).href;
-    return { success: true, data: await analyzeWithCache(url) };
+    return { success: true, data: await analyzeWithCache(url, fresh) };
   } catch (error) {
     console.error("analyzeSitePage failed:", error);
     return {
@@ -635,6 +643,7 @@ export async function analyzeSitePage(
 /** Analyze an arbitrary (competitor) URL. */
 export async function analyzeExternalUrl(
   rawUrl: string,
+  fresh = false,
 ): Promise<SeoResult<PageAnalysis>> {
   let url: URL;
   try {
@@ -643,7 +652,7 @@ export async function analyzeExternalUrl(
     return { success: false, error: "Enter a valid URL." };
   }
   try {
-    return { success: true, data: await analyzeWithCache(url.href) };
+    return { success: true, data: await analyzeWithCache(url.href, fresh) };
   } catch (error) {
     console.error("analyzeExternalUrl failed:", error);
     return {

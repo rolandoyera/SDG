@@ -484,19 +484,24 @@ export function CompareTab() {
     }
   }, [leftSource, rightSource, competitors, sitemaps]);
 
+  // fresh=true bypasses the server's page cache — the cache only exists to
+  // make the leave-and-return restore instant; an explicit Analyze refetches.
   const analyzeSide = useCallback(
-    async (side: SideFormData): Promise<SeoResult<PageAnalysis> | null> => {
-      if (side.source === "custom") return analyzeExternalUrl(side.url);
+    async (
+      side: SideFormData,
+      fresh: boolean,
+    ): Promise<SeoResult<PageAnalysis> | null> => {
+      if (side.source === "custom") return analyzeExternalUrl(side.url, fresh);
       const path = leadingSlash(side.path.trim());
       if (side.source === "live" || side.source === "local") {
-        return analyzeSitePage(side.source, path);
+        return analyzeSitePage(side.source, path, fresh);
       }
       if (side.source.startsWith("comp:")) {
         const competitor = competitors[Number(side.source.slice(5))];
         if (!competitor) {
           return { success: false, error: "Competitor not found." };
         }
-        return analyzeExternalUrl(new URL(path, competitor.url).href);
+        return analyzeExternalUrl(new URL(path, competitor.url).href, fresh);
       }
       // "none" or an unrecognized source — nothing to analyze.
       return null;
@@ -506,13 +511,16 @@ export function CompareTab() {
 
   // Analyze the given sides; a side left out keeps its current results.
   const runSides = useCallback(
-    async (sides: { left?: SideFormData; right?: SideFormData }) => {
+    async (
+      sides: { left?: SideFormData; right?: SideFormData },
+      fresh: boolean,
+    ) => {
       setLoading(true);
       setErrors([]);
       try {
         const [leftResult, rightResult] = await Promise.all([
-          sides.left ? analyzeSide(sides.left) : undefined,
-          sides.right ? analyzeSide(sides.right) : undefined,
+          sides.left ? analyzeSide(sides.left, fresh) : undefined,
+          sides.right ? analyzeSide(sides.right, fresh) : undefined,
         ]);
 
         const problems: string[] = [];
@@ -554,7 +562,7 @@ export function CompareTab() {
       } catch {
         // Storage unavailable — the analysis still runs, it just won't restore.
       }
-      await runSides({ left: data.left, right: data.right });
+      await runSides({ left: data.left, right: data.right }, true);
     },
     [runSides],
   );
@@ -591,7 +599,7 @@ export function CompareTab() {
       right: resolvable(pendingRestore.right),
     };
     if (sides.left || sides.right) {
-      runSides(sides).catch(() => {
+      runSides(sides, false).catch(() => {
         // runSides reports its own errors; nothing extra to do here.
       });
     }

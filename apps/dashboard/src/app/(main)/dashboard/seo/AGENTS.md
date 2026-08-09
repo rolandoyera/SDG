@@ -53,7 +53,12 @@ competitor analysis will grow later.
 - `seo-stop-words.ts` is SEOBook's own list, verbatim — do not curate it.
 - Text extraction inserts element boundaries so adjacent anchors never run
   together (SEOBook's "design groupdesign" artifact); phrases never span
-  block-level boundaries.
+  block-level boundaries. Hidden-from-everyone text is excluded: `hidden`/`aria-hidden`
+  attributes, inline `display:none`/`visibility:hidden`, and `HIDDEN_CLASSES`
+  (e.g. WP themes print raw microformat timestamps in `rich-snippet-hidden`
+  spans). Screen-reader text (`sr-only` etc.) deliberately counts — it's read
+  aloud to AT users and Google weights it as content. External stylesheets are
+  out of reach, so class-based hiding beyond `HIDDEN_CLASSES` slips through.
 - Site-wide checks run on a main-content view (header/footer/nav/aside
   stripped) so shared page chrome doesn't flag every page pair.
 - Targets: `live` resolves from the active org's **Company → Website** field

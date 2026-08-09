@@ -150,6 +150,7 @@ interface DomNode {
   type: string;
   data?: string;
   name?: string;
+  attribs?: Record<string, string>;
   children?: DomNode[];
 }
 
@@ -161,6 +162,24 @@ const SKIP_TAGS = new Set([
   "template",
   "iframe",
 ]);
+
+// Text hidden from everyone shouldn't count toward keyword density (e.g.
+// WordPress themes emit raw microformat timestamps in display:none spans).
+// Screen-reader classes (sr-only etc.) deliberately stay countable: that text
+// is read to assistive-tech users and Google weights it as real content.
+const HIDDEN_CLASSES = new Set(["rich-snippet-hidden"]);
+
+function isHiddenElement(node: DomNode): boolean {
+  const attribs = node.attribs ?? {};
+  if ("hidden" in attribs) return true;
+  if (attribs["aria-hidden"] === "true") return true;
+  if (/display\s*:\s*none|visibility\s*:\s*hidden/i.test(attribs.style ?? "")) {
+    return true;
+  }
+  return (attribs.class ?? "")
+    .split(/\s+/)
+    .some((cls) => HIDDEN_CLASSES.has(cls.toLowerCase()));
+}
 
 const BLOCK_TAGS = new Set([
   "address",
@@ -221,7 +240,7 @@ function extractSegments(nodes: DomNode[]): string[] {
       return;
     }
     const name = node.name;
-    if (!name || SKIP_TAGS.has(name)) return;
+    if (!name || SKIP_TAGS.has(name) || isHiddenElement(node)) return;
     const isBlock = BLOCK_TAGS.has(name);
     if (isBlock) flush();
     current += " ";

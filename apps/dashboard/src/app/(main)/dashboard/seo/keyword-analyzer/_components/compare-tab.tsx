@@ -384,9 +384,11 @@ export function CompareTab() {
   useEffect(() => {
     let cancelled = false;
 
-    // Restore each side independently — a stale or unreadable side falls back
-    // to its default without blocking the other. The auto-rerun waits for the
-    // competitor list below (comp:<i> sources resolve against it).
+    // Read each side's saved state independently — a stale or unreadable side
+    // falls back to its default without blocking the other. Applying it to the
+    // form waits for the competitor list (next effect): resetting a comp:<i>
+    // value before its SelectItem exists leaves the select stuck on its
+    // placeholder.
     localStorage.removeItem("seo-compare-form"); // pre-split blob
     const restored: { left?: SideFormData; right?: SideFormData } = {};
     for (const key of ["left", "right"] as const) {
@@ -405,10 +407,6 @@ export function CompareTab() {
       }
     }
     if (restored.left || restored.right) {
-      reset({
-        left: restored.left ?? SIDE_DEFAULTS.left,
-        right: restored.right ?? SIDE_DEFAULTS.right,
-      });
       setPendingRestore(restored);
     }
 
@@ -445,7 +443,7 @@ export function CompareTab() {
     return () => {
       cancelled = true;
     };
-  }, [reset]);
+  }, []);
 
   // Load the sitemap for any selected source that needs one, once per source.
   useEffect(() => {
@@ -588,9 +586,10 @@ export function CompareTab() {
     [setValue],
   );
 
-  // Re-run the restored sides once the competitor list is in (comp:<i>
-  // resolves against it). A side whose competitor was since deleted skips its
-  // rerun alone — the other side still repopulates.
+  // Apply and re-run the restored sides once the competitor list is in — only
+  // then do comp:<i> SelectItems exist, so the selects can show their values.
+  // A side whose competitor was since deleted resets to its default and skips
+  // its rerun alone — the other side still repopulates.
   useEffect(() => {
     if (!pendingRestore || !competitorsReady) return;
     setPendingRestore(null);
@@ -604,12 +603,16 @@ export function CompareTab() {
       left: resolvable(pendingRestore.left),
       right: resolvable(pendingRestore.right),
     };
+    reset({
+      left: sides.left ?? SIDE_DEFAULTS.left,
+      right: sides.right ?? SIDE_DEFAULTS.right,
+    });
     if (sides.left || sides.right) {
       runSides(sides, false).catch(() => {
         // runSides reports its own errors; nothing extra to do here.
       });
     }
-  }, [pendingRestore, competitorsReady, competitors, runSides]);
+  }, [pendingRestore, competitorsReady, competitors, runSides, reset]);
 
   // Whichever sides have results — left alone, right alone, or both.
   const pages = [left, right].filter((page): page is PageAnalysis => !!page);

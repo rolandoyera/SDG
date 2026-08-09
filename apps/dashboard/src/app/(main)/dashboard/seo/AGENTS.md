@@ -23,8 +23,10 @@ Two tabs backed by `src/server/seo-actions.ts`:
   confirm). Each side persists independently in localStorage
   (`seo-compare-left` / `seo-compare-right`, validated against known source
   keys on restore) and auto-reruns on mount — instant while the server page
-  cache is warm; a side whose saved competitor was deleted skips its rerun
-  alone. Both tabs are `forceMount`ed (hidden via
+  cache is warm. The restore is applied to the form only after the competitor
+  list loads: resetting a `comp:<i>` value before its SelectItem exists leaves
+  the Radix select stuck on its placeholder. A side whose saved competitor was
+  deleted resets to its default and skips its rerun alone. Both tabs are `forceMount`ed (hidden via
   `data-[state=inactive]:hidden`) so switching tabs doesn't wipe results.
 - **Site Crawl** — manual "Run Crawl" over every sitemap page (~30s,
   concurrency 8), TanTable of per-page metrics (row click opens the full

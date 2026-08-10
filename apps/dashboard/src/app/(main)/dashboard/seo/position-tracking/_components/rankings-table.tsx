@@ -13,7 +13,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { ArrowDown, ArrowUp, ExternalLink } from "lucide-react";
+import { ArrowDown, ArrowUp, ExternalLink, RefreshCw } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -38,6 +38,8 @@ export interface RankingRow {
   volume: number | null;
   cpc: number | null;
   url: string | null;
+  /** A queued check is in flight — the latest-position cell shows a spinner. */
+  checking: boolean;
 }
 
 /** "Aventura,Florida,United States" → "Aventura"; country-wide → "United States". */
@@ -47,11 +49,10 @@ function cityLabel(location: string): string {
 }
 
 function PositionCell({ value }: { value: number | null | undefined }) {
-  if (value === undefined) {
+  // No data in range (undefined) and not found within the checked depth
+  // (null) both render as a dash.
+  if (value === undefined || value === null) {
     return <div className="text-right text-muted-foreground">—</div>;
-  }
-  if (value === null) {
-    return <div className="text-right text-muted-foreground">&gt;50</div>;
   }
   return <div className="text-right tabular-nums">{value}</div>;
 }
@@ -113,7 +114,8 @@ export function RankingsTable({
             <Badge
               variant={intent === "commercial" ? "default" : "secondary"}
               title={intent}
-              className="uppercase w-5">
+              className="uppercase w-5"
+            >
               {intent.charAt(0)}
             </Badge>
           );
@@ -143,8 +145,8 @@ export function RankingsTable({
       },
       {
         id: "posLatest",
-        // ">50" sorts as 100 (worst real result); rows with no data sort
-        // last in either direction.
+        // Unplaced (null, shown as a dash) sorts as 100 — worse than any
+        // real result; rows with no data sort last in either direction.
         accessorFn: (row) =>
           row.posLatest === undefined ? undefined : (row.posLatest ?? 100),
         sortUndefined: "last",
@@ -153,7 +155,14 @@ export function RankingsTable({
             Pos. {latestLabel}
           </SortableHeader>
         ),
-        cell: ({ row }) => <PositionCell value={row.original.posLatest} />,
+        cell: ({ row }) =>
+          row.original.checking ? (
+            <div className="flex justify-end">
+              <RefreshCw className="size-4 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <PositionCell value={row.original.posLatest} />
+          ),
         meta: { headClassName: "w-30" },
       },
       {
@@ -244,7 +253,8 @@ export function RankingsTable({
               target="_blank"
               rel="noopener noreferrer"
               className="flex max-w-full items-center gap-1 text-primary hover:underline"
-              onClick={(event) => event.stopPropagation()}>
+              onClick={(event) => event.stopPropagation()}
+            >
               <span className="min-w-0 truncate">{path}</span>
               <ExternalLink className="size-3.5 shrink-0" />
             </a>

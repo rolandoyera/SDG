@@ -55,19 +55,43 @@ server-side only).
   `organizations/{org}/positionSnapshots/{YYYY-MM-DD}` — the SEO section's
   deliberate exception to "no Firestore": trend history can't be recomputed.
   Both paths are admin-SDK-only; no rules changes.
-- Positions come from the live SERP endpoint (depth 50 = 5 pages;
-  `rank_absolute` of the first organic item matching the org's website
-  domain). Not found within depth → `position: null`, rendered ">50" and
-  counted as 100 in averages. A keyword whose check errors is omitted from
-  that day's snapshot — no data is not the same as not ranked. A saved
-  location DataForSEO rejects is retried against "United States" and the
-  downgrade persisted.
+- Positions are the `rank_absolute` of the first organic item matching the
+  org's website domain. Not found within the checked depth →
+  `position: null`, rendered as a dash — excluded from the chart's daily
+  averages (a keyword dropping past depth 80 vanishes from the line rather
+  than dragging it), counted as 100 only in the table's Diff column. A
+  keyword whose check errors is omitted from that day's snapshot — no data
+  is not the same as not ranked. A saved location DataForSEO rejects is
+  retried against "United States" and the downgrade persisted (both the
+  live and queued flows).
+- Checks run on the DataForSEO Standard task queue (~30% of live cost) at
+  `adaptiveDepth`: last known position (newest 14 snapshots) rounded up to
+  the next 10, +10, capped at `DEEP_SERP_DEPTH` 80; unplaced keywords scan
+  the full 80. A shallow check that misses is never recorded — it re-posts
+  at 80 so a big drop shows its real position instead of an unplaced dash.
+  Only "Add & Check" still uses the **live** endpoint (flat depth 50,
+  ~6s/call — why the page exports `maxDuration = 60`), so new keywords show
+  data instantly.
+- Collection is server-side and browser-independent. Queued task ids live
+  on the org doc at `seo.pendingChecks`, updated transactionally with the
+  snapshot via `applyCheckOutcome` (postbacks arrive concurrently — a plain
+  read-modify-write would drop results). In production every task carries a
+  postback URL and DataForSEO POSTs each result to
+  `/api/dataforseo/postback` (gzipped task_get shape; auth is a per-org
+  HMAC of CRON_SECRET) the moment it completes. The page's `pollChecks`
+  loop just watches the pending list drain (spinners in the
+  latest-position cell), sweeping via task_get any task whose postback
+  looks missed (>10 min old). Locally postbacks can't reach you, so
+  `pollChecks` collects everything via task_get itself. The mount effect
+  rejoins whatever is pending — nothing is client-held, so any device sees
+  in-flight checks.
 - The daily run is a Vercel cron (`vercel.json`, 7:00 UTC) hitting
   `/api/cron/position-tracking` (CRON_SECRET bearer, same pattern as
-  instagram-snapshots) for every org with tracked keywords. "Add & Check"
-  and "Run Check Now" do the same work on demand; the page exports
-  `maxDuration = 60` because its server actions run live checks (~6s each,
-  5 concurrent).
+  instagram-snapshots) for every org with tracked keywords. With postbacks
+  configured it queues tasks and exits (`queuePositionCheckForOrg`) —
+  results merge themselves as they complete; without them it falls back to
+  the live full run. `DATAFORSEO_POSTBACK_URL` overrides the postback base
+  URL, else Vercel's production domain is used.
 - Chart is a straight-segment line (`type="linear"` — deliberately not the
   app's usual monotone smoothing) with a reversed Y axis. The date range
   uses the shared `src/components/date-range-picker.tsx` (two-month

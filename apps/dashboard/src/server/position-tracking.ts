@@ -1,3 +1,5 @@
+import { createHmac } from "node:crypto";
+
 import { getAdminDb } from "./firebase-admin";
 
 /**
@@ -16,6 +18,11 @@ import { getAdminDb } from "./firebase-admin";
 export const MAX_TRACKED_KEYWORDS = 50;
 /** 5 pages of Google. Not found within this depth is recorded as null. */
 export const SERP_DEPTH = 50;
+/**
+ * Deepest scan (8 pages), used by queued checks for keywords with no known
+ * placement and as the automatic re-check depth when a shallow check misses.
+ */
+export const DEEP_SERP_DEPTH = 80;
 export const FALLBACK_LOCATION = "United States";
 const METADATA_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 /** Live SERP calls run ~6s each; cap parallelism to stay polite and fast. */
@@ -143,12 +150,17 @@ export function easternDateKey(date = new Date()): string {
 // ---------------------------------------------------------------------------
 
 interface DfsTask<T> {
+  id: string;
   status_code: number;
   status_message: string;
   result: T[] | null;
 }
 
-async function dfsPost<T>(path: string, payload: unknown[]): Promise<T[]> {
+/** Raw request; returns every task envelope so callers can handle per-task status. */
+async function dfsRequest<T>(
+  path: string,
+  payload?: unknown[],
+): Promise<DfsTask<T>[]> {
   const login = process.env.DATAFORSEO_LOGIN;
   const password = process.env.DATAFORSEO_PASSWORD;
   if (!login || !password) {
@@ -156,12 +168,12 @@ async function dfsPost<T>(path: string, payload: unknown[]): Promise<T[]> {
   }
 
   const response = await fetch(`https://api.dataforseo.com/v3${path}`, {
-    method: "POST",
+    method: payload ? "POST" : "GET",
     headers: {
       Authorization: `Basic ${Buffer.from(`${login}:${password}`).toString("base64")}`,
-      "Content-Type": "application/json",
+      ...(payload ? { "Content-Type": "application/json" } : {}),
     },
-    body: JSON.stringify(payload),
+    ...(payload ? { body: JSON.stringify(payload) } : {}),
     cache: "no-store",
   });
   if (!response.ok) {
@@ -169,7 +181,11 @@ async function dfsPost<T>(path: string, payload: unknown[]): Promise<T[]> {
   }
 
   const body = (await response.json()) as { tasks?: DfsTask<T>[] };
-  const task = body.tasks?.[0];
+  return body.tasks ?? [];
+}
+
+async function dfsPost<T>(path: string, payload: unknown[]): Promise<T[]> {
+  const task = (await dfsRequest<T>(path, payload))[0];
   if (!task || task.status_code !== 20000) {
     throw new Error(task?.status_message ?? "DataForSEO returned no task.");
   }
@@ -202,6 +218,147 @@ async function fetchSerpItems(
 }
 
 // ---------------------------------------------------------------------------
+// Queued (Standard-priority) checks — cheap async SERP tasks
+// ---------------------------------------------------------------------------
+
+/**
+ * SERP depth for a keyword given its last known position: one page of slack
+ * past the current spot (round up to the next 10, +10). Unknown or ">depth"
+ * placements scan the full DEEP_SERP_DEPTH. Billing is per 10 results, so
+ * every bucket saved is money saved.
+ */
+export function adaptiveDepth(lastPosition: number | null): number {
+  if (lastPosition === null) return DEEP_SERP_DEPTH;
+  return Math.min(Math.ceil(lastPosition / 10) * 10 + 10, DEEP_SERP_DEPTH);
+}
+
+export interface QueuedSerpTask {
+  /** DataForSEO task id used to collect the result. */
+  id: string;
+  keyword: string;
+  location: string;
+  depth: number;
+  /** Post time; drives the stale-sweep when a postback goes missing. */
+  queuedAt: number;
+}
+
+/**
+ * Base URL for DataForSEO postbacks: explicit override first, then Vercel's
+ * production domain. Locally neither is set, so postbacks are off and
+ * checks are collected via task_get instead.
+ */
+function postbackBaseUrl(): string | null {
+  if (process.env.DATAFORSEO_POSTBACK_URL) {
+    return process.env.DATAFORSEO_POSTBACK_URL;
+  }
+  const host = process.env.VERCEL_PROJECT_PRODUCTION_URL;
+  return host ? `https://${host}` : null;
+}
+
+export function postbackConfigured(): boolean {
+  return Boolean(postbackBaseUrl() && process.env.CRON_SECRET);
+}
+
+/** Per-org token, so a leaked postback URL can only feed results to its own org. */
+export function postbackToken(organizationId: string): string {
+  return createHmac("sha256", process.env.CRON_SECRET ?? "")
+    .update(organizationId)
+    .digest("hex");
+}
+
+export function postbackUrlFor(organizationId: string): string | undefined {
+  if (!postbackConfigured()) return undefined;
+  return `${postbackBaseUrl()}/api/dataforseo/postback?org=${encodeURIComponent(organizationId)}&token=${postbackToken(organizationId)}`;
+}
+
+/** task_post accepted the task; anything else at post time is a task error. */
+const DFS_TASK_CREATED = 20100;
+/** task_get codes meaning "not done yet, ask again". */
+const DFS_PENDING_CODES = new Set([40601, 40602]);
+
+/**
+ * Posts one Standard-queue SERP task per entry (single POST, one task per
+ * keyword). An entry whose location is rejected at post time is retried
+ * country-wide and reported in `downgraded`, mirroring the live flow; an
+ * entry that fails outright is skipped and logged.
+ */
+export async function postSerpTasks(
+  entries: { keyword: string; location: string; depth: number }[],
+  opts?: { postbackUrl?: string },
+): Promise<{ tasks: QueuedSerpTask[]; downgraded: string[] }> {
+  const post = async (batch: typeof entries) =>
+    dfsRequest("/serp/google/organic/task_post", [
+      ...batch.map((entry) => ({
+        keyword: entry.keyword,
+        location_name: entry.location,
+        language_code: "en",
+        depth: entry.depth,
+        ...(opts?.postbackUrl
+          ? { postback_url: opts.postbackUrl, postback_data: "advanced" }
+          : {}),
+      })),
+    ]);
+
+  const tasks: QueuedSerpTask[] = [];
+  const downgraded: string[] = [];
+  const retry: typeof entries = [];
+
+  const posted = await post(entries);
+  entries.forEach((entry, index) => {
+    const task = posted[index];
+    if (task?.status_code === DFS_TASK_CREATED) {
+      tasks.push({ id: task.id, queuedAt: Date.now(), ...entry });
+    } else if (entry.location !== FALLBACK_LOCATION) {
+      retry.push({ ...entry, location: FALLBACK_LOCATION });
+    } else {
+      console.error(
+        `SERP task post failed for "${entry.keyword}":`,
+        task?.status_message,
+      );
+    }
+  });
+
+  if (retry.length > 0) {
+    const reposted = await post(retry);
+    retry.forEach((entry, index) => {
+      const task = reposted[index];
+      if (task?.status_code === DFS_TASK_CREATED) {
+        tasks.push({ id: task.id, queuedAt: Date.now(), ...entry });
+        downgraded.push(entry.keyword);
+      } else {
+        console.error(
+          `SERP task post failed for "${entry.keyword}":`,
+          task?.status_message,
+        );
+      }
+    });
+  }
+
+  return { tasks, downgraded };
+}
+
+export type SerpTaskResult =
+  | { status: "pending" }
+  | { status: "done"; items: SerpItem[] }
+  | { status: "failed"; message: string };
+
+/** Collects one queued task's result; "pending" means poll again later. */
+export async function fetchSerpTaskResult(id: string): Promise<SerpTaskResult> {
+  const task = (
+    await dfsRequest<{ items: SerpItem[] | null }>(
+      `/serp/google/organic/task_get/advanced/${id}`,
+    )
+  )[0];
+  if (!task)
+    return { status: "failed", message: "DataForSEO returned no task." };
+  if (task.status_code === 20000) {
+    return { status: "done", items: task.result?.[0]?.items ?? [] };
+  }
+  if (DFS_PENDING_CODES.has(task.status_code)) return { status: "pending" };
+  return { status: "failed", message: task.status_message };
+}
+
+// ---------------------------------------------------------------------------
 // Position checks
 // ---------------------------------------------------------------------------
 
@@ -209,7 +366,7 @@ function normalizeDomain(value: string): string {
   return value.toLowerCase().replace(/^www\./, "");
 }
 
-function findPlacement(
+export function findPlacement(
   items: SerpItem[],
   domain: string,
 ): { position: number | null; url: string | null } {
@@ -363,52 +520,244 @@ export async function saveTrackedKeywords(
     .set({ seo: { trackedKeywords: keywords } }, { merge: true });
 }
 
+export interface CheckOutcome {
+  /** Placements to merge into today's snapshot. */
+  results?: PositionResult[];
+  /** Task ids to drop from the org's pending-check list. */
+  removeTaskIds?: string[];
+  /** Tasks to add to the pending list (new runs, deep re-checks). */
+  addTasks?: QueuedSerpTask[];
+}
+
+/**
+ * Atomically merges results into today's snapshot and updates the org's
+ * pending-check list (`seo.pendingChecks`). Transactional because postbacks
+ * arrive concurrently — a plain read-modify-write would drop results.
+ */
+export async function applyCheckOutcome(
+  organizationId: string,
+  outcome: CheckOutcome,
+): Promise<void> {
+  const results = outcome.results ?? [];
+  const removeIds = new Set(outcome.removeTaskIds ?? []);
+  const addTasks = outcome.addTasks ?? [];
+  const touchPending = removeIds.size > 0 || addTasks.length > 0;
+  if (results.length === 0 && !touchPending) return;
+
+  const db = getAdminDb();
+  const orgRef = db.collection("organizations").doc(organizationId);
+  const snapshotRef = orgRef
+    .collection("positionSnapshots")
+    .doc(easternDateKey());
+
+  await db.runTransaction(async (txn) => {
+    const snapshotSnap = results.length > 0 ? await txn.get(snapshotRef) : null;
+    const orgSnap = touchPending ? await txn.get(orgRef) : null;
+
+    if (snapshotSnap) {
+      const existing = snapshotSnap.data() as PositionSnapshot | undefined;
+      const merged = new Map<string, PositionResult>();
+      for (const row of existing?.results ?? []) merged.set(row.keyword, row);
+      for (const row of results) merged.set(row.keyword, row);
+      const snapshot: PositionSnapshot = {
+        date: snapshotRef.id,
+        results: [...merged.values()],
+        createdAt: Date.now(),
+      };
+      txn.set(snapshotRef, snapshot);
+    }
+    if (orgSnap) {
+      const seo = orgSnap.data()?.seo as
+        | { pendingChecks?: QueuedSerpTask[] }
+        | undefined;
+      const next = [
+        ...(seo?.pendingChecks ?? []).filter((task) => !removeIds.has(task.id)),
+        ...addTasks,
+      ];
+      txn.set(orgRef, { seo: { pendingChecks: next } }, { merge: true });
+    }
+  });
+}
+
 /** Merges freshly checked results into today's snapshot (keeps other keywords' rows). */
 export async function mergeSnapshot(
   organizationId: string,
   results: PositionResult[],
-): Promise<PositionSnapshot> {
-  const date = easternDateKey();
-  const ref = getAdminDb()
-    .collection("organizations")
-    .doc(organizationId)
-    .collection("positionSnapshots")
-    .doc(date);
+): Promise<void> {
+  await applyCheckOutcome(organizationId, { results });
+}
 
-  const existing = (await ref.get()).data() as PositionSnapshot | undefined;
-  const merged = new Map<string, PositionResult>();
-  for (const row of existing?.results ?? []) merged.set(row.keyword, row);
-  for (const row of results) merged.set(row.keyword, row);
-
-  const snapshot: PositionSnapshot = {
-    date,
-    results: [...merged.values()],
-    createdAt: Date.now(),
-  };
-  await ref.set(snapshot);
-  return snapshot;
+/** The org's queued checks still awaiting results. */
+export async function readPendingChecks(
+  organizationId: string,
+): Promise<QueuedSerpTask[]> {
+  const snap = await getAdminDb().doc(`organizations/${organizationId}`).get();
+  const seo = snap.data()?.seo as
+    | { pendingChecks?: QueuedSerpTask[] }
+    | undefined;
+  return seo?.pendingChecks ?? [];
 }
 
 /**
- * Full daily run for one org: check every tracked keyword, snapshot the
- * results, persist location downgrades, and refresh stale metadata. Returns
- * null when the org has nothing to track.
+ * Most recent recorded position per keyword, for choosing the check depth.
+ * Scans the newest snapshots only — a keyword absent from all of them is
+ * treated as unplaced and gets the deep scan.
  */
-export async function runPositionCheckForOrg(
+export async function latestPositions(
   organizationId: string,
-): Promise<{ checked: number; found: number } | null> {
+  keywords: Set<string>,
+): Promise<Map<string, number | null>> {
+  const snapshotDocs = await getAdminDb()
+    .collection("organizations")
+    .doc(organizationId)
+    .collection("positionSnapshots")
+    .orderBy("date", "desc")
+    .limit(14)
+    .get();
+  const positions = new Map<string, number | null>();
+  for (const doc of snapshotDocs.docs) {
+    for (const row of (doc.data() as PositionSnapshot).results) {
+      if (keywords.has(row.keyword) && !positions.has(row.keyword)) {
+        positions.set(row.keyword, row.position);
+      }
+    }
+  }
+  return positions;
+}
+
+/**
+ * Actively collects finished queue tasks via task_get: the whole pending
+ * list when postbacks aren't configured (local dev), otherwise only tasks
+ * old enough that their postback looks missed. A shallow check that misses
+ * is re-posted at DEEP_SERP_DEPTH instead of recorded; a failed task is
+ * dropped. Returns the refreshed pending list.
+ */
+export async function collectPendingChecks(
+  organizationId: string,
+  website: string,
+  staleMs: number,
+): Promise<QueuedSerpTask[]> {
+  const pending = await readPendingChecks(organizationId);
+  const cutoff = Date.now() - staleMs;
+  const collectable = pending.filter((task) => task.queuedAt <= cutoff);
+  if (collectable.length === 0) return pending;
+
+  const domain = websiteDomain(website);
+  const results: PositionResult[] = [];
+  const removeTaskIds: string[] = [];
+  const deepRechecks: { keyword: string; location: string; depth: number }[] =
+    [];
+
+  const collected = await Promise.all(
+    collectable.map(async (task) => ({
+      task,
+      result: await fetchSerpTaskResult(task.id),
+    })),
+  );
+  for (const { task, result } of collected) {
+    if (result.status === "pending") continue;
+    removeTaskIds.push(task.id);
+    if (result.status === "failed") {
+      console.error(
+        `Queued check failed for "${task.keyword}":`,
+        result.message,
+      );
+    } else {
+      const placement = findPlacement(result.items, domain);
+      if (placement.position === null && task.depth < DEEP_SERP_DEPTH) {
+        deepRechecks.push({
+          keyword: task.keyword,
+          location: task.location,
+          depth: DEEP_SERP_DEPTH,
+        });
+      } else {
+        results.push({ keyword: task.keyword, ...placement });
+      }
+    }
+  }
+  if (removeTaskIds.length === 0) return pending;
+
+  const addTasks =
+    deepRechecks.length > 0
+      ? (
+          await postSerpTasks(deepRechecks, {
+            postbackUrl: postbackUrlFor(organizationId),
+          })
+        ).tasks
+      : [];
+  await applyCheckOutcome(organizationId, { results, removeTaskIds, addTasks });
+  return readPendingChecks(organizationId);
+}
+
+/** Task envelope DataForSEO POSTs to the postback route (task_get shape). */
+export interface SerpPostbackTask {
+  id: string;
+  status_code: number;
+  status_message?: string;
+  data?: { keyword?: string; location_name?: string; depth?: number };
+  result?: { items: SerpItem[] | null }[] | null;
+}
+
+/**
+ * Applies one postback-delivered task result: merges the placement into
+ * today's snapshot and clears the pending entry. Same rules as active
+ * collection — a shallow miss re-posts at DEEP_SERP_DEPTH, a failed task
+ * is dropped without recording.
+ */
+export async function handleSerpPostback(
+  organizationId: string,
+  task: SerpPostbackTask,
+): Promise<void> {
+  const keyword = task.data?.keyword;
+  if (!task.id || !keyword) return;
+  if (task.status_code !== 20000) {
+    console.error(`Queued check failed for "${keyword}":`, task.status_message);
+    await applyCheckOutcome(organizationId, { removeTaskIds: [task.id] });
+    return;
+  }
+
   const orgSnap = await getAdminDb()
     .doc(`organizations/${organizationId}`)
     .get();
-  const { website, keywords } = readOrgTracking(orgSnap.data());
-  if (!website || keywords.length === 0) return null;
+  const { website } = readOrgTracking(orgSnap.data());
+  if (!website) {
+    await applyCheckOutcome(organizationId, { removeTaskIds: [task.id] });
+    return;
+  }
 
-  const { results, downgraded } = await checkKeywords(
-    websiteDomain(website),
-    keywords,
-  );
-  await mergeSnapshot(organizationId, results);
+  const items = task.result?.[0]?.items ?? [];
+  const placement = findPlacement(items, websiteDomain(website));
+  const depth =
+    typeof task.data?.depth === "number" ? task.data.depth : DEEP_SERP_DEPTH;
+  if (placement.position === null && depth < DEEP_SERP_DEPTH) {
+    const reposted = await postSerpTasks(
+      [
+        {
+          keyword,
+          location: task.data?.location_name ?? FALLBACK_LOCATION,
+          depth: DEEP_SERP_DEPTH,
+        },
+      ],
+      { postbackUrl: postbackUrlFor(organizationId) },
+    );
+    await applyCheckOutcome(organizationId, {
+      removeTaskIds: [task.id],
+      addTasks: reposted.tasks,
+    });
+    return;
+  }
+  await applyCheckOutcome(organizationId, {
+    results: [{ keyword, ...placement }],
+    removeTaskIds: [task.id],
+  });
+}
 
+/** Persists location downgrades and refreshes stale metadata after a run. */
+async function finalizeKeywordList(
+  organizationId: string,
+  keywords: TrackedKeyword[],
+  downgraded: string[],
+): Promise<void> {
   let updated = keywords;
   if (downgraded.length > 0) {
     updated = keywords.map((entry) =>
@@ -440,6 +789,29 @@ export async function runPositionCheckForOrg(
   if (updated !== keywords) {
     await saveTrackedKeywords(organizationId, updated);
   }
+}
+
+/**
+ * Live daily run for one org: check every tracked keyword, snapshot the
+ * results, persist location downgrades, and refresh stale metadata. Returns
+ * null when the org has nothing to track. Fallback for environments
+ * without postbacks — production crons use `queuePositionCheckForOrg`.
+ */
+export async function runPositionCheckForOrg(
+  organizationId: string,
+): Promise<{ checked: number; found: number } | null> {
+  const orgSnap = await getAdminDb()
+    .doc(`organizations/${organizationId}`)
+    .get();
+  const { website, keywords } = readOrgTracking(orgSnap.data());
+  if (!website || keywords.length === 0) return null;
+
+  const { results, downgraded } = await checkKeywords(
+    websiteDomain(website),
+    keywords,
+  );
+  await mergeSnapshot(organizationId, results);
+  await finalizeKeywordList(organizationId, keywords, downgraded);
 
   return {
     checked: results.length,
@@ -447,22 +819,60 @@ export async function runPositionCheckForOrg(
   };
 }
 
-/** Cron entry point: runs the daily check for every org with tracked keywords. */
+/**
+ * Queue-based daily run for one org: posts a Standard-priority task per
+ * keyword at adaptive depth with a postback URL, so results merge
+ * themselves as DataForSEO delivers them — the cron just queues and exits.
+ * Metadata refresh stays synchronous (cheap batched calls).
+ */
+export async function queuePositionCheckForOrg(
+  organizationId: string,
+): Promise<{ queued: number } | null> {
+  const orgSnap = await getAdminDb()
+    .doc(`organizations/${organizationId}`)
+    .get();
+  const { website, keywords } = readOrgTracking(orgSnap.data());
+  if (!website || keywords.length === 0) return null;
+
+  const positions = await latestPositions(
+    organizationId,
+    new Set(keywords.map((entry) => entry.keyword)),
+  );
+  const { tasks, downgraded } = await postSerpTasks(
+    keywords.map((entry) => ({
+      keyword: entry.keyword,
+      location: entry.location,
+      depth: adaptiveDepth(positions.get(entry.keyword) ?? null),
+    })),
+    { postbackUrl: postbackUrlFor(organizationId) },
+  );
+  await applyCheckOutcome(organizationId, { addTasks: tasks });
+  await finalizeKeywordList(organizationId, keywords, downgraded);
+  return { queued: tasks.length };
+}
+
+/**
+ * Cron entry point: daily check for every org with tracked keywords —
+ * queued with postbacks when configured, live otherwise.
+ */
 export async function runPositionChecksForAllOrgs(): Promise<{
   orgs: number;
   checked: number;
 }> {
   const orgs = await getAdminDb().collection("organizations").get();
+  const queued = postbackConfigured();
   let ran = 0;
   let checked = 0;
   for (const doc of orgs.docs) {
     const { website, keywords } = readOrgTracking(doc.data());
     if (!website || keywords.length === 0) continue;
     try {
-      const summary = await runPositionCheckForOrg(doc.id);
+      const summary = queued
+        ? await queuePositionCheckForOrg(doc.id)
+        : await runPositionCheckForOrg(doc.id);
       if (summary) {
         ran += 1;
-        checked += summary.checked;
+        checked += "queued" in summary ? summary.queued : summary.checked;
       }
     } catch (error) {
       console.error(`Position check failed for org ${doc.id}:`, error);

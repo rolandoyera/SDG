@@ -7,14 +7,22 @@ import { ACTIVE_ORG_COOKIE } from "@/lib/org-cookie";
 import { getAdminDb } from "./firebase-admin";
 import { getActiveOrgCompanyAddress, getActiveOrgWebsite } from "./org-config";
 import {
+  adaptiveDepth,
+  applyCheckOutcome,
   checkKeywords,
+  collectPendingChecks,
   composeLocation,
   FALLBACK_LOCATION,
   fetchKeywordMetadata,
+  latestPositions,
   MAX_TRACKED_KEYWORDS,
   mergeSnapshot,
   type PositionSnapshot,
-  runPositionCheckForOrg,
+  postbackConfigured,
+  postbackUrlFor,
+  postSerpTasks,
+  type QueuedSerpTask,
+  readPendingChecks,
   saveTrackedKeywords,
   type TrackedKeyword,
   websiteDomain,
@@ -23,6 +31,7 @@ import {
 export type {
   PositionResult,
   PositionSnapshot,
+  QueuedSerpTask,
   TrackedKeyword,
 } from "./position-tracking";
 
@@ -204,25 +213,122 @@ export async function removeTrackedKeywords(
   }
 }
 
-/** On-demand full check for the active org (same work as the nightly cron). */
-export async function runPositionCheckNow(): Promise<
-  TrackingResult<PositionTrackingData>
-> {
+// ---------------------------------------------------------------------------
+// "Check Selected" — Standard-queue checks for a chosen subset of keywords
+// ---------------------------------------------------------------------------
+
+/**
+ * In postback mode a task whose postback hasn't arrived after this long is
+ * assumed missed and swept via task_get on the next poll.
+ */
+const POSTBACK_SWEEP_AFTER_MS = 10 * 60 * 1000;
+
+/**
+ * Queues a Standard-priority SERP task for each selected keyword at its
+ * adaptive depth, stores them on the org's pending list, and returns them
+ * so the client can seed its spinners. Results merge server-side —
+ * postbacks in production, `pollChecks` task_get sweeps otherwise.
+ * Location downgrades are persisted here, same as the live flow.
+ */
+export async function postSelectedChecks(
+  keywords: string[],
+): Promise<TrackingResult<QueuedSerpTask[]>> {
+  const organizationId = await getActiveOrgId();
+  if (!organizationId) {
+    return { success: false, error: "No active organization." };
+  }
+  const website = await getActiveOrgWebsite();
+  if (!website) {
+    return {
+      success: false,
+      error: "Set your website on the Company page first.",
+    };
+  }
+  try {
+    const tracked = await readTrackedKeywords(organizationId);
+    const wanted = new Set(keywords);
+    const entries = tracked.filter((entry) => wanted.has(entry.keyword));
+    if (entries.length === 0) {
+      return { success: false, error: "No tracked keywords selected." };
+    }
+
+    const positions = await latestPositions(
+      organizationId,
+      new Set(entries.map((entry) => entry.keyword)),
+    );
+    const { tasks, downgraded } = await postSerpTasks(
+      entries.map((entry) => ({
+        keyword: entry.keyword,
+        location: entry.location,
+        depth: adaptiveDepth(positions.get(entry.keyword) ?? null),
+      })),
+      { postbackUrl: postbackUrlFor(organizationId) },
+    );
+
+    if (downgraded.length > 0) {
+      await saveTrackedKeywords(
+        organizationId,
+        tracked.map((entry) =>
+          downgraded.includes(entry.keyword)
+            ? { ...entry, location: FALLBACK_LOCATION }
+            : entry,
+        ),
+      );
+    }
+    if (tasks.length === 0) {
+      return { success: false, error: "The checks could not be queued." };
+    }
+    await applyCheckOutcome(organizationId, { addTasks: tasks });
+    return { success: true, data: tasks };
+  } catch (error) {
+    console.error("postSelectedChecks failed:", error);
+    return {
+      success: false,
+      error: getErrorMessage(error, "The position check failed."),
+    };
+  }
+}
+
+export interface CheckProgress {
+  /** Tasks still in the queue (including any deep re-checks). */
+  pending: QueuedSerpTask[];
+  /** Refreshed page data, included when the pending count changed. */
+  tracking?: PositionTrackingData;
+}
+
+/**
+ * Reports queued-check progress for the active org. With postbacks
+ * configured, results merge server-side as DataForSEO delivers them and
+ * this mostly reads the pending list (sweeping tasks whose postback looks
+ * missed); without them (local dev), it actively collects finished tasks
+ * via task_get. Pass the previously seen pending count so the tracking
+ * payload is only refetched when something changed.
+ */
+export async function pollChecks(
+  prevPending: number,
+): Promise<TrackingResult<CheckProgress>> {
   const organizationId = await getActiveOrgId();
   if (!organizationId) {
     return { success: false, error: "No active organization." };
   }
   try {
-    const summary = await runPositionCheckForOrg(organizationId);
-    if (!summary) {
-      return {
-        success: false,
-        error: "Nothing to check — add keywords and set your website first.",
-      };
+    const website = await getActiveOrgWebsite();
+    const pending = website
+      ? await collectPendingChecks(
+          organizationId,
+          website,
+          postbackConfigured() ? POSTBACK_SWEEP_AFTER_MS : 0,
+        )
+      : await readPendingChecks(organizationId);
+
+    let tracking: PositionTrackingData | undefined;
+    if (pending.length !== prevPending) {
+      const refreshed = await fetchPositionTracking();
+      if (refreshed.success) tracking = refreshed.data;
     }
-    return await fetchPositionTracking();
+    return { success: true, data: { pending, tracking } };
   } catch (error) {
-    console.error("runPositionCheckNow failed:", error);
+    console.error("pollChecks failed:", error);
     return {
       success: false,
       error: getErrorMessage(error, "The position check failed."),

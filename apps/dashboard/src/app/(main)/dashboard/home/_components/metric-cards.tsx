@@ -156,7 +156,7 @@ export function MetricCards() {
       : "ready";
 
   return (
-    <div className="grid grid-cols-1 gap-6 *:data-[slot=card]:bg-linear-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs xl:grid-cols-4 dark:*:data-[slot=card]:bg-card">
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
       <Display>
         <DisplayHeader>
           <DisplayIcon>
@@ -210,13 +210,11 @@ export function MetricCards() {
             variant="link"
             size="sm"
             asChild
-            className="ml-auto p-0 detail-link"
-          >
+            className="ml-auto p-0 detail-link">
             <Link
               href="/dashboard/projects"
               prefetch={false}
-              className="group/btn flex items-center gap-0.5"
-            >
+              className="group/btn flex items-center gap-0.5">
               View Projects
               <ArrowRight className="size-3 transition-transform group-hover/btn:translate-x-1" />
             </Link>
@@ -253,8 +251,7 @@ export function MetricCards() {
                       visits.comparison.isPositive
                         ? "trendingUp"
                         : "trendingDown"
-                    }
-                  >
+                    }>
                     {visits.comparison.isPositive ? (
                       <TrendingUp className="size-3" />
                     ) : (
@@ -285,13 +282,11 @@ export function MetricCards() {
               variant="link"
               size="sm"
               asChild
-              className="ml-auto p-0 detail-link"
-            >
+              className="ml-auto p-0 detail-link">
               <Link
                 href="/dashboard/analytics"
                 prefetch={false}
-                className="group/btn flex items-center gap-0.5"
-              >
+                className="group/btn flex items-center gap-0.5">
                 View More
                 <ArrowRight className="size-3 transition-transform group-hover/btn:translate-x-1" />
               </Link>
@@ -329,8 +324,7 @@ export function MetricCards() {
                       igFollowers.comparison.isPositive
                         ? "trendingUp"
                         : "trendingDown"
-                    }
-                  >
+                    }>
                     {igFollowers.comparison.isPositive ? (
                       <TrendingUp className="size-3" />
                     ) : (
@@ -361,13 +355,11 @@ export function MetricCards() {
               variant="link"
               size="sm"
               asChild
-              className="ml-auto p-0 detail-link"
-            >
+              className="ml-auto p-0 detail-link">
               <Link
                 href="/dashboard/instagram"
                 prefetch={false}
-                className="group/btn flex items-center gap-0.5"
-              >
+                className="group/btn flex items-center gap-0.5">
                 View More
                 <ArrowRight className="size-3 transition-transform group-hover/btn:translate-x-1" />
               </Link>

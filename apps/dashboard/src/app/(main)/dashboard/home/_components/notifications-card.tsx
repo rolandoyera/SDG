@@ -40,7 +40,7 @@ export function NotificationsCard() {
       <CardHeader>
         <CardTitle>Notifications</CardTitle>
       </CardHeader>
-      <CardContent className="flex-1 pt-0">
+      <CardContent className="flex-1 pt-0 max-h-96 min-h-66 xl:min-h-max">
         {!uid || visible.length === 0 ? (
           <div className="flex h-full w-full items-center justify-center">
             <p className="text-muted-foreground font-light text-xs">
@@ -55,8 +55,7 @@ export function NotificationsCard() {
                 return (
                   <div
                     key={n.notificationId}
-                    className="flex flex-col rounded bg-muted p-2"
-                  >
+                    className="flex flex-col rounded bg-muted p-2">
                     <p className="mb-2 text-muted-foreground text-xs">
                       {formatDistanceToNow(n.createdAt, { addSuffix: true })}
                     </p>
@@ -72,8 +71,7 @@ export function NotificationsCard() {
                           className={cn(
                             "text-sm",
                             unread ? "font-medium" : "text-muted-foreground",
-                          )}
-                        >
+                          )}>
                           {n.title}
                         </p>
                       </div>
@@ -93,8 +91,7 @@ export function NotificationsCard() {
                               aria-label="Mark as read"
                               onClick={() =>
                                 void markNotificationRead(n.notificationId, uid)
-                              }
-                            >
+                              }>
                               <Check />
                             </Button>
                           </TooltipTrigger>
@@ -108,8 +105,7 @@ export function NotificationsCard() {
                               variant="ghost"
                               size="icon-xs"
                               aria-label="View"
-                              onClick={() => handleView(n)}
-                            >
+                              onClick={() => handleView(n)}>
                               <ExternalLink />
                             </Button>
                           </TooltipTrigger>
@@ -124,8 +120,7 @@ export function NotificationsCard() {
                             aria-label="Delete"
                             onClick={() =>
                               void dismissNotification(n.notificationId, uid)
-                            }
-                          >
+                            }>
                             <Trash2 />
                           </Button>
                         </TooltipTrigger>

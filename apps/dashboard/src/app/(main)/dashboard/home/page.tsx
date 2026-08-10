@@ -24,11 +24,11 @@ export default function Page() {
           <WeatherWidget />
         </div>
         <MetricCards />
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-          <div className="lg:col-span-3">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-12">
+          <div className="md:col-span-6 xl:col-span-3">
             <NotificationsCard />
           </div>
-          <div className="lg:col-span-3">
+          <div className="md:col-span-6 xl:col-span-3">
             <Card variant="panel" className="h-full">
               <CardHeader>
                 <CardTitle>Tasks</CardTitle>
@@ -36,10 +36,10 @@ export default function Page() {
               <CardContent className="pt-0"></CardContent>
             </Card>
           </div>
-          <div className="lg:col-span-6">
+          <div className="md:col-span-12 xl:col-span-6">
             <PerformanceOverview />
           </div>
-          <div className="lg:col-span-12">
+          <div className="md:col-span-12 xl:col-span-12">
             <SubscriberOverview />
           </div>
         </div>

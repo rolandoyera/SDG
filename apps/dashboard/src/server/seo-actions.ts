@@ -161,6 +161,7 @@ interface DomNode {
   name?: string;
   attribs?: Record<string, string>;
   children?: DomNode[];
+  parent?: DomNode | null;
 }
 
 const SKIP_TAGS = new Set([
@@ -178,6 +179,17 @@ const SKIP_TAGS = new Set([
 // is read to assistive-tech users and Google weights it as real content.
 const HIDDEN_CLASSES = new Set(["rich-snippet-hidden"]);
 
+// Tailwind visibility utilities are decoded for the mobile viewport Google's
+// mobile-first indexing renders: a bare `hidden`/`invisible` (or a `max-*:`
+// variant, which applies *below* its breakpoint) hides the element on a
+// phone, while `sm:`…`2xl:`-prefixed ones only hide it on wider screens. So
+// `hidden lg:block` (desktop-only) is excluded and `lg:hidden` (mobile-only)
+// counts — responsive desktop/mobile twins count once instead of twice.
+function isHiddenClass(cls: string): boolean {
+  if (HIDDEN_CLASSES.has(cls.toLowerCase())) return true;
+  return /^(max-[^:]+:)?(hidden|invisible)$/.test(cls);
+}
+
 function isHiddenElement(node: DomNode): boolean {
   const attribs = node.attribs ?? {};
   if ("hidden" in attribs) return true;
@@ -185,9 +197,17 @@ function isHiddenElement(node: DomNode): boolean {
   if (/display\s*:\s*none|visibility\s*:\s*hidden/i.test(attribs.style ?? "")) {
     return true;
   }
-  return (attribs.class ?? "")
-    .split(/\s+/)
-    .some((cls) => HIDDEN_CLASSES.has(cls.toLowerCase()));
+  return (attribs.class ?? "").split(/\s+/).some(isHiddenClass);
+}
+
+// For elements picked via selectors: extractSegments never descends into a
+// hidden subtree, but a selector jumps straight to the element, so its
+// hidden ancestors must be checked explicitly.
+function isHiddenTree(node: DomNode): boolean {
+  for (let cur: DomNode | null | undefined = node; cur; cur = cur.parent) {
+    if (isHiddenElement(cur)) return true;
+  }
+  return false;
 }
 
 const BLOCK_TAGS = new Set([
@@ -266,6 +286,7 @@ function extractSegments(nodes: DomNode[]): string[] {
 function elementSegments($: cheerio.CheerioAPI, selector: string): string[] {
   return $(selector)
     .toArray()
+    .filter((el) => !isHiddenTree(el as unknown as DomNode))
     .flatMap((el) => extractSegments([el as unknown as DomNode]));
 }
 
@@ -358,6 +379,7 @@ function analyzeHtml(url: string, html: string): PageAnalysis {
     "body h1, body h2, body h3, body h4, body h5, body h6",
   )
     .toArray()
+    .filter((el) => !isHiddenTree(el as unknown as DomNode))
     .map((el) => ({ tag: el.tagName.toUpperCase(), text: elementText(el) }));
   const h1s = headings
     .filter((heading) => heading.tag === "H1")
@@ -366,8 +388,12 @@ function analyzeHtml(url: string, html: string): PageAnalysis {
     .filter((heading) => heading.tag === "H2")
     .map((heading) => heading.text);
 
-  // Link inventory (http/https + relative hrefs only).
+  // Link inventory (http/https + relative hrefs only). The full inventory
+  // stays unfiltered because spider discovery follows it (menus hidden until
+  // JS opens them still lead to real pages); counts, the links scope, and
+  // the listing use only mobile-visible links.
   const links: PageLink[] = [];
+  const visibleLinks: PageLink[] = [];
   const bodyLinks: PageLink[] = [];
   for (const el of $("body a[href]").toArray()) {
     const href = $(el).attr("href") ?? "";
@@ -387,12 +413,16 @@ function analyzeHtml(url: string, html: string): PageAnalysis {
       internal: normalizeHost(resolved.host) === normalizeHost(pageUrl.host),
     };
     links.push(link);
+    if (isHiddenTree(el as unknown as DomNode)) continue;
+    visibleLinks.push(link);
     if ($(el).parents("header, footer, nav, aside").length === 0) {
       bodyLinks.push(link);
     }
   }
 
-  const images = $("body img").toArray();
+  const images = $("body img")
+    .toArray()
+    .filter((el) => !isHiddenTree(el as unknown as DomNode));
   const missingAltSrcs = images
     .filter((el) => !($(el).attr("alt") ?? "").trim())
     .map((el) => $(el).attr("src") ?? "(no src)");
@@ -405,7 +435,7 @@ function analyzeHtml(url: string, html: string): PageAnalysis {
     $,
     "body h1, body h2, body h3, body h4, body h5, body h6",
   );
-  const linkSegments = links.map((link) => link.text);
+  const linkSegments = visibleLinks.map((link) => link.text);
   const imageSegments = images
     .map((el) => ($(el).attr("alt") ?? "").trim())
     .filter(Boolean);
@@ -429,9 +459,9 @@ function analyzeHtml(url: string, html: string): PageAnalysis {
     imageCount: images.length,
     missingAltCount: missingAltSrcs.length,
     missingAltSrcs: missingAltSrcs.slice(0, 20),
-    linkCount: links.length,
-    internalLinkCount: links.filter((link) => link.internal).length,
-    externalLinkCount: links.filter((link) => !link.internal).length,
+    linkCount: visibleLinks.length,
+    internalLinkCount: visibleLinks.filter((link) => link.internal).length,
+    externalLinkCount: visibleLinks.filter((link) => !link.internal).length,
     links,
     bodyLinks,
     scopes: {
@@ -459,6 +489,7 @@ function mainContentView(
 
   const internalLinks: PageLink[] = [];
   for (const el of $("body a[href]").toArray()) {
+    if (isHiddenTree(el as unknown as DomNode)) continue;
     const href = $(el).attr("href") ?? "";
     if (/^(mailto:|tel:|javascript:|#)/i.test(href)) continue;
     let resolved: URL;

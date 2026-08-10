@@ -91,9 +91,10 @@ competitor analysis will grow later.
   lists the page's actual headings (tag + text, document order,
   `PageAnalysis.headings`) below the phrase tables — in the Compare tab and
   the crawl's page-detail dialog. The Links scope likewise lists the page's
-  body links (anchor text + destination, `PageAnalysis.bodyLinks` — links
-  outside header/footer/nav/aside chrome; the phrase tables and link counts
-  still cover all links).
+  body links (anchor text + destination, `PageAnalysis.bodyLinks` — mobile-
+  visible links outside header/footer/nav/aside chrome). Link counts and the
+  Links phrase tables cover mobile-visible links; the full inventory
+  (`PageAnalysis.links`) stays unfiltered because spider discovery follows it.
 - `seo-stop-words.ts` is SEOBook's own list, verbatim — do not curate it.
 - Text extraction inserts element boundaries so adjacent anchors never run
   together (SEOBook's "design groupdesign" artifact); phrases never span
@@ -101,8 +102,15 @@ competitor analysis will grow later.
   attributes, inline `display:none`/`visibility:hidden`, and `HIDDEN_CLASSES`
   (e.g. WP themes print raw microformat timestamps in `rich-snippet-hidden`
   spans). Screen-reader text (`sr-only` etc.) deliberately counts — it's read
-  aloud to AT users and Google weights it as content. External stylesheets are
-  out of reach, so class-based hiding beyond `HIDDEN_CLASSES` slips through.
+  aloud to AT users and Google weights it as content. The analyzer models
+  **Google's mobile-first render** for Tailwind sites: a bare
+  `hidden`/`invisible` utility (or a `max-*:` variant) counts as hidden, while
+  `sm:`…`2xl:`-prefixed ones are mobile-visible — so responsive
+  desktop/mobile twins (e.g. the marketing site's `LocationServices`, which
+  ships both layouts in the HTML) count once, not twice. Applies to all
+  scopes, word totals, the headings/links listings, and image counts.
+  External stylesheets are out of reach, so other class-based hiding beyond
+  `HIDDEN_CLASSES` and Tailwind utilities still slips through.
 - Site-wide checks run on a main-content view (header/footer/nav/aside
   stripped) so shared page chrome doesn't flag every page pair.
 - Targets: `live` resolves from the active org's **Company → Website** field

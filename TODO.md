@@ -11,8 +11,7 @@ scaffolded the studio's own site from scratch: landing page + `/privacy`,
       currently attached to the dashboard's Vercel project (`sdg-cgg4`,
       which keeps app.lenisstudio.com / studio.sarviandg.com). Set
       `NEXT_PUBLIC_SITE_URL=https://lenisstudio.com`.
-- [ ] Deploy `apps/website` as a new Vercel project, move lenisstudio.com
-      + www onto it, paste legal URLs into Meta app settings.
+- [ ] Deploy `apps/website` as a new Vercel project, move lenisstudio.com + www onto it, paste legal URLs into Meta app settings.
 - [ ] Rolando: review legal copy + landing positioning line.
 
 **Shipped 2026-08-07** — the Keyword Analyzer lives at
@@ -74,6 +73,35 @@ DataForSEO env vars are set locally and in Vercel production.
       range selectors.
 - Later: swap live SERP for the standard queue (~$1.85/mo, plumbing-only);
   Page Watch (above) feeding H1-derived keywords into the tracker.
+
+## Keyword Analyzer: view like Google (mobile-first rendering)
+
+**Shipped 2026-08-09** — the analyzer now emulates Google's mobile-first
+render for Tailwind sites: bare `hidden`/`invisible` (and `max-*:` variants)
+= hidden on a phone; `sm:`…`2xl:`-prefixed = mobile-visible. Applied to all
+scopes, word totals, headings/links listings, image counts, and the
+site-wide checks. Verified on the live Miami location page: the services
+copy (shipped twice in HTML — desktop `hidden lg:block` story + mobile
+`lg:hidden` stack) now counts once; word total ~2,555 → ~2,153. Spider
+discovery still follows the full unfiltered link inventory on purpose
+(JS-opened menus lead to real pages).
+
+Pick up later, in order:
+
+- [ ] **Mobile/desktop parity check** — the visibility logic already
+      classifies elements as mobile- vs desktop-visible; compute both views
+      per page and flag copy that exists in only one, as a crawl finding
+      next to duplicate-phrases/anchor-reuse. Answers "I changed desktop
+      and forgot mobile (or vice versa), and never knew."
+- [ ] **True headless rendering** (only when competitor-side accuracy earns
+      it) — Chromium at a mobile viewport (~412px, Googlebot Smartphone UA)
+      via `@sparticuz/chromium` on Vercel; extract visible text in-page with
+      computed styles. Generalizes accuracy to non-Tailwind sites + JS-
+      rendered pages. Free in dollars; costs crawl speed (2–5s/page vs
+      ~300ms) and bundling fragility (function size limit, cold starts,
+      raised maxDuration). Tested 2026-08-09: DataForSEO content parsing
+      with JS rendering does **not** respect viewport visibility (Miami
+      services copy still counted twice) — their API is not a shortcut here.
 
 ## Later, if worthy
 

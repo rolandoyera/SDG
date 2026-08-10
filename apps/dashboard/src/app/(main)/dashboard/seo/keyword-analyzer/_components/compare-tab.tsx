@@ -723,6 +723,7 @@ export function CompareTab() {
                       headings={
                         scope === "headlines" ? page.headings : undefined
                       }
+                      links={scope === "links" ? page.bodyLinks : undefined}
                     />
                   </div>
                 ))}

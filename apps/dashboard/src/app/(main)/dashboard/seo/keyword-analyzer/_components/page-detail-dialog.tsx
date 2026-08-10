@@ -48,6 +48,7 @@ function DetailBody({ page }: { page: PageAnalysis }) {
       <ScopePhraseTables
         scope={page.scopes[scope]}
         headings={scope === "headlines" ? page.headings : undefined}
+        links={scope === "links" ? page.bodyLinks : undefined}
       />
     </div>
   );

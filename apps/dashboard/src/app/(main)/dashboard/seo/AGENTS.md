@@ -90,7 +90,10 @@ competitor analysis will grow later.
   anchors), headlines, links, images (alt text). The Headlines scope also
   lists the page's actual headings (tag + text, document order,
   `PageAnalysis.headings`) below the phrase tables — in the Compare tab and
-  the crawl's page-detail dialog.
+  the crawl's page-detail dialog. The Links scope likewise lists the page's
+  body links (anchor text + destination, `PageAnalysis.bodyLinks` — links
+  outside header/footer/nav/aside chrome; the phrase tables and link counts
+  still cover all links).
 - `seo-stop-words.ts` is SEOBook's own list, verbatim — do not curate it.
 - Text extraction inserts element boundaries so adjacent anchors never run
   together (SEOBook's "design groupdesign" artifact); phrases never span

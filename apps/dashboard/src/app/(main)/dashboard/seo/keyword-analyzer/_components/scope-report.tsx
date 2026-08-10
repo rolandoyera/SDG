@@ -9,7 +9,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { PageHeading, PhraseRow, ScopeReport } from "@/server/seo-actions";
+import type {
+  PageHeading,
+  PageLink,
+  PhraseRow,
+  ScopeReport,
+} from "@/server/seo-actions";
 
 export type ScopeKey = "all" | "body" | "headlines" | "links" | "images";
 
@@ -48,12 +53,12 @@ function PhraseTable({ title, rows }: { title: string; rows: PhraseRow[] }) {
       {rows.length === 0 ? (
         <p className="text-muted-foreground text-sm">No repeated phrases.</p>
       ) : (
-        <Table>
+        <Table className="table-fixed">
           <TableHeader>
             <TableRow>
               <TableHead>Phrase</TableHead>
-              <TableHead className="text-right">Count</TableHead>
-              <TableHead className="text-right">Density</TableHead>
+              <TableHead className="w-24 text-right">Count</TableHead>
+              <TableHead className="w-24 text-right">Density</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -116,16 +121,62 @@ function HeadingsTable({ headings }: { headings: PageHeading[] }) {
   );
 }
 
+function LinksTable({ links }: { links: PageLink[] }) {
+  // Key rows by content + occurrence (repeated links are legitimate).
+  const occurrences = new Map<string, number>();
+  const rows = links.map((link) => {
+    const base = `${link.text}:${link.href}`;
+    const nth = occurrences.get(base) ?? 0;
+    occurrences.set(base, nth + 1);
+    return { ...link, key: `${base}#${nth}` };
+  });
+
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="font-bold text-sm text-primary">Page Links</p>
+      {rows.length === 0 ? (
+        <p className="text-muted-foreground text-sm">
+          No body links on the page.
+        </p>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Link</TableHead>
+              <TableHead>Links To</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((link) => (
+              <TableRow key={link.key}>
+                <TableCell className="wrap-break-word whitespace-normal font-medium">
+                  {link.text || "—"}
+                </TableCell>
+                <TableCell className="break-all whitespace-normal text-muted-foreground">
+                  {link.href}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+    </div>
+  );
+}
+
 /**
  * The 1/2/3-word phrase tables for one scope, with its word totals. Pass
- * `headings` (Headlines scope only) to list the page's actual headings below.
+ * `headings` (Headlines scope only) to list the page's actual headings below,
+ * or `links` (Links scope only) to list the page's body links below.
  */
 export function ScopePhraseTables({
   scope,
   headings,
+  links,
 }: {
   scope: ScopeReport;
   headings?: PageHeading[];
+  links?: PageLink[];
 }) {
   return (
     <div className="flex flex-col gap-6">
@@ -138,6 +189,7 @@ export function ScopePhraseTables({
       <PhraseTable title="2-Word Phrases" rows={scope.two} />
       <PhraseTable title="3-Word Phrases" rows={scope.three} />
       {headings && <HeadingsTable headings={headings} />}
+      {links && <LinksTable links={links} />}
     </div>
   );
 }

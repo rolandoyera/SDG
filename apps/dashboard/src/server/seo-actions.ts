@@ -106,6 +106,8 @@ export interface PageAnalysis {
   internalLinkCount: number;
   externalLinkCount: number;
   links: PageLink[];
+  /** Links outside page chrome (header/footer/nav/aside), document order. */
+  bodyLinks: PageLink[];
   scopes: {
     all: ScopeReport;
     body: ScopeReport;
@@ -366,6 +368,7 @@ function analyzeHtml(url: string, html: string): PageAnalysis {
 
   // Link inventory (http/https + relative hrefs only).
   const links: PageLink[] = [];
+  const bodyLinks: PageLink[] = [];
   for (const el of $("body a[href]").toArray()) {
     const href = $(el).attr("href") ?? "";
     if (/^(mailto:|tel:|javascript:|#)/i.test(href)) continue;
@@ -378,11 +381,15 @@ function analyzeHtml(url: string, html: string): PageAnalysis {
     if (resolved.protocol !== "http:" && resolved.protocol !== "https:") {
       continue;
     }
-    links.push({
+    const link: PageLink = {
       href: resolved.href,
       text: elementText(el),
       internal: normalizeHost(resolved.host) === normalizeHost(pageUrl.host),
-    });
+    };
+    links.push(link);
+    if ($(el).parents("header, footer, nav, aside").length === 0) {
+      bodyLinks.push(link);
+    }
   }
 
   const images = $("body img").toArray();
@@ -426,6 +433,7 @@ function analyzeHtml(url: string, html: string): PageAnalysis {
     internalLinkCount: links.filter((link) => link.internal).length,
     externalLinkCount: links.filter((link) => !link.internal).length,
     links,
+    bodyLinks,
     scopes: {
       all: buildScopeReport(allSegments),
       body: buildScopeReport(bodySegments),

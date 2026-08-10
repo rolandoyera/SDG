@@ -42,7 +42,9 @@ Three tabs backed by `src/server/seo-actions.ts`:
   shows each pair as the share of each page's main-content words that are
   copied, and the table's sortable **Duplicate** column is the page's worst
   single-pair share (destructive-colored at ≥ 20%), replacing the old Unique
-  word count. A passage carried by 30%+ of crawled pages (min 3) is
+  word count. Overlap at ≤ 15% (`SIGNIFICANT_DUPLICATE_PERCENT`) is treated as
+  the normal cost of writing about one topic: those pairs are hidden from the
+  card, and pages that never exceed it show a dash in the table. A passage carried by 30%+ of crawled pages (min 3) is
   treated as site furniture — testimonials, CTA blocks — and dropped, rather
   than flagging every page pair. On sites we control,
   `data-dup-ignore` on an element drops it by hand. Both exclusions are scoped

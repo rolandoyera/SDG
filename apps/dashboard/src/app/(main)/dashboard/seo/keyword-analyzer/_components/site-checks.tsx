@@ -10,7 +10,20 @@ import type { SiteCrawl } from "@/server/seo-actions";
  */
 const percent = (ratio: number) => `${Math.round(ratio * 100)}%`;
 
+/**
+ * There are only so many ways to talk about interior design: overlap at this
+ * level or below is accepted as normal. Pairs under it are hidden here, and
+ * the table's Duplicate column shows a dash for pages that never exceed it.
+ */
+export const SIGNIFICANT_DUPLICATE_PERCENT = 15;
+
 export function SiteChecks({ crawl }: { crawl: SiteCrawl }) {
+  const duplicates = crawl.duplicatePhrases.filter(
+    (finding) =>
+      Math.round(finding.ratioA * 100) > SIGNIFICANT_DUPLICATE_PERCENT ||
+      Math.round(finding.ratioB * 100) > SIGNIFICANT_DUPLICATE_PERCENT,
+  );
+
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <Card className="gap-2 pt-0">
@@ -18,12 +31,12 @@ export function SiteChecks({ crawl }: { crawl: SiteCrawl }) {
           <CardTitle>Duplicated Content</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          {crawl.duplicatePhrases.length === 0 ? (
+          {duplicates.length === 0 ? (
             <p className="text-muted-foreground text-sm">
               No page-level duplicated content detected between pages.
             </p>
           ) : (
-            crawl.duplicatePhrases.map((finding) => (
+            duplicates.map((finding) => (
               <div
                 key={`${finding.pageA}|${finding.pageB}`}
                 className="flex flex-col gap-1"

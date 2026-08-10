@@ -18,6 +18,8 @@ import type {
   PageAnalysis,
 } from "@/server/seo-actions";
 
+import { SIGNIFICANT_DUPLICATE_PERCENT } from "./site-checks";
+
 interface CrawlRow {
   path: string;
   words: number;
@@ -61,18 +63,22 @@ const columns: ColumnDef<CrawlRow>[] = [
         Duplicate
       </SortableHeader>
     ),
-    cell: ({ row }) => (
-      <div
-        className={cn(
-          "text-right tabular-nums",
-          row.original.duplicateRatio >= 0.2
-            ? "text-destructive"
-            : "text-muted-foreground",
-        )}
-      >
-        {Math.round(row.original.duplicateRatio * 100)}%
-      </div>
-    ),
+    cell: ({ row }) => {
+      const pct = Math.round(row.original.duplicateRatio * 100);
+      if (pct <= SIGNIFICANT_DUPLICATE_PERCENT) {
+        return <div className="text-right text-muted-foreground">–</div>;
+      }
+      return (
+        <div
+          className={cn(
+            "text-right tabular-nums",
+            pct >= 20 ? "text-destructive" : "text-muted-foreground",
+          )}
+        >
+          {pct}%
+        </div>
+      );
+    },
   },
   {
     accessorKey: "titleLength",

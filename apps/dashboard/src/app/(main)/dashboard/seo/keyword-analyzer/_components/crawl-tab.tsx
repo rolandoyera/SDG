@@ -127,7 +127,11 @@ export function CrawlTab() {
               <CardTitle>Pages</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-1 flex-col px-0 pt-0">
-              <CrawlTable pages={crawl.pages} onSelectPage={setDetailPage} />
+              <CrawlTable
+                pages={crawl.pages}
+                duplicatePhrases={crawl.duplicatePhrases}
+                onSelectPage={setDetailPage}
+              />
             </CardContent>
           </Card>
 

@@ -13,12 +13,15 @@ import {
 
 import { SortableHeader, TanTable } from "@/components/ui/tan-table";
 import { cn } from "@/lib/utils";
-import type { PageAnalysis } from "@/server/seo-actions";
+import type {
+  DuplicatePhraseFinding,
+  PageAnalysis,
+} from "@/server/seo-actions";
 
 interface CrawlRow {
   path: string;
   words: number;
-  unique: number;
+  duplicateRatio: number;
   titleLength: number;
   metaLength: number;
   h1Count: number;
@@ -52,15 +55,22 @@ const columns: ColumnDef<CrawlRow>[] = [
     ),
   },
   {
-    accessorKey: "unique",
+    accessorKey: "duplicateRatio",
     header: ({ column }) => (
       <SortableHeader column={column} align="right">
-        Unique
+        Duplicate
       </SortableHeader>
     ),
     cell: ({ row }) => (
-      <div className="text-right text-muted-foreground tabular-nums">
-        {row.original.unique.toLocaleString()}
+      <div
+        className={cn(
+          "text-right tabular-nums",
+          row.original.duplicateRatio >= 0.2
+            ? "text-destructive"
+            : "text-muted-foreground",
+        )}
+      >
+        {Math.round(row.original.duplicateRatio * 100)}%
       </div>
     ),
   },
@@ -174,30 +184,43 @@ const columns: ColumnDef<CrawlRow>[] = [
 
 export function CrawlTable({
   pages,
+  duplicatePhrases,
   onSelectPage,
 }: {
   pages: PageAnalysis[];
+  duplicatePhrases: DuplicatePhraseFinding[];
   onSelectPage: (page: PageAnalysis) => void;
 }) {
-  // Memoized so the array identity only changes with `pages` — an unstable
+  // Memoized so the array identity only changes with its inputs — an unstable
   // `data` reference makes TanStack's autoResetPageIndex effect fire after
   // every render, which loops forever (hangs the tab) on pagination changes.
-  const data: CrawlRow[] = useMemo(
-    () =>
-      pages.map((page) => ({
-        path: page.path,
-        words: page.scopes.all.words,
-        unique: page.scopes.all.unique,
-        titleLength: page.title.length,
-        metaLength: page.metaDescription.length,
-        h1Count: page.h1s.length,
-        imageCount: page.imageCount,
-        missingAltCount: page.missingAltCount,
-        linkCount: page.linkCount,
-        analysis: page,
-      })),
-    [pages],
-  );
+  const data: CrawlRow[] = useMemo(() => {
+    // A page's Duplicate % is its worst single-pair overlap, so the table
+    // matches the pair lines in the Duplicated Content card.
+    const maxRatio = new Map<string, number>();
+    for (const finding of duplicatePhrases) {
+      maxRatio.set(
+        finding.pageA,
+        Math.max(maxRatio.get(finding.pageA) ?? 0, finding.ratioA),
+      );
+      maxRatio.set(
+        finding.pageB,
+        Math.max(maxRatio.get(finding.pageB) ?? 0, finding.ratioB),
+      );
+    }
+    return pages.map((page) => ({
+      path: page.path,
+      words: page.scopes.all.words,
+      duplicateRatio: maxRatio.get(page.path) ?? 0,
+      titleLength: page.title.length,
+      metaLength: page.metaDescription.length,
+      h1Count: page.h1s.length,
+      imageCount: page.imageCount,
+      missingAltCount: page.missingAltCount,
+      linkCount: page.linkCount,
+      analysis: page,
+    }));
+  }, [pages, duplicatePhrases]);
 
   const table = useReactTable({
     data,

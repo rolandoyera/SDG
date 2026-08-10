@@ -8,14 +8,6 @@ import type { SiteCrawl } from "@/server/seo-actions";
  * pages and internal-link anchors repeated across source pages (each city
  * page should link to its hubs with a unique keyword anchor).
  */
-const PREVIEW_WORDS = 14;
-
-function preview(text: string) {
-  const words = text.split(" ");
-  if (words.length <= PREVIEW_WORDS) return text;
-  return `${words.slice(0, PREVIEW_WORDS).join(" ")}…`;
-}
-
 const percent = (ratio: number) => `${Math.round(ratio * 100)}%`;
 
 export function SiteChecks({ crawl }: { crawl: SiteCrawl }) {
@@ -40,20 +32,9 @@ export function SiteChecks({ crawl }: { crawl: SiteCrawl }) {
                   {finding.pageA} ↔ {finding.pageB}
                 </p>
                 <p className="text-muted-foreground text-xs">
-                  {finding.sharedWords} words copied across{" "}
-                  {finding.passageCount}{" "}
-                  {finding.passageCount === 1 ? "passage" : "passages"} ·{" "}
                   {percent(finding.ratioA)} of {finding.pageA},{" "}
                   {percent(finding.ratioB)} of {finding.pageB}
                 </p>
-                {finding.passages.map((passage) => (
-                  <p
-                    key={passage.text}
-                    className="text-muted-foreground/80 text-xs italic"
-                  >
-                    {passage.words} words: “{preview(passage.text)}”
-                  </p>
-                ))}
               </div>
             ))
           )}

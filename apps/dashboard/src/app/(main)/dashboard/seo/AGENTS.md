@@ -36,9 +36,13 @@ Three tabs backed by `src/server/seo-actions.ts`:
   concurrency 8), TanTable of per-page metrics (row click opens the full
   report dialog), plus the site-wide checks: duplicated content between pages
   and internal-link anchor text reused across source pages. Duplication is
-  found with overlapping 8-word windows but reported as merged passages and a
-  shared-word count, since the raw window count massively overstates a single
-  copied paragraph. A passage carried by 30%+ of crawled pages (min 3) is
+  found with overlapping 8-word windows merged into passages and a shared-word
+  count server-side (the raw window count massively overstates a single copied
+  paragraph), but the UI reports only percentages: the Duplicated Content card
+  shows each pair as the share of each page's main-content words that are
+  copied, and the table's sortable **Duplicate** column is the page's worst
+  single-pair share (destructive-colored at ≥ 20%), replacing the old Unique
+  word count. A passage carried by 30%+ of crawled pages (min 3) is
   treated as site furniture — testimonials, CTA blocks — and dropped, rather
   than flagging every page pair. On sites we control,
   `data-dup-ignore` on an element drops it by hand. Both exclusions are scoped

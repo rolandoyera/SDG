@@ -8,6 +8,16 @@ import type { SiteCrawl } from "@/server/seo-actions";
  * pages and internal-link anchors repeated across source pages (each city
  * page should link to its hubs with a unique keyword anchor).
  */
+const PREVIEW_WORDS = 14;
+
+function preview(text: string) {
+  const words = text.split(" ");
+  if (words.length <= PREVIEW_WORDS) return text;
+  return `${words.slice(0, PREVIEW_WORDS).join(" ")}…`;
+}
+
+const percent = (ratio: number) => `${Math.round(ratio * 100)}%`;
+
 export function SiteChecks({ crawl }: { crawl: SiteCrawl }) {
   return (
     <div className="grid gap-6 lg:grid-cols-2">
@@ -18,7 +28,7 @@ export function SiteChecks({ crawl }: { crawl: SiteCrawl }) {
         <CardContent className="flex flex-col gap-4">
           {crawl.duplicatePhrases.length === 0 ? (
             <p className="text-muted-foreground text-sm">
-              No duplicated content runs detected between pages.
+              No page-level duplicated content detected between pages.
             </p>
           ) : (
             crawl.duplicatePhrases.map((finding) => (
@@ -30,11 +40,39 @@ export function SiteChecks({ crawl }: { crawl: SiteCrawl }) {
                   {finding.pageA} ↔ {finding.pageB}
                 </p>
                 <p className="text-muted-foreground text-xs">
-                  {finding.count} shared 8-word{" "}
-                  {finding.count === 1 ? "run" : "runs"} · “{finding.sample}…”
+                  {finding.sharedWords} words copied across{" "}
+                  {finding.passageCount}{" "}
+                  {finding.passageCount === 1 ? "passage" : "passages"} ·{" "}
+                  {percent(finding.ratioA)} of {finding.pageA},{" "}
+                  {percent(finding.ratioB)} of {finding.pageB}
                 </p>
+                {finding.passages.map((passage) => (
+                  <p
+                    key={passage.text}
+                    className="text-muted-foreground/80 text-xs italic"
+                  >
+                    {passage.words} words: “{preview(passage.text)}”
+                  </p>
+                ))}
               </div>
             ))
+          )}
+
+          {crawl.boilerplate.length > 0 && (
+            <div className="flex flex-col gap-1 border-t pt-3">
+              <p className="font-medium text-xs">
+                Site-wide blocks, excluded from the pairs above
+              </p>
+              {crawl.boilerplate.map((block) => (
+                <p
+                  key={block.text}
+                  className="text-muted-foreground text-xs italic"
+                >
+                  {block.words} words on {block.pages} pages: “
+                  {preview(block.text)}”
+                </p>
+              ))}
+            </div>
           )}
         </CardContent>
       </Card>

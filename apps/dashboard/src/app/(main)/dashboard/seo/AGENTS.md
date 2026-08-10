@@ -34,8 +34,19 @@ Three tabs backed by `src/server/seo-actions.ts`:
   `data-[state=inactive]:hidden`) so switching tabs doesn't wipe results.
 - **Site Crawl** — manual "Run Crawl" over every sitemap page (~30s,
   concurrency 8), TanTable of per-page metrics (row click opens the full
-  report dialog), plus the site-wide checks: duplicated 8-word content runs
-  between pages and internal-link anchor text reused across source pages.
+  report dialog), plus the site-wide checks: duplicated content between pages
+  and internal-link anchor text reused across source pages. Duplication is
+  found with overlapping 8-word windows but reported as merged passages and a
+  shared-word count, since the raw window count massively overstates a single
+  copied paragraph. A passage carried by 30%+ of crawled pages (min 3) is
+  treated as site furniture — testimonials, CTA blocks — and listed under
+  `boilerplate` instead of flagging every page pair. On sites we control,
+  `data-dup-ignore` on an element drops it by hand. Both exclusions are scoped
+  to `mainContentView`, so they never touch the keyword/density tables: those
+  must keep counting testimonials and CTAs, since Google indexes that text.
+  `aside` is *not* treated as chrome — it is a layout column as often as a
+  sidebar (oshrat project pages hold their whole write-up in one), and repeated
+  sidebars are already caught by the frequency filter.
 
 ## Position Tracking page (`position-tracking/`)
 

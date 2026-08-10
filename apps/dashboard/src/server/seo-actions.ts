@@ -51,6 +51,15 @@ const MIN_OCCURRENCES = 2;
 const TABLE_LIMIT = 15;
 // Paragraph-reuse detection compares runs of this many consecutive words.
 const SHINGLE_SIZE = 8;
+// A passage carried by at least this share of crawled pages is site furniture
+// (testimonial blocks, CTA sections) rather than page-level copying, so it is
+// reported separately instead of flagging every page pair. The floor of 3 pages
+// matters because with two pages "on every page" and "copied once" are the same
+// observation.
+const BOILERPLATE_PAGE_SHARE = 0.3;
+const BOILERPLATE_MIN_PAGES = 3;
+// Under this many shared words a match is stock phrasing colliding, not reuse.
+const MIN_DUPLICATE_WORDS = 16;
 // Page cap for the no-sitemap fallback (link-following discovery).
 const MAX_SPIDER_PAGES = 60;
 
@@ -117,12 +126,30 @@ export interface PageAnalysis {
   };
 }
 
+/** One contiguous stretch of identical wording. */
+export interface DuplicatePassage {
+  words: number;
+  text: string;
+}
+
 export interface DuplicatePhraseFinding {
   pageA: string;
   pageB: string;
-  /** Number of shared 8-word runs between the two pages' main content. */
-  count: number;
-  sample: string;
+  /** Total words the two pages share, site-wide blocks excluded. */
+  sharedWords: number;
+  /** How many separate passages those words are spread across. */
+  passageCount: number;
+  /** The longest few passages, longest first, as evidence. */
+  passages: DuplicatePassage[];
+  /** sharedWords as a fraction of each page's own main-content word count. */
+  ratioA: number;
+  ratioB: number;
+}
+
+/** A passage repeated across much of the site, held out of the pair findings. */
+export interface BoilerplateBlock extends DuplicatePassage {
+  /** How many crawled pages carry it. */
+  pages: number;
 }
 
 export interface AnchorReuseFinding {
@@ -147,6 +174,9 @@ export interface SiteCrawl {
   pages: PageAnalysis[];
   errors: CrawlError[];
   duplicatePhrases: DuplicatePhraseFinding[];
+  /** Shared blocks excluded from duplicatePhrases, surfaced so the exclusion
+   * is visible rather than silent. */
+  boilerplate: BoilerplateBlock[];
   anchorReuse: AnchorReuseFinding[];
 }
 
@@ -476,6 +506,15 @@ function analyzeHtml(url: string, html: string): PageAnalysis {
 
 // Main-content view (page chrome stripped) used only by the site-wide checks,
 // so shared nav/header/footer don't flag every page pair as duplicated.
+//
+// `aside` is deliberately NOT stripped: it is a layout column at least as often
+// as a sidebar (oshrat project pages put the entire write-up in one), and a
+// sidebar that really does repeat is caught by the boilerplate frequency filter
+// on its own merits.
+//
+// `data-dup-ignore` opts a block out by hand for sites we control. It applies
+// here only — the keyword tables in analyzeHtml keep counting testimonials and
+// CTAs, because Google indexes them and density has to match what Google sees.
 function mainContentView(
   url: string,
   html: string,
@@ -485,7 +524,7 @@ function mainContentView(
 } {
   const pageUrl = new URL(url);
   const $ = cheerio.load(html);
-  $("header, footer, nav, aside").remove();
+  $("header, footer, nav, [data-dup-ignore]").remove();
 
   const internalLinks: PageLink[] = [];
   for (const el of $("body a[href]").toArray()) {
@@ -576,44 +615,137 @@ async function readSitemapPaths(baseUrl: string): Promise<string[]> {
 // Site-wide checks
 // ---------------------------------------------------------------------------
 
-function findDuplicatePhrases(
-  contentByPath: Map<string, string[]>,
-): DuplicatePhraseFinding[] {
+function toPassage(
+  tokens: string[],
+  start: number,
+  end: number,
+): DuplicatePassage {
+  // The window at `end` still carries its own trailing SHINGLE_SIZE-1 words.
+  const words = tokens.slice(start, end + SHINGLE_SIZE);
+  return { words: words.length, text: words.join(" ") };
+}
+
+/**
+ * Collapse consecutive matching windows back into the passages a reader would
+ * recognise. Overlapping windows are why the raw match count reads so high: a
+ * copied paragraph of N words produces N-7 of them, so only the merged span is
+ * a meaningful unit.
+ */
+function mergePassages(
+  segments: string[][],
+  matches: (shingle: string) => boolean,
+): DuplicatePassage[] {
+  const passages: DuplicatePassage[] = [];
+  for (const tokens of segments) {
+    const last = tokens.length - SHINGLE_SIZE;
+    let start = -1;
+    for (let i = 0; i <= last; i++) {
+      if (matches(tokens.slice(i, i + SHINGLE_SIZE).join(" "))) {
+        if (start < 0) start = i;
+      } else if (start >= 0) {
+        passages.push(toPassage(tokens, start, i - 1));
+        start = -1;
+      }
+    }
+    if (start >= 0) passages.push(toPassage(tokens, start, last));
+  }
+  return passages;
+}
+
+/** Longest first, dropping repeats and passages contained in a longer one. */
+function dedupePassages<T extends DuplicatePassage>(passages: T[]): T[] {
+  const kept: T[] = [];
+  for (const passage of [...passages].sort((a, b) => b.words - a.words)) {
+    if (!kept.some((k) => k.text.includes(passage.text))) kept.push(passage);
+  }
+  return kept;
+}
+
+function findDuplicatePhrases(contentByPath: Map<string, string[]>): {
+  duplicatePhrases: DuplicatePhraseFinding[];
+  boilerplate: BoilerplateBlock[];
+} {
   // Shingles keep stop words: paragraph reuse is about literal copy, not
   // keyword density.
+  const tokensByPath = new Map<string, string[][]>();
   const shinglesByPath = new Map<string, Set<string>>();
+  const wordsByPath = new Map<string, number>();
+  const pagesPerShingle = new Map<string, number>();
+
   for (const [path, segments] of contentByPath) {
+    const tokenSegments = segments.map(tokenize);
     const shingles = new Set<string>();
-    for (const segment of segments) {
-      const tokens = tokenize(segment);
+    let words = 0;
+    for (const tokens of tokenSegments) {
+      words += tokens.length;
       for (let i = 0; i + SHINGLE_SIZE <= tokens.length; i++) {
         shingles.add(tokens.slice(i, i + SHINGLE_SIZE).join(" "));
       }
     }
+    // Counted once per page, so a phrase repeated within one page doesn't
+    // inflate its document frequency.
+    for (const shingle of shingles) {
+      pagesPerShingle.set(shingle, (pagesPerShingle.get(shingle) ?? 0) + 1);
+    }
+    tokensByPath.set(path, tokenSegments);
     shinglesByPath.set(path, shingles);
+    wordsByPath.set(path, words);
   }
 
   const paths = [...shinglesByPath.keys()];
+  const minBoilerplatePages = Math.max(
+    BOILERPLATE_MIN_PAGES,
+    Math.ceil(paths.length * BOILERPLATE_PAGE_SHARE),
+  );
+  const isBoilerplate = (shingle: string) =>
+    (pagesPerShingle.get(shingle) ?? 0) >= minBoilerplatePages;
+
   const findings: DuplicatePhraseFinding[] = [];
   for (let a = 0; a < paths.length; a++) {
     for (let b = a + 1; b < paths.length; b++) {
-      const setA = shinglesByPath.get(paths[a]);
-      const setB = shinglesByPath.get(paths[b]);
-      if (!setA || !setB) continue;
-      let count = 0;
-      let sample = "";
-      for (const shingle of setA) {
-        if (setB.has(shingle)) {
-          count++;
-          if (!sample) sample = shingle;
-        }
-      }
-      if (count > 0) {
-        findings.push({ pageA: paths[a], pageB: paths[b], count, sample });
-      }
+      const segments = tokensByPath.get(paths[a]);
+      const otherShingles = shinglesByPath.get(paths[b]);
+      if (!segments || !otherShingles) continue;
+      const passages = dedupePassages(
+        mergePassages(
+          segments,
+          (shingle) => otherShingles.has(shingle) && !isBoilerplate(shingle),
+        ),
+      );
+      const sharedWords = passages.reduce((sum, p) => sum + p.words, 0);
+      if (sharedWords < MIN_DUPLICATE_WORDS) continue;
+      findings.push({
+        pageA: paths[a],
+        pageB: paths[b],
+        sharedWords,
+        passageCount: passages.length,
+        passages: passages.slice(0, 3),
+        ratioA: sharedWords / Math.max(wordsByPath.get(paths[a]) ?? 1, 1),
+        ratioB: sharedWords / Math.max(wordsByPath.get(paths[b]) ?? 1, 1),
+      });
     }
   }
-  return findings.sort((a, b) => b.count - a.count).slice(0, 20);
+
+  const boilerplateByText = new Map<string, BoilerplateBlock>();
+  for (const path of paths) {
+    const segments = tokensByPath.get(path);
+    if (!segments) continue;
+    for (const passage of mergePassages(segments, isBoilerplate)) {
+      if (boilerplateByText.has(passage.text)) continue;
+      const head = passage.text.split(" ").slice(0, SHINGLE_SIZE).join(" ");
+      boilerplateByText.set(passage.text, {
+        ...passage,
+        pages: pagesPerShingle.get(head) ?? 0,
+      });
+    }
+  }
+
+  return {
+    duplicatePhrases: findings
+      .sort((a, b) => b.sharedWords - a.sharedWords)
+      .slice(0, 20),
+    boilerplate: dedupePassages([...boilerplateByText.values()]).slice(0, 5),
+  };
 }
 
 function findAnchorReuse(
@@ -817,6 +949,8 @@ export async function runSiteCrawl(
       }
     }
 
+    const { duplicatePhrases, boilerplate } =
+      findDuplicatePhrases(contentByPath);
     const crawl: SiteCrawl = {
       target,
       baseUrl,
@@ -824,7 +958,8 @@ export async function runSiteCrawl(
       discovery,
       pages: [...pagesByPath.values()],
       errors,
-      duplicatePhrases: findDuplicatePhrases(contentByPath),
+      duplicatePhrases,
+      boilerplate,
       anchorReuse: findAnchorReuse(linksBySource),
     };
     crawlCache.set(target, crawl);

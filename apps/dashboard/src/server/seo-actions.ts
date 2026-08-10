@@ -146,12 +146,6 @@ export interface DuplicatePhraseFinding {
   ratioB: number;
 }
 
-/** A passage repeated across much of the site, held out of the pair findings. */
-export interface BoilerplateBlock extends DuplicatePassage {
-  /** How many crawled pages carry it. */
-  pages: number;
-}
-
 export interface AnchorReuseFinding {
   target: string;
   anchors: {
@@ -174,9 +168,6 @@ export interface SiteCrawl {
   pages: PageAnalysis[];
   errors: CrawlError[];
   duplicatePhrases: DuplicatePhraseFinding[];
-  /** Shared blocks excluded from duplicatePhrases, surfaced so the exclusion
-   * is visible rather than silent. */
-  boilerplate: BoilerplateBlock[];
   anchorReuse: AnchorReuseFinding[];
 }
 
@@ -653,18 +644,17 @@ function mergePassages(
 }
 
 /** Longest first, dropping repeats and passages contained in a longer one. */
-function dedupePassages<T extends DuplicatePassage>(passages: T[]): T[] {
-  const kept: T[] = [];
+function dedupePassages(passages: DuplicatePassage[]): DuplicatePassage[] {
+  const kept: DuplicatePassage[] = [];
   for (const passage of [...passages].sort((a, b) => b.words - a.words)) {
     if (!kept.some((k) => k.text.includes(passage.text))) kept.push(passage);
   }
   return kept;
 }
 
-function findDuplicatePhrases(contentByPath: Map<string, string[]>): {
-  duplicatePhrases: DuplicatePhraseFinding[];
-  boilerplate: BoilerplateBlock[];
-} {
+function findDuplicatePhrases(
+  contentByPath: Map<string, string[]>,
+): DuplicatePhraseFinding[] {
   // Shingles keep stop words: paragraph reuse is about literal copy, not
   // keyword density.
   const tokensByPath = new Map<string, string[][]>();
@@ -726,26 +716,7 @@ function findDuplicatePhrases(contentByPath: Map<string, string[]>): {
     }
   }
 
-  const boilerplateByText = new Map<string, BoilerplateBlock>();
-  for (const path of paths) {
-    const segments = tokensByPath.get(path);
-    if (!segments) continue;
-    for (const passage of mergePassages(segments, isBoilerplate)) {
-      if (boilerplateByText.has(passage.text)) continue;
-      const head = passage.text.split(" ").slice(0, SHINGLE_SIZE).join(" ");
-      boilerplateByText.set(passage.text, {
-        ...passage,
-        pages: pagesPerShingle.get(head) ?? 0,
-      });
-    }
-  }
-
-  return {
-    duplicatePhrases: findings
-      .sort((a, b) => b.sharedWords - a.sharedWords)
-      .slice(0, 20),
-    boilerplate: dedupePassages([...boilerplateByText.values()]).slice(0, 5),
-  };
+  return findings.sort((a, b) => b.sharedWords - a.sharedWords).slice(0, 20);
 }
 
 function findAnchorReuse(
@@ -949,8 +920,6 @@ export async function runSiteCrawl(
       }
     }
 
-    const { duplicatePhrases, boilerplate } =
-      findDuplicatePhrases(contentByPath);
     const crawl: SiteCrawl = {
       target,
       baseUrl,
@@ -958,8 +927,7 @@ export async function runSiteCrawl(
       discovery,
       pages: [...pagesByPath.values()],
       errors,
-      duplicatePhrases,
-      boilerplate,
+      duplicatePhrases: findDuplicatePhrases(contentByPath),
       anchorReuse: findAnchorReuse(linksBySource),
     };
     crawlCache.set(target, crawl);

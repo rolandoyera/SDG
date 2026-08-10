@@ -20,3 +20,8 @@ client_secret_*.json
 **/client_secret_*.json
 .vercel
 .env*
+
+# Not a workspace root: the real lockfiles live in apps/*. A lockfile here only
+# ever comes from running npm install in the wrong directory.
+/package-lock.json
+/node_modules/

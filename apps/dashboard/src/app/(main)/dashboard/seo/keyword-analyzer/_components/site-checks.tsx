@@ -57,23 +57,6 @@ export function SiteChecks({ crawl }: { crawl: SiteCrawl }) {
               </div>
             ))
           )}
-
-          {crawl.boilerplate.length > 0 && (
-            <div className="flex flex-col gap-1 border-t pt-3">
-              <p className="font-medium text-xs">
-                Site-wide blocks, excluded from the pairs above
-              </p>
-              {crawl.boilerplate.map((block) => (
-                <p
-                  key={block.text}
-                  className="text-muted-foreground text-xs italic"
-                >
-                  {block.words} words on {block.pages} pages: “
-                  {preview(block.text)}”
-                </p>
-              ))}
-            </div>
-          )}
         </CardContent>
       </Card>
 

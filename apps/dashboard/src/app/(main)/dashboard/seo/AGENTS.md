@@ -39,8 +39,8 @@ Three tabs backed by `src/server/seo-actions.ts`:
   found with overlapping 8-word windows but reported as merged passages and a
   shared-word count, since the raw window count massively overstates a single
   copied paragraph. A passage carried by 30%+ of crawled pages (min 3) is
-  treated as site furniture — testimonials, CTA blocks — and listed under
-  `boilerplate` instead of flagging every page pair. On sites we control,
+  treated as site furniture — testimonials, CTA blocks — and dropped, rather
+  than flagging every page pair. On sites we control,
   `data-dup-ignore` on an element drops it by hand. Both exclusions are scoped
   to `mainContentView`, so they never touch the keyword/density tables: those
   must keep counting testimonials and CTAs, since Google indexes that text.

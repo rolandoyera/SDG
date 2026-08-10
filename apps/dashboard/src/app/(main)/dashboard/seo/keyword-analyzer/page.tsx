@@ -14,14 +14,23 @@ export default function Page() {
         description="Keyword reports for your pages — and your competitors'."
       />
 
-      <Tabs defaultValue="compare" className="flex flex-col gap-6">
+      <Tabs defaultValue="page" className="flex flex-col gap-6">
         <TabsList className="gap-1">
-          <TabsTrigger value="compare">Page</TabsTrigger>
+          <TabsTrigger value="page">Page</TabsTrigger>
+          <TabsTrigger value="compare">Compare</TabsTrigger>
           <TabsTrigger value="crawl">Site</TabsTrigger>
         </TabsList>
 
-        {/* forceMount keeps the inactive tab alive so switching tabs doesn't
-            wipe its results; with forceMount Radix leaves hiding to us. */}
+        {/* forceMount keeps the inactive tabs alive so switching tabs doesn't
+            wipe their results; with forceMount Radix leaves hiding to us. */}
+        <TabsContent
+          value="page"
+          forceMount
+          className="data-[state=inactive]:hidden"
+        >
+          <CompareTab single />
+        </TabsContent>
+
         <TabsContent
           value="compare"
           forceMount

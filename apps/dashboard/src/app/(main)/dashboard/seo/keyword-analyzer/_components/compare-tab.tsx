@@ -89,10 +89,15 @@ type SideKey = "left" | "right";
 
 // Each side's last-used source lives in its own localStorage key so the sides
 // restore (and clear) independently; the analyses themselves come from the
-// server-side page cache.
-const SIDE_STORAGE_KEYS: Record<SideKey, string> = {
+// server-side page cache. The single-page (Page tab) instance uses its own
+// keys so it persists independently of the Compare tab.
+const COMPARE_STORAGE_KEYS: Record<SideKey, string> = {
   left: "seo-compare-left",
   right: "seo-compare-right",
+};
+const SINGLE_STORAGE_KEYS: Record<SideKey, string> = {
+  left: "seo-page-left",
+  right: "seo-page-right",
 };
 
 const SIDE_DEFAULTS: Record<SideKey, SideFormData> = {
@@ -155,7 +160,15 @@ const SUMMARY_METRICS: {
     label: "H1",
     value: (page) =>
       page.h1s.length ? (
-        page.h1s.join(" · ")
+        <>
+          {page.h1s[0]}
+          {page.h1s.length > 1 && (
+            <span className="text-muted-foreground">
+              {" "}
+              + {page.h1s.length - 1} more
+            </span>
+          )}
+        </>
       ) : (
         <span className="text-destructive">
           Missing — pages need one H1 heading
@@ -243,8 +256,7 @@ function SideFields({
               onValueChange={(value) => {
                 field.onChange(value);
                 onSourceChange();
-              }}
-            >
+              }}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Choose a source" />
               </SelectTrigger>
@@ -341,8 +353,7 @@ function SideFields({
               disabled={!visitHref}
               onClick={() => {
                 if (visitHref) window.open(visitHref, "_blank", "noopener");
-              }}
-            >
+              }}>
               <ExternalLink className="size-4" />
               Visit Page
             </DropdownMenuItem>
@@ -357,7 +368,10 @@ function SideFields({
   );
 }
 
-export function CompareTab() {
+// `single` renders the one-page variant (the Page tab): left side only, full
+// width, and the 2-/3-word phrase tables paired on one row.
+export function CompareTab({ single = false }: { single?: boolean }) {
+  const storageKeys = single ? SINGLE_STORAGE_KEYS : COMPARE_STORAGE_KEYS;
   const { control, handleSubmit, watch, setValue, reset } =
     useForm<CompareFormData>({
       resolver: zodResolver(compareSchema),
@@ -394,7 +408,7 @@ export function CompareTab() {
     for (const key of ["left", "right"] as const) {
       try {
         const saved = storedSideSchema.safeParse(
-          JSON.parse(localStorage.getItem(SIDE_STORAGE_KEYS[key]) ?? ""),
+          JSON.parse(localStorage.getItem(storageKeys[key]) ?? ""),
         );
         if (
           saved.success &&
@@ -558,17 +572,14 @@ export function CompareTab() {
   const onSubmit = useCallback(
     async (data: CompareFormData) => {
       try {
-        localStorage.setItem(SIDE_STORAGE_KEYS.left, JSON.stringify(data.left));
-        localStorage.setItem(
-          SIDE_STORAGE_KEYS.right,
-          JSON.stringify(data.right),
-        );
+        localStorage.setItem(storageKeys.left, JSON.stringify(data.left));
+        localStorage.setItem(storageKeys.right, JSON.stringify(data.right));
       } catch {
         // Storage unavailable — the analysis still runs, it just won't restore.
       }
       await runSides({ left: data.left, right: data.right }, true);
     },
-    [runSides],
+    [runSides, storageKeys],
   );
 
   // Clear one side: results, form selection, and its saved restore state.
@@ -578,12 +589,12 @@ export function CompareTab() {
       (side === "left" ? setLeft : setRight)(null);
       setErrors([]);
       try {
-        localStorage.removeItem(SIDE_STORAGE_KEYS[side]);
+        localStorage.removeItem(storageKeys[side]);
       } catch {
         // Storage unavailable — nothing saved to clear.
       }
     },
-    [setValue],
+    [setValue, storageKeys],
   );
 
   // Apply and re-run the restored sides once the competitor list is in — only
@@ -627,9 +638,10 @@ export function CompareTab() {
           <form
             onSubmit={handleSubmit(onSubmit)}
             className="flex flex-col gap-4"
-            noValidate
-          >
-            <div className="grid gap-6 lg:grid-cols-2">
+            noValidate>
+            {/* Single mode caps the row so the page picker matches the width
+                it has as a compare column instead of stretching full-bleed. */}
+            <div className={single ? "max-w-4xl" : "grid gap-6 lg:grid-cols-2"}>
               <SideFields
                 side="left"
                 control={control}
@@ -641,17 +653,19 @@ export function CompareTab() {
                 onSourceChange={() => setValue("left.path", "")}
                 onClearResults={() => clearResults("left")}
               />
-              <SideFields
-                side="right"
-                control={control}
-                source={rightSource}
-                companyName={companyName}
-                competitors={competitors}
-                liveBaseUrl={liveBaseUrl}
-                sitemap={sitemaps[rightSource]}
-                onSourceChange={() => setValue("right.path", "")}
-                onClearResults={() => clearResults("right")}
-              />
+              {!single && (
+                <SideFields
+                  side="right"
+                  control={control}
+                  source={rightSource}
+                  companyName={companyName}
+                  competitors={competitors}
+                  liveBaseUrl={liveBaseUrl}
+                  sitemap={sitemaps[rightSource]}
+                  onSourceChange={() => setValue("right.path", "")}
+                  onClearResults={() => clearResults("right")}
+                />
+              )}
             </div>
 
             <div>
@@ -684,7 +698,8 @@ export function CompareTab() {
               {/* Same grid as the Keyword Report: one block per page, so long
                   values wrap inside their own half instead of pushing the
                   other page's column. */}
-              <div className="grid gap-8 lg:grid-cols-2">
+              <div
+                className={single ? "grid gap-8" : "grid gap-8 lg:grid-cols-2"}>
                 {pages.map((page) => (
                   <div key={page.url} className="flex flex-col gap-4">
                     <p className="font-medium text-sm">{reportHeading(page)}</p>
@@ -714,7 +729,8 @@ export function CompareTab() {
             </CardHeader>
             <CardContent className="flex flex-col gap-6">
               <ScopePicker value={scope} onChange={setScope} />
-              <div className="grid gap-8 lg:grid-cols-2">
+              <div
+                className={single ? "grid gap-8" : "grid gap-8 lg:grid-cols-2"}>
                 {pages.map((page) => (
                   <div key={page.url} className="flex flex-col gap-4">
                     <p className="font-medium text-sm">{reportHeading(page)}</p>
@@ -724,6 +740,7 @@ export function CompareTab() {
                         scope === "headlines" ? page.headings : undefined
                       }
                       links={scope === "links" ? page.bodyLinks : undefined}
+                      phrasesInRow={single}
                     />
                   </div>
                 ))}

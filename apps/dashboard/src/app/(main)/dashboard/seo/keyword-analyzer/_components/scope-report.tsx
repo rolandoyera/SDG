@@ -168,16 +168,28 @@ function LinksTable({ links }: { links: PageLink[] }) {
  * The 1/2/3-word phrase tables for one scope, with its word totals. Pass
  * `headings` (Headlines scope only) to list the page's actual headings below,
  * or `links` (Links scope only) to list the page's body links below.
+ * `phrasesInRow` puts all three phrase tables on one row — for full-width
+ * single-page layouts; side-by-side page columns keep them stacked.
  */
 export function ScopePhraseTables({
   scope,
   headings,
   links,
+  phrasesInRow = false,
 }: {
   scope: ScopeReport;
   headings?: PageHeading[];
   links?: PageLink[];
+  phrasesInRow?: boolean;
 }) {
+  const phraseTables = (
+    <>
+      <PhraseTable title="Words" rows={scope.one} />
+      <PhraseTable title="2-Word Phrases" rows={scope.two} />
+      <PhraseTable title="3-Word Phrases" rows={scope.three} />
+    </>
+  );
+
   return (
     <div className="flex flex-col gap-6">
       <p className="text-muted-foreground text-sm">
@@ -185,9 +197,13 @@ export function ScopePhraseTables({
         {scope.wordsWithStop.toLocaleString()} incl. stop words) ·{" "}
         {scope.unique.toLocaleString()} unique
       </p>
-      <PhraseTable title="Words" rows={scope.one} />
-      <PhraseTable title="2-Word Phrases" rows={scope.two} />
-      <PhraseTable title="3-Word Phrases" rows={scope.three} />
+      {phrasesInRow ? (
+        <div className="grid items-start gap-6 lg:grid-cols-3">
+          {phraseTables}
+        </div>
+      ) : (
+        phraseTables
+      )}
       {headings && <HeadingsTable headings={headings} />}
       {links && <LinksTable links={links} />}
     </div>

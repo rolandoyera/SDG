@@ -10,8 +10,12 @@ create the route folder and add one item to the hardcoded list in
 
 ## Keyword Analyzer page (`keyword-analyzer/`)
 
-Two tabs backed by `src/server/seo-actions.ts`:
+Three tabs backed by `src/server/seo-actions.ts`:
 
+- **Page** — the default tab: single-page report. Same component as Compare
+  (`CompareTab single`) with the right side hidden, full-width summary and
+  report, the 1/2/3-word phrase tables sharing one row, and its own
+  localStorage keys (`seo-page-left`/`-right`) so it persists independently.
 - **Compare** — two symmetric sides, each with a source dropdown: Live site /
   Unpublished / any saved competitor / Custom URL / (right only) None. Sitemap
   sources get a searchable page picker (the shared `SearchSelect` from
@@ -26,7 +30,7 @@ Two tabs backed by `src/server/seo-actions.ts`:
   cache is warm. The restore is applied to the form only after the competitor
   list loads: resetting a `comp:<i>` value before its SelectItem exists leaves
   the Radix select stuck on its placeholder. A side whose saved competitor was
-  deleted resets to its default and skips its rerun alone. Both tabs are `forceMount`ed (hidden via
+  deleted resets to its default and skips its rerun alone. All tabs are `forceMount`ed (hidden via
   `data-[state=inactive]:hidden`) so switching tabs doesn't wipe results.
 - **Site Crawl** — manual "Run Crawl" over every sitemap page (~30s,
   concurrency 8), TanTable of per-page metrics (row click opens the full

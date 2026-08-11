@@ -40,17 +40,15 @@ export function DataField({
     <dl
       data-variant={variant}
       className={cn(
-        "flex min-h-[40px] flex-col gap-2 data-[variant=icon]:min-h-0 data-[variant=icon]:flex-row data-[variant=icon]:items-center data-[variant=icon]:gap-3 data-[variant=icon]:text-[12px]",
+        "flex min-h-10 flex-col gap-2 data-[variant=icon]:min-h-0 data-[variant=icon]:flex-row data-[variant=icon]:items-center data-[variant=icon]:gap-3 data-[variant=icon]:text-[12px]",
         className,
-      )}
-    >
+      )}>
       <dt
         data-variant={variant}
         className={cn(
           "flex items-center gap-1 text-muted-foreground text-xs uppercase leading-none tracking-wider data-[variant=icon]:gap-0 data-[variant=icon]:leading-normal data-[variant=icon]:text-muted-foreground/80 data-[variant=icon]:normal-case data-[variant=icon]:tracking-normal [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
           labelClassName,
-        )}
-      >
+        )}>
         {label}
       </dt>
       <dd>
@@ -60,8 +58,7 @@ export function DataField({
               "text-muted-foreground text-xs font-light italic",
               variant === "icon" &&
                 "text-muted-foreground text-xs font-light italic",
-            )}
-          >
+            )}>
             {empty}
           </span>
         ) : (

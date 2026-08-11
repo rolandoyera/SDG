@@ -27,8 +27,8 @@ interface UsageChartCardProps {
   caption: string;
   series: UsageSeries[];
   data: Record<string, number>[];
-  /** "sum" totals the series (count metrics); "peak" takes its max (gauges). */
-  totalMode: "sum" | "peak";
+  /** "sum" totals the series (counts); "peak" takes its max (gauges); "last" reads the final point (cumulative series). */
+  totalMode: "sum" | "peak" | "last";
   /** Window span, to pick time-only vs date tick labels. */
   rangeMs: number;
   loading: boolean;
@@ -64,28 +64,37 @@ export function UsageChartCard({
     series.map((s) => [s.key, { label: s.label, color: s.color }]),
   ) satisfies ChartConfig;
 
-  const totalOf = (key: string) =>
-    totalMode === "sum"
+  const totalOf = (key: string) => {
+    if (totalMode === "last") {
+      // Cumulative series may be padded with value-less future rows to extend
+      // the axis — the total is the last row that actually has this key.
+      for (let i = data.length - 1; i >= 0; i--) {
+        const value = data[i][key];
+        if (value !== undefined) return value;
+      }
+      return 0;
+    }
+    return totalMode === "sum"
       ? data.reduce((acc, row) => acc + (row[key] ?? 0), 0)
       : data.reduce((acc, row) => Math.max(acc, row[key] ?? 0), 0);
+  };
 
   const tickFormat = rangeMs > DAY_MS ? "MMM d" : "h:mm a";
 
   return (
-    <Card>
+    <Card variant="panel" className="xl:col-span-6">
       <CardHeader>
         <CardTitle>{title}</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="flex flex-col gap-6 sm:flex-row">
-          <div className="flex shrink-0 flex-row flex-wrap gap-6 sm:w-40 sm:flex-col">
+        <div className="flex flex-col-reverse gap-6">
+          <div className="flex justify-between">
             {series.map((s) => (
               <div key={s.key} className="flex flex-col gap-1.5">
                 <span className="text-muted-foreground text-sm">{s.label}</span>
                 <label
                   htmlFor={`${idPrefix}${s.key}`}
-                  className="flex cursor-pointer items-center gap-2"
-                >
+                  className="flex cursor-pointer items-center gap-2">
                   <Checkbox
                     id={`${idPrefix}${s.key}`}
                     checked={!hidden.has(s.key)}
@@ -107,7 +116,7 @@ export function UsageChartCard({
                     </span>
                   )}
                   <span className="text-muted-foreground text-xs">
-                    {totalMode === "sum" ? "total" : "peak"}
+                    {totalMode === "peak" ? "peak" : "total"}
                   </span>
                 </label>
               </div>
@@ -121,8 +130,7 @@ export function UsageChartCard({
                 <LineChart
                   accessibilityLayer
                   data={data}
-                  margin={{ bottom: 0, left: 0, right: 12, top: 8 }}
-                >
+                  margin={{ bottom: 0, left: 0, right: 12, top: 8 }}>
                   <CartesianGrid vertical={false} strokeOpacity={0.4} />
                   <XAxis
                     dataKey="t"

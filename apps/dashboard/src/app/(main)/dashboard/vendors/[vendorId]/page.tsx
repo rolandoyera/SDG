@@ -5,11 +5,10 @@ import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { Building2, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/components/auth-context";
-import { AddressValue } from "@/components/ui/address-value";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,7 +19,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   addLibraryItem,
   deleteReplacedStorageFiles,
@@ -31,12 +29,10 @@ import {
 } from "@/lib/db";
 import { mirrorExternalImagesToFirebase } from "@/lib/library-image-mirror";
 import type { LibraryItem, Vendor } from "@/lib/types";
-import { formatVendorPhone } from "@/lib/utils";
 import { mirrorVendorImagesToFirebase } from "@/lib/vendor-image-mirror";
 
 import { LibraryItemFormDialog } from "../../library/_components/library-item-form-dialog";
 import { useLibraryItemForm } from "../../library/_components/use-library-item-form";
-import { formatVendorAddressLines } from "../_components/vendor-constants";
 import {
   type VendorFormData,
   VendorFormDialog,
@@ -45,7 +41,6 @@ import {
 import { VendorHeader } from "../_components/vendor-header";
 import { VendorHero } from "../_components/vendor-hero";
 import { VendorItems } from "../_components/vendor-items";
-import { DataField } from "@/components/ui/data-field";
 
 interface PageProps {
   params: Promise<{ vendorId: string }>;
@@ -209,20 +204,6 @@ export default function VendorDetailPage({ params }: PageProps) {
 
   if (!vendor) return null;
 
-  // Compose the address from the discrete fields, falling back to the deprecated
-  // US-only fields on older docs. Display is multi-line; the stored
-  // formattedAddress drives the Google Maps query.
-  const addressLines = formatVendorAddressLines({
-    addressLine1: vendor.addressLine1 ?? vendor.street,
-    addressLine2: vendor.addressLine2,
-    city: vendor.city,
-    region: vendor.region ?? vendor.state,
-    postalCode: vendor.postalCode ?? vendor.zip,
-    country: vendor.country,
-  });
-  const addressText =
-    vendor.formattedAddress?.trim() || addressLines.join(", ");
-
   return (
     <div className="mx-auto flex flex-col gap-6">
       <VendorHeader
@@ -231,53 +212,15 @@ export default function VendorDetailPage({ params }: PageProps) {
         onRequestDelete={() => setIsDeleteOpen(true)}
       />
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <VendorHero vendor={vendor} />
-        <div className="relative">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+        <div className="xl:col-span-5">
+          <VendorHero vendor={vendor} />
+        </div>
+        <div className="xl:col-span-7 relative">
           <div className="md:absolute md:inset-0">
             <VendorItems items={items} onAddItem={handleOpenAddItem} />
           </div>
         </div>
-        <Card variant="panel">
-          <CardHeader>
-            <CardTitle>
-              <Building2 className="icons" />
-              Company Information
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-4">
-            <DataField label="Account Number" empty="Not provided">
-              {vendor.accountNumber}
-            </DataField>
-            <DataField label="Main Contact" empty="Not provided">
-              {vendor.repName}
-            </DataField>
-            <DataField label="Email" empty="Not provided">
-              {vendor.repEmail}
-            </DataField>
-            <DataField label="Phone" empty="Not provided">
-              {vendor.repPhone
-                ? formatVendorPhone(vendor.repPhone, vendor.repPhoneCountry)
-                : undefined}
-            </DataField>
-            <DataField
-              label="Address"
-              empty="Not provided"
-              className="min-h-21"
-            >
-              {addressLines.length > 0 && (
-                <AddressValue lines={addressLines} query={addressText} />
-              )}
-            </DataField>
-            <DataField
-              label="Sourcing Notes"
-              empty="Not provided"
-              className="h-21"
-            >
-              {vendor.notes}
-            </DataField>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Add Library Item dialog — vendor locked to this page's vendor */}
@@ -332,16 +275,14 @@ export default function VendorDetailPage({ params }: PageProps) {
                       {items.map((item) => (
                         <div
                           key={item.itemId}
-                          className="flex items-center justify-between p-2.5 text-xs"
-                        >
+                          className="flex items-center justify-between p-2.5 text-xs">
                           <span className="max-w-60 truncate font-medium">
                             {item.name}
                           </span>
                           <Link
                             href={`/dashboard/library/${item.itemId}`}
                             onClick={() => setIsDeleteOpen(false)}
-                            className="font-semibold text-primary hover:underline"
-                          >
+                            className="font-semibold text-primary hover:underline">
                             View Item
                           </Link>
                         </div>
@@ -369,8 +310,7 @@ export default function VendorDetailPage({ params }: PageProps) {
                   variant="destructive"
                   onClick={handleDelete}
                   disabled={deleting}
-                  className="gap-2"
-                >
+                  className="gap-2">
                   {deleting && <Loader2 className="size-4 animate-spin" />}
                   Delete Vendor
                 </AlertDialogAction>

@@ -23,6 +23,10 @@ import type { Vendor } from "@/lib/types";
 
 import { vendorGradient } from "./vendor-gradient";
 import { getDisplayUrl, getVendorSocialHrefs } from "./vendor-links";
+import { DataField } from "@/components/ui/data-field";
+import { formatVendorPhone } from "@/lib/utils";
+import { AddressValue } from "@/components/ui/address-value";
+import { formatVendorAddressLines } from "../_components/vendor-constants";
 
 interface VendorHeroProps {
   vendor: Vendor;
@@ -47,6 +51,20 @@ export function VendorHero({ vendor }: VendorHeroProps) {
     { key: "youtube", href: youtubeHref, Icon: YoutubeIcon },
     { key: "xTwitter", href: xTwitterHref, Icon: XTwitterIcon },
   ];
+
+  // Compose the address from the discrete fields, falling back to the deprecated
+  // US-only fields on older docs. Display is multi-line; the stored
+  // formattedAddress drives the Google Maps query.
+  const addressLines = formatVendorAddressLines({
+    addressLine1: vendor.addressLine1 ?? vendor.street,
+    addressLine2: vendor.addressLine2,
+    city: vendor.city,
+    region: vendor.region ?? vendor.state,
+    postalCode: vendor.postalCode ?? vendor.zip,
+    country: vendor.country,
+  });
+  const addressText =
+    vendor.formattedAddress?.trim() || addressLines.join(", ");
 
   return (
     <Card className="overflow-hidden pt-0">
@@ -78,7 +96,7 @@ export function VendorHero({ vendor }: VendorHeroProps) {
 
       {/* Name row */}
       <CardContent className="flex flex-col gap-4 pb-5 sm:flex-row sm:items-end sm:justify-between">
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1 w-full">
           <div className="flex flex-wrap items-center gap-5">
             <H1>{vendor.name}</H1>
             {vendor.logoUrl && (
@@ -101,6 +119,36 @@ export function VendorHero({ vendor }: VendorHeroProps) {
               </div>
             )}
           </div>
+          <div className="grid grid-cols-2 gap-4 mt-8 space-y-4">
+            <DataField label="Account Number" empty="Not provided">
+              {vendor.accountNumber}
+            </DataField>
+            <DataField label="Main Contact" empty="Not provided">
+              {vendor.repName}
+            </DataField>
+            <DataField label="Email" empty="Not provided">
+              {vendor.repEmail}
+            </DataField>
+            <DataField label="Phone" empty="Not provided">
+              {vendor.repPhone
+                ? formatVendorPhone(vendor.repPhone, vendor.repPhoneCountry)
+                : undefined}
+            </DataField>
+            <DataField
+              label="Address"
+              empty="Not provided"
+              className="min-h-21">
+              {addressLines.length > 0 && (
+                <AddressValue lines={addressLines} query={addressText} />
+              )}
+            </DataField>
+            <DataField
+              label="Sourcing Notes"
+              empty="Not provided"
+              className="h-21">
+              {vendor.notes}
+            </DataField>
+          </div>
         </div>
       </CardContent>
       <CardFooter className="justify-center">
@@ -114,8 +162,7 @@ export function VendorHero({ vendor }: VendorHeroProps) {
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) => e.currentTarget.blur()}
-                    className="cursor-pointer text-muted-foreground transition-colors hover:text-primary border border-border bg-background dark:border-input dark:bg-input/30 rounded-full p-1 shadow"
-                  >
+                    className="cursor-pointer text-muted-foreground transition-colors hover:text-primary border border-border bg-background dark:border-input dark:bg-input/30 rounded-full p-1 shadow">
                     <Icon strokeWidth={1.25} />
                   </a>
                 </TooltipTrigger>
@@ -124,8 +171,7 @@ export function VendorHero({ vendor }: VendorHeroProps) {
             ) : (
               <span
                 key={key}
-                className="cursor-not-allowed text-muted-foreground/20"
-              >
+                className="cursor-not-allowed text-muted-foreground/20">
                 <Icon strokeWidth={1.5} />
               </span>
             ),

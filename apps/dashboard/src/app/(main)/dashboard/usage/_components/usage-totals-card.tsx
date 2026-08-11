@@ -29,7 +29,7 @@ export function UsageTotalsCard({
   loading,
 }: UsageTotalsCardProps) {
   return (
-    <Card>
+    <Card variant="panel" className="xl:col-span-6">
       <CardHeader>
         <CardTitle>{title}</CardTitle>
       </CardHeader>

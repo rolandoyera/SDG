@@ -10,6 +10,7 @@ import {
   withProtocol,
 } from "../app/(main)/dashboard/library/_components/library-constants";
 import { VENDOR_CATEGORIES } from "../app/(main)/dashboard/vendors/_components/vendor-constants";
+import { recordAiUsage } from "./ai-usage";
 import { saveDiagnosticRun } from "./diagnostics";
 
 /**
@@ -714,6 +715,7 @@ CRITICAL: You MUST return 100% valid JSON. Do not include raw unescaped newlines
     }
 
     const geminiJson = await geminiRes.json();
+    void recordAiUsage(geminiJson?.usageMetadata);
     const parsedText = geminiJson.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!parsedText) {
       return {
@@ -1335,6 +1337,7 @@ CRITICAL: Return 100% valid JSON only. Never return base64 data: URLs. Use empty
     }
 
     const geminiJson = await geminiRes.json();
+    void recordAiUsage(geminiJson?.usageMetadata);
     const parsedText = geminiJson.candidates?.[0]?.content?.parts?.[0]?.text as
       | string
       | undefined;

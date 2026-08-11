@@ -16,7 +16,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { H1 } from "@/components/ui/typography";
+import {
+  type AiUsage,
+  type AiUsageRange,
+  getAiUsage,
+} from "@/server/ai-usage-actions";
 import {
   type FirestoreUsage,
   type UsagePeriod,
@@ -40,6 +46,15 @@ const RANGE_OPTIONS: { value: RangeValue; label: string; ms: number }[] = [
   { value: "billing", label: "Current billing period", ms: 0 },
 ];
 
+// AI usage is stored per ET day, so only day-grained ranges are offered —
+// sub-day windows would all collapse to "today" and mislead.
+const AI_RANGE_OPTIONS: { value: AiUsageRange; label: string }[] = [
+  { value: "quota", label: "Today" },
+  { value: "7d", label: "Last 7 days" },
+  { value: "30d", label: "Last 30 days" },
+  { value: "billing", label: "This month" },
+];
+
 // Series definitions shared by the rolling charts and the period totals.
 const OPS_SERIES = [
   { key: "reads", label: "Reads", color: "var(--chart-1)" },
@@ -54,6 +69,11 @@ const RULES_SERIES = [
   { key: "allows", label: "Allows", color: "var(--chart-1)" },
   { key: "denies", label: "Denies", color: "var(--chart-2)" },
   { key: "errors", label: "Errors", color: "var(--chart-3)" },
+];
+const AI_SERIES = [
+  { key: "inputTokens", label: "Input tokens", color: "var(--chart-1)" },
+  { key: "outputTokens", label: "Output tokens", color: "var(--chart-2)" },
+  { key: "requests", label: "Requests", color: "var(--chart-3)" },
 ];
 
 const REFRESH_MS = 60_000;
@@ -85,13 +105,27 @@ function periodCaption(totals: UsageTotals): string {
     : `This month — since ${start}, midnight PT`;
 }
 
+// aiUsage docs are whole ET calendar days, so the card's span is coarser than
+// the sub-day chart ranges — say so instead of implying a 60m/24h window.
+function aiUsageCaption(ai: AiUsage): string {
+  const span =
+    ai.range === "billing"
+      ? "This month"
+      : ai.days === 1
+        ? "Today so far"
+        : `Last ${ai.days} days`;
+  return `${span} (ET days) — est. $${ai.estimatedCostUsd.toFixed(2)} at Gemini 3.1 Flash Lite rates`;
+}
+
 export default function UsagePage() {
   const { uid, role, loading: authLoading } = useAuth();
   const router = useRouter();
 
   const [range, setRange] = useState<RangeValue>("60m");
+  const [aiRange, setAiRange] = useState<AiUsageRange>("billing");
   const [usage, setUsage] = useState<FirestoreUsage | null>(null);
   const [totals, setTotals] = useState<UsageTotals | null>(null);
+  const [aiUsage, setAiUsage] = useState<AiUsage | null>(null);
 
   // Access check & redirect
   useEffect(() => {
@@ -114,6 +148,7 @@ export default function UsagePage() {
     let cancelled = false;
     const load = async () => {
       try {
+        const aiPromise = getAiUsage(aiRange);
         if (isPeriod(range)) {
           const data = await getFirestoreUsageTotals(range);
           if (!cancelled) setTotals(data);
@@ -121,6 +156,8 @@ export default function UsagePage() {
           const data = await getFirestoreUsage(range);
           if (!cancelled) setUsage(data);
         }
+        const ai = await aiPromise;
+        if (!cancelled) setAiUsage(ai);
       } catch (error) {
         console.error("Failed to load usage metrics:", error);
         if (!cancelled) toast.error("Failed to load usage metrics.");
@@ -141,7 +178,7 @@ export default function UsagePage() {
       clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [range, role, authLoading]);
+  }, [range, aiRange, role, authLoading]);
 
   if (authLoading || role !== "SuperAdmin") {
     return (
@@ -164,7 +201,15 @@ export default function UsagePage() {
   // mislabeled charts/totals.
   const chartLoading = !usage || usage.range !== range;
   const totalsLoading = !totals || totals.period !== range;
-  const rangeMs = RANGE_OPTIONS.find((o) => o.value === range)?.ms ?? 0;
+  const aiLoading = !aiUsage || aiUsage.range !== aiRange;
+  // Period charts span the quota day / billing month, so tick labels come from
+  // the period length rather than the (zero) ms on those range options.
+  const DAY_MS = 86_400_000;
+  const rangeMs = periodMode
+    ? range === "quota"
+      ? DAY_MS
+      : 30 * DAY_MS
+    : (RANGE_OPTIONS.find((o) => o.value === range)?.ms ?? 0);
   const opsCaption = usage ? bucketLabel(usage.bucketSeconds) : "";
   const periodNote = totals && !totalsLoading ? periodCaption(totals) : "";
 
@@ -172,118 +217,160 @@ export default function UsagePage() {
     <>
       <PageTitle title="Usage" />
       <div className="flex w-full flex-col gap-6">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div className="flex flex-col gap-1">
-            <H1 className="flex items-center gap-2">
-              <ChartLine className="size-8 text-primary" />
-              Usage
-            </H1>
-            <p className="text-muted-foreground text-sm">
-              Firestore activity across the whole project (all tenants). Metrics
-              arrive with a ~4 minute delay.
-            </p>
-            {periodMode && periodNote ? (
-              <p className="text-muted-foreground text-sm">{periodNote}</p>
-            ) : null}
-          </div>
-          <Select
-            value={range}
-            onValueChange={(value) => setRange(value as RangeValue)}
-          >
-            <SelectTrigger className="w-48">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent position="popper" side="bottom" align="end">
-              {RANGE_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="flex flex-col gap-1">
+          <H1 className="flex items-center gap-2">
+            <ChartLine className="size-8 text-primary" />
+            Usage
+          </H1>
+          <p className="text-muted-foreground text-sm">
+            Firestore activity and Gemini token usage across the whole project
+            (all tenants). Firestore metrics arrive with a ~4 minute delay.
+          </p>
         </div>
 
-        {periodMode ? (
-          <>
-            <UsageTotalsCard
-              title="Billable metrics"
-              caption="Operations"
-              mode="sum"
-              loading={totalsLoading}
-              series={OPS_SERIES}
-              values={
-                totals
-                  ? {
-                      reads: totals.reads,
-                      writes: totals.writes,
-                      deletes: totals.deletes,
-                    }
-                  : {}
-              }
-            />
-            <UsageTotalsCard
-              title="Subscription metrics"
-              caption="Peak subscriptions"
-              mode="peak"
-              loading={totalsLoading}
-              series={SUBS_SERIES}
-              values={
-                totals
-                  ? {
-                      listeners: totals.listeners,
-                      connections: totals.connections,
-                    }
-                  : {}
-              }
-            />
-            <UsageTotalsCard
-              title="Rules metrics"
-              caption="Rules evaluations"
-              mode="sum"
-              loading={totalsLoading}
-              series={RULES_SERIES}
-              values={
-                totals
-                  ? {
-                      allows: totals.allows,
-                      denies: totals.denies,
-                      errors: totals.errors,
-                    }
-                  : {}
-              }
-            />
-          </>
-        ) : (
-          <>
-            <UsageChartCard
-              title="Billable metrics"
-              caption={`Operations (${opsCaption})`}
-              totalMode="sum"
-              rangeMs={rangeMs}
-              loading={chartLoading}
-              data={usage?.operations ?? []}
-              series={OPS_SERIES}
-            />
-            <UsageChartCard
-              title="Subscription metrics"
-              caption={`Peak subscriptions (${opsCaption})`}
-              totalMode="peak"
-              rangeMs={rangeMs}
-              loading={chartLoading}
-              data={usage?.subscriptions ?? []}
-              series={SUBS_SERIES}
-            />
-            <UsageChartCard
-              title="Rules metrics"
-              caption={`Rules evaluations (${opsCaption})`}
-              totalMode="sum"
-              rangeMs={rangeMs}
-              loading={chartLoading}
-              data={usage?.rules ?? []}
-              series={RULES_SERIES}
-            />
-          </>
-        )}
+        <Tabs defaultValue="ai" className="flex flex-col gap-6">
+          <TabsList className="gap-1">
+            <TabsTrigger value="ai">AI</TabsTrigger>
+            <TabsTrigger value="data">Data</TabsTrigger>
+          </TabsList>
+
+          {/* forceMount keeps the inactive tab alive so switching doesn't
+              wipe loaded results; with forceMount Radix leaves hiding to us. */}
+          <TabsContent
+            value="ai"
+            forceMount
+            className="data-[state=inactive]:hidden"
+          >
+            <div className="flex flex-col gap-6">
+              <div className="flex justify-end">
+                <Select
+                  value={aiRange}
+                  onValueChange={(value) => setAiRange(value as AiUsageRange)}
+                >
+                  <SelectTrigger className="w-48">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent position="popper" side="bottom" align="end">
+                    {AI_RANGE_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+                <UsageTotalsCard
+                  title="AI metrics"
+                  caption={aiUsage && !aiLoading ? aiUsageCaption(aiUsage) : ""}
+                  mode="sum"
+                  loading={aiLoading}
+                  series={AI_SERIES}
+                  values={
+                    aiUsage
+                      ? {
+                          inputTokens: aiUsage.inputTokens,
+                          outputTokens: aiUsage.outputTokens,
+                          requests: aiUsage.requests,
+                        }
+                      : {}
+                  }
+                />
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent
+            value="data"
+            forceMount
+            className="data-[state=inactive]:hidden"
+          >
+            <div className="flex flex-col gap-6">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <p className="text-muted-foreground text-sm">
+                  {periodMode && periodNote ? periodNote : ""}
+                </p>
+                <Select
+                  value={range}
+                  onValueChange={(value) => setRange(value as RangeValue)}
+                >
+                  <SelectTrigger className="w-48">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent position="popper" side="bottom" align="end">
+                    {RANGE_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {periodMode ? (
+                <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+                  <UsageChartCard
+                    title="Billable metrics"
+                    caption="Operations (cumulative)"
+                    totalMode="last"
+                    rangeMs={rangeMs}
+                    loading={totalsLoading}
+                    data={totals?.operations ?? []}
+                    series={OPS_SERIES}
+                  />
+                  <UsageChartCard
+                    title="Subscription metrics"
+                    caption="Peak subscriptions"
+                    totalMode="peak"
+                    rangeMs={rangeMs}
+                    loading={totalsLoading}
+                    data={totals?.subscriptions ?? []}
+                    series={SUBS_SERIES}
+                  />
+                  <UsageChartCard
+                    title="Rules metrics"
+                    caption="Rules evaluations (cumulative)"
+                    totalMode="last"
+                    rangeMs={rangeMs}
+                    loading={totalsLoading}
+                    data={totals?.rules ?? []}
+                    series={RULES_SERIES}
+                  />
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+                  <UsageChartCard
+                    title="Billable metrics"
+                    caption={`Operations (${opsCaption})`}
+                    totalMode="sum"
+                    rangeMs={rangeMs}
+                    loading={chartLoading}
+                    data={usage?.operations ?? []}
+                    series={OPS_SERIES}
+                  />
+                  <UsageChartCard
+                    title="Subscription metrics"
+                    caption={`Peak subscriptions (${opsCaption})`}
+                    totalMode="peak"
+                    rangeMs={rangeMs}
+                    loading={chartLoading}
+                    data={usage?.subscriptions ?? []}
+                    series={SUBS_SERIES}
+                  />
+                  <UsageChartCard
+                    title="Rules metrics"
+                    caption={`Rules evaluations (${opsCaption})`}
+                    totalMode="sum"
+                    rangeMs={rangeMs}
+                    loading={chartLoading}
+                    data={usage?.rules ?? []}
+                    series={RULES_SERIES}
+                  />
+                </div>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </>
   );

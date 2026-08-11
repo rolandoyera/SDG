@@ -35,21 +35,21 @@ export interface FirestoreUsage {
 
 // The console's two cumulative windows: "quota" resets daily at midnight
 // Pacific (the free-tier daily quota), "billing" covers the current calendar
-// month (also Pacific). Both are shown as running totals, not charts.
+// month (also Pacific). Charted like the console's quota view: count metrics
+// as cumulative running totals, gauges as-is.
 export type UsagePeriod = "quota" | "billing";
 
 export interface UsageTotals {
   period: UsagePeriod;
   /** Absolute ms of the period's Pacific-time start (midnight PT). */
   periodStartMs: number;
-  reads: number;
-  writes: number;
-  deletes: number;
-  listeners: number;
-  connections: number;
-  allows: number;
-  denies: number;
-  errors: number;
+  /** Seconds each chart bucket spans. */
+  bucketSeconds: number;
+  /** Cumulative running totals; the last point is the period total. */
+  operations: OperationsPoint[];
+  subscriptions: SubscriptionsPoint[];
+  /** Cumulative running totals; the last point is the period total. */
+  rules: RulesPoint[];
 }
 
 // Bucket widths keep every range at ~60 chart points, mirroring the console.
@@ -181,13 +181,18 @@ function indexSeries(
   return byKey;
 }
 
-async function fetchUsage(range: UsageRange): Promise<FirestoreUsage> {
-  const { durationMs, alignmentSeconds } = RANGE_SPECS[range];
-  // Snap to a whole minute so bucket timestamps are clean and every fetch
-  // within the same minute asks for an identical window.
-  const endMs = Math.floor((Date.now() - INGEST_DELAY_MS) / 60_000) * 60_000;
-  const startMs = endMs - durationMs;
+interface SeriesBundle {
+  operations: OperationsPoint[];
+  subscriptions: SubscriptionsPoint[];
+  rules: RulesPoint[];
+}
 
+/** Fetches all six metrics over one window into zero-filled, bucket-aligned point arrays. */
+async function fetchSeriesBundle(
+  startMs: number,
+  endMs: number,
+  alignmentSeconds: number,
+): Promise<SeriesBundle> {
   // timeSeries.list accepts only ONE metric type per request (one_of filters
   // are rejected), so each metric is its own call: 6 per refresh, shared by
   // all viewers via the cache below.
@@ -248,7 +253,10 @@ async function fetchUsage(range: UsageRange): Promise<FirestoreUsage> {
   // them from endMs matches the API's timestamps exactly. Zero-fill misses so
   // idle periods draw as a flat line instead of a gap.
   const alignmentMs = alignmentSeconds * 1_000;
-  const bucketCount = Math.floor(durationMs / alignmentMs);
+  // ceil, not floor: period windows aren't whole multiples of the alignment,
+  // and flooring would drop the partial first bucket (the hours right after
+  // midnight PT vanished from the quota chart).
+  const bucketCount = Math.max(1, Math.ceil((endMs - startMs) / alignmentMs));
   const at = (buckets: Map<number, number> | undefined, t: number) =>
     buckets?.get(t) ?? 0;
 
@@ -276,13 +284,20 @@ async function fetchUsage(range: UsageRange): Promise<FirestoreUsage> {
     });
   }
 
-  return {
-    range,
-    bucketSeconds: alignmentSeconds,
-    operations,
-    subscriptions,
-    rules,
-  };
+  return { operations, subscriptions, rules };
+}
+
+async function fetchUsage(range: UsageRange): Promise<FirestoreUsage> {
+  const { durationMs, alignmentSeconds } = RANGE_SPECS[range];
+  // Snap to a whole minute so bucket timestamps are clean and every fetch
+  // within the same minute asks for an identical window.
+  const endMs = Math.floor((Date.now() - INGEST_DELAY_MS) / 60_000) * 60_000;
+  const bundle = await fetchSeriesBundle(
+    endMs - durationMs,
+    endMs,
+    alignmentSeconds,
+  );
+  return { range, bucketSeconds: alignmentSeconds, ...bundle };
 }
 
 const PACIFIC_TZ = "America/Los_Angeles";
@@ -328,94 +343,70 @@ function pacificPeriodStart(period: UsagePeriod): number {
   return midnightGuess - pacificOffsetMs(midnightGuess);
 }
 
-function totalOf(series: TimeSeries[]): number {
-  let sum = 0;
-  for (const s of series) for (const p of s.points ?? []) sum += pointValue(p);
-  return sum;
+// Midnight PT that closes the current period: tomorrow for quota, the 1st of
+// next month for billing. Date.UTC carries day/month overflow.
+function pacificPeriodEnd(period: UsagePeriod): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: PACIFIC_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const at = (t: string) => Number(parts.find((p) => p.type === t)?.value);
+  const guess =
+    period === "quota"
+      ? Date.UTC(at("year"), at("month") - 1, at("day") + 1)
+      : Date.UTC(at("year"), at("month"), 1);
+  return guess - pacificOffsetMs(guess);
 }
 
-function peakOf(series: TimeSeries[]): number {
-  let max = 0;
-  for (const s of series)
-    for (const p of s.points ?? []) max = Math.max(max, pointValue(p));
-  return max;
+/** Running-sums count series in place so charts match the console's cumulative quota view. */
+function accumulate<K extends string>(
+  points: ({ t: number } & Record<K, number>)[],
+  keys: K[],
+): void {
+  const running = new Map<K, number>();
+  for (const point of points) {
+    // Write through a plain Record view — TS can't index-assign the intersection.
+    const record: Record<K, number> = point;
+    for (const key of keys) {
+      const sum = (running.get(key) ?? 0) + record[key];
+      running.set(key, sum);
+      record[key] = sum;
+    }
+  }
 }
 
 async function fetchTotals(period: UsagePeriod): Promise<UsageTotals> {
   const startMs = pacificPeriodStart(period);
   const endMs = Math.floor((Date.now() - INGEST_DELAY_MS) / 60_000) * 60_000;
-  // Hourly buckets summed client-side give the period total while keeping the
-  // point count small (<= ~744 for a full month). Same one-metric-per-request
-  // constraint as the charts, so each metric is its own call.
-  const window = { startMs, endMs, alignmentSeconds: 3_600 };
+  // Hourly buckets draw the quota day like the console's chart; the billing
+  // month uses 12h buckets to keep the point count sane.
+  const alignmentSeconds = period === "quota" ? 3_600 : 43_200;
+  const bundle = await fetchSeriesBundle(startMs, endMs, alignmentSeconds);
+  accumulate(bundle.operations, ["reads", "writes", "deletes"]);
+  accumulate(bundle.rules, ["allows", "denies", "errors"]);
 
-  const countCalls = Object.entries(COUNT_METRICS).map(async ([type, key]) => ({
-    key,
-    total: totalOf(
-      await listTimeSeries({
-        ...window,
-        filter: `metric.type = "${type}"`,
-        perSeriesAligner: "ALIGN_SUM" as const,
-        crossSeriesReducer: "REDUCE_SUM" as const,
-        groupByFields: [],
-      }),
-    ),
-  }));
-  const rulesCall = listTimeSeries({
-    ...window,
-    filter: `metric.type = "${RULES_METRIC}"`,
-    perSeriesAligner: "ALIGN_SUM",
-    crossSeriesReducer: "REDUCE_SUM",
-    groupByFields: ["metric.labels.result"],
-  });
-  const gaugeCalls = Object.entries(GAUGE_METRICS).map(async ([type, key]) => ({
-    key,
-    peak: peakOf(
-      await listTimeSeries({
-        ...window,
-        filter: `metric.type = "${type}"`,
-        perSeriesAligner: "ALIGN_MAX" as const,
-        crossSeriesReducer: "REDUCE_MAX" as const,
-        groupByFields: [],
-      }),
-    ),
-  }));
-
-  const [countResults, rulesSeries, gaugeResults] = await Promise.all([
-    Promise.all(countCalls),
-    rulesCall,
-    Promise.all(gaugeCalls),
-  ]);
-
-  const counts = Object.fromEntries(
-    countResults.map(({ key, total }) => [key, total]),
-  );
-  const gauges = Object.fromEntries(
-    gaugeResults.map(({ key, peak }) => [key, peak]),
-  );
-  const rulesTotals: Record<string, number> = {};
-  for (const s of rulesSeries) {
-    const result = s.metric.labels?.result as
-      | keyof typeof RULES_RESULTS
-      | undefined;
-    if (!result) continue;
-    let sum = 0;
-    for (const p of s.points ?? []) sum += pointValue(p);
-    rulesTotals[RULES_RESULTS[result]] =
-      (rulesTotals[RULES_RESULTS[result]] ?? 0) + sum;
+  // Console parity: the axis spans the whole quota day / billing month with
+  // the line stopping at "now". Cumulative series get an explicit zero at the
+  // period start (not the gauge — listeners weren't 0 at midnight); rows after
+  // "now" carry only `t`, so recharts ends each line there while the axis
+  // continues to the period's end.
+  bundle.operations.unshift({ t: startMs, reads: 0, writes: 0, deletes: 0 });
+  bundle.rules.unshift({ t: startMs, allows: 0, denies: 0, errors: 0 });
+  const alignmentMs = alignmentSeconds * 1_000;
+  const periodEndMs = pacificPeriodEnd(period);
+  for (let t = endMs + alignmentMs; t <= periodEndMs; t += alignmentMs) {
+    bundle.operations.push({ t } as OperationsPoint);
+    bundle.subscriptions.push({ t } as SubscriptionsPoint);
+    bundle.rules.push({ t } as RulesPoint);
   }
 
   return {
     period,
     periodStartMs: startMs,
-    reads: counts.reads ?? 0,
-    writes: counts.writes ?? 0,
-    deletes: counts.deletes ?? 0,
-    listeners: gauges.listeners ?? 0,
-    connections: gauges.connections ?? 0,
-    allows: rulesTotals.allows ?? 0,
-    denies: rulesTotals.denies ?? 0,
-    errors: rulesTotals.errors ?? 0,
+    bucketSeconds: alignmentSeconds,
+    ...bundle,
   };
 }
 

@@ -114,7 +114,9 @@ server-side only).
   uses the shared `src/components/date-range-picker.tsx` (two-month
   calendar + presets + Apply/Reset; built for reuse — the Analytics page is
   the next intended consumer). Visibility % is a client-side CTR-curve
-  share of the tracker total, SEMrush-style.
+  share of the tracker total, SEMrush-style. KD renders as ten ticks (one
+  per 10 points, rounded, non-zero scores keep at least one) beside the
+  number, colored green / yellow / red on the 0–33 / 34–66 / 67–100 thirds.
 
 ## Competitor Analysis page (`competitor-analysis/`)
 

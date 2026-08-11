@@ -117,6 +117,12 @@ export default function DiagnosticsPage() {
     }
   };
 
+  // ~4 chars/token for English text; scraped markdown tokenizes a bit denser
+  // (URLs, punctuation), so this reads slightly low. Actual counts are in the
+  // Usage page's AI tab via usageMetadata.
+  const estimatedTokens = (text: string) =>
+    `≈ ${Math.ceil(text.length / 4).toLocaleString()} tokens`;
+
   const formatTimestamp = (ts: number) => {
     return new Date(ts).toLocaleString([], {
       month: "short",
@@ -163,8 +169,7 @@ export default function DiagnosticsPage() {
             variant="outline"
             onClick={() => loadRuns(true)}
             disabled={loading}
-            className="flex items-center gap-2"
-          >
+            className="flex items-center gap-2">
             <RefreshCw className={cn("size-4", loading && "animate-spin")} />
             Refresh Logs
           </Button>
@@ -172,8 +177,7 @@ export default function DiagnosticsPage() {
             variant="destructive"
             onClick={handleClear}
             disabled={clearing || runs.length === 0}
-            className="flex items-center gap-2"
-          >
+            className="flex items-center gap-2">
             <Trash2 className="size-4" />
             Clear History
           </Button>
@@ -181,14 +185,14 @@ export default function DiagnosticsPage() {
       </div>
 
       {loading ? (
-        <div className="flex min-h-[400px] flex-col items-center justify-center gap-3">
+        <div className="flex min-h-100 flex-col items-center justify-center gap-3">
           <RefreshCw className="size-8 animate-spin text-primary" />
           <p className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">
             Querying Diagnostic Log Runs
           </p>
         </div>
       ) : runs.length === 0 ? (
-        <Card className="flex min-h-[350px] flex-col items-center justify-center border-dashed bg-background/30 p-8 text-center backdrop-blur-xs">
+        <Card className="flex min-h-87.5 flex-col items-center justify-center border-dashed bg-background/30 p-8 text-center backdrop-blur-xs">
           <Activity className="mb-4 size-16 animate-pulse text-muted-foreground/35" />
           <h3 className="font-heading font-semibold text-xl">
             No Diagnostic Runs Found
@@ -213,7 +217,7 @@ export default function DiagnosticsPage() {
       ) : (
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
           {/* LEFT PANEL: Historical Run Selector */}
-          <div className="flex max-h-[750px] flex-col gap-3 overflow-y-auto px-1 lg:col-span-4">
+          <div className="flex max-h-screen flex-col gap-3 px-1 lg:col-span-4">
             <h3 className="mb-1 px-1 font-bold text-muted-foreground text-xs uppercase tracking-wider">
               Captured Sessions ({runs.length})
             </h3>
@@ -226,19 +230,17 @@ export default function DiagnosticsPage() {
                   key={run.runId}
                   onClick={() => setSelectedRun(run)}
                   className={cn(
-                    "cursor-pointer transition-all duration-200 hover:border-primary/30",
+                    "cursor-pointer transition-all duration-200 hover:border-primary/30 p-4! min-h-fit",
                     active
                       ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20"
                       : "bg-card/40 hover:bg-primary/10",
-                  )}
-                >
-                  <CardContent className="flex flex-col gap-2.5">
+                  )}>
+                  <CardContent className="flex flex-col gap-2.5 p-0">
                     <div className="flex w-full items-center justify-between">
                       <Badge
                         variant={
                           run.type === "product" ? "default" : "secondary"
-                        }
-                      >
+                        }>
                         {run.type === "product"
                           ? "Product Autofill"
                           : "Vendor Profile"}
@@ -268,7 +270,7 @@ export default function DiagnosticsPage() {
             {/* Header info of active inspect target */}
             {selectedRun && (
               <Card>
-                <CardContent className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+                <CardContent className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center pt-0">
                   <div>
                     <span className="font-bold text-primary text-xs uppercase tracking-wider">
                       Active Inspector Target
@@ -280,8 +282,7 @@ export default function DiagnosticsPage() {
                       href={selectedRun.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="mt-1 flex items-center gap-1.5 text-muted-foreground text-xs hover:text-primary hover:underline"
-                    >
+                      className="mt-1 flex items-center gap-1.5 text-muted-foreground text-xs hover:text-primary hover:underline">
                       <Globe className="size-3" />
                       {selectedRun.url}
                       <ExternalLink className="size-2.5" />
@@ -309,8 +310,7 @@ export default function DiagnosticsPage() {
                       active
                         ? "border-primary bg-primary/5 text-primary"
                         : "border-transparent text-muted-foreground hover:bg-muted/30 hover:text-foreground",
-                    )}
-                  >
+                    )}>
                     <ActiveIcon className="size-3.5" />
                     {tab.label}
                   </button>
@@ -319,7 +319,7 @@ export default function DiagnosticsPage() {
             </div>
 
             {/* Tab contents panel */}
-            <div className="min-h-[480px]">
+            <div className="min-h-120">
               {/* TAB 1: Extracted Fields UI Showcase */}
               {activeTab === "extracted" && selectedRun && (
                 <div className="flex flex-col gap-6">
@@ -571,7 +571,7 @@ export default function DiagnosticsPage() {
                                   alt="Logo"
                                   className="size-12 rounded border border-border bg-white object-contain p-1"
                                 />
-                                <span className="max-w-[200px] truncate font-mono text-muted-foreground text-xs">
+                                <span className="max-w-50 truncate font-mono text-muted-foreground text-xs">
                                   {selectedRun.parsedData.logoUrl}
                                 </span>
                               </div>
@@ -599,7 +599,7 @@ export default function DiagnosticsPage() {
                                   alt="Hero Showcase"
                                   className="size-12 rounded border border-border object-cover"
                                 />
-                                <span className="max-w-[200px] truncate font-mono text-muted-foreground text-xs">
+                                <span className="max-w-50 truncate font-mono text-muted-foreground text-xs">
                                   {selectedRun.parsedData.heroImageUrl ||
                                     selectedRun.parsedData.coverImageUrl}
                                 </span>
@@ -628,8 +628,7 @@ export default function DiagnosticsPage() {
                               return (
                                 <div
                                   key={field}
-                                  className="flex flex-col rounded border border-border/40 bg-background/40 p-2.5"
-                                >
+                                  className="flex flex-col rounded border border-border/40 bg-background/40 p-2.5">
                                   <span className="truncate font-bold text-[10px] text-muted-foreground uppercase tracking-wider">
                                     {field}
                                   </span>
@@ -642,8 +641,7 @@ export default function DiagnosticsPage() {
                                           : val >= 0.4
                                             ? "text-amber-500"
                                             : "text-rose-500",
-                                      )}
-                                    >
+                                      )}>
                                       {pct}%
                                     </span>
                                     <span className="font-semibold text-[9px] text-muted-foreground">
@@ -663,13 +661,13 @@ export default function DiagnosticsPage() {
               {/* TAB 2: Scraped Markdown text viewer */}
               {activeTab === "markdown" && selectedRun && (
                 <DiagnosticOutputViewer
-                  title="Cleaned Webpage Readability Snapshot"
+                  title="Cleaned Page Readability Snapshot"
                   description={`First ${SCRAPER_CONFIG.maxCharacters.toLocaleString()} characters are fed to the model context.`}
                   emptyText="No Jina Reader scraped markdown captured."
                   value={selectedRun.scrapedMarkdown}
                   kind="markdown"
                   icon={FileText}
-                  meta={`${selectedRun.scrapedMarkdown.length.toLocaleString()} characters`}
+                  meta={estimatedTokens(selectedRun.scrapedMarkdown)}
                 />
               )}
 
@@ -682,7 +680,7 @@ export default function DiagnosticsPage() {
                   value={selectedRun.prompt}
                   kind="prompt"
                   icon={Code}
-                  meta={`${selectedRun.prompt.length.toLocaleString()} characters`}
+                  meta={estimatedTokens(selectedRun.prompt)}
                 />
               )}
 
@@ -695,7 +693,7 @@ export default function DiagnosticsPage() {
                   value={selectedRun.rawResponse}
                   kind="json"
                   icon={Database}
-                  meta={`${selectedRun.rawResponse.length.toLocaleString()} characters`}
+                  meta={estimatedTokens(selectedRun.rawResponse)}
                 />
               )}
             </div>

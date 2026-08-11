@@ -21,6 +21,7 @@ import {
   SortableHeader,
   TanTable,
 } from "@/components/ui/tan-table";
+import { cn } from "@/lib/utils";
 
 export interface RankingRow {
   keyword: string;
@@ -46,6 +47,47 @@ export interface RankingRow {
 function cityLabel(location: string): string {
   const parts = location.split(",").map((part) => part.trim());
   return parts.length >= 3 ? parts[0] : "United States";
+}
+
+/**
+ * Keyword difficulty as ten ticks, one per 10 points — a column of bars is
+ * scannable in a way a column of two-digit numbers isn't. Bands are the
+ * conventional easy / medium / hard thirds of the 0–100 score.
+ */
+const DIFFICULTY_TICKS = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90];
+
+function difficultyColor(value: number): string {
+  if (value <= 33) return "bg-green-600 dark:bg-green-400/60";
+  if (value <= 66) return "bg-yellow-700 dark:bg-yellow-300/60";
+  return "bg-destructive dark:bg-red-400";
+}
+
+function DifficultyCell({ value }: { value: number | null }) {
+  if (value === null) {
+    return <div className="text-right text-muted-foreground">—</div>;
+  }
+  // Rounded to the nearest ten, but any non-zero score keeps one tick so a
+  // KD of 3 doesn't read as an empty row.
+  const filled = value === 0 ? 0 : Math.max(1, Math.round(value / 10));
+  const color = difficultyColor(value);
+  return (
+    <div className="flex items-center justify-end gap-2">
+      <div className="flex items-center gap-0.75">
+        {DIFFICULTY_TICKS.map((tick, index) => (
+          <span
+            key={tick}
+            className={cn(
+              "h-4 w-0.5 rounded-xs",
+              index < filled ? color : "bg-muted",
+            )}
+          />
+        ))}
+      </div>
+      <span className="w-6 text-right text-muted-foreground tabular-nums">
+        {value}
+      </span>
+    </div>
+  );
 }
 
 function PositionCell({ value }: { value: number | null | undefined }) {
@@ -131,11 +173,7 @@ export function RankingsTable({
           </SortableHeader>
         ),
         meta: { headClassName: "w-30" },
-        cell: ({ row }) => (
-          <div className="text-right text-muted-foreground tabular-nums">
-            {row.original.difficulty ?? "—"}
-          </div>
-        ),
+        cell: ({ row }) => <DifficultyCell value={row.original.difficulty} />,
       },
       {
         accessorKey: "posStart",

@@ -182,8 +182,10 @@ function MarkdownPreview({ value }: { value: string }) {
           return (
             <h3
               key={block.id}
-              className={cn("font-heading font-semibold text-foreground", size)}
-            >
+              className={cn(
+                "font-heading font-semibold text-foreground",
+                size,
+              )}>
               {block.text}
             </h3>
           );
@@ -202,8 +204,7 @@ function MarkdownPreview({ value }: { value: string }) {
           return (
             <code
               key={block.id}
-              className="block rounded border bg-muted/35 px-3 py-2 font-mono text-muted-foreground text-xs"
-            >
+              className="block rounded border bg-muted/35 px-3 py-2 font-mono text-muted-foreground text-xs">
               {block.text}
             </code>
           );
@@ -242,8 +243,7 @@ function TextBlock({
       className={cn(
         "grid min-w-full grid-cols-[auto_1fr] gap-x-4 p-4 font-mono text-[12px] leading-6",
         wrap ? "whitespace-pre-wrap wrap-break-word" : "whitespace-pre",
-      )}
-    >
+      )}>
       {lines.map(({ id, line, number }) => (
         <div key={id} className="contents">
           <span className="select-none text-right text-muted-foreground/55 tabular-nums">
@@ -293,9 +293,9 @@ export function DiagnosticOutputViewer({
   };
 
   return (
-    <Card className="border border-border/50 bg-card/50">
-      <CardHeader className="gap-3 border-b bg-muted/20 pb-3.5">
-        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+    <Card className="pt-0">
+      <CardHeader className="gap-3 border-b bg-muted/20 pb-0!">
+        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start pt-2">
           <div>
             <CardTitle className="flex items-center gap-2">
               <Icon className="size-4 text-primary" />
@@ -306,14 +306,19 @@ export function DiagnosticOutputViewer({
             </CardDescription>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
-            {meta && <Badge variant="outline">{meta}</Badge>}
+            {meta && (
+              <Badge
+                className="h-7 font-normal bg-background px-2.5 text-[0.8rem]"
+                variant="outline">
+                {meta}
+              </Badge>
+            )}
             {kind === "json" && prettyJson && (
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setShowRaw((current) => !current)}
-              >
+                onClick={() => setShowRaw((current) => !current)}>
                 {showRaw ? "Pretty" : "Raw"}
               </Button>
             )}
@@ -322,8 +327,7 @@ export function DiagnosticOutputViewer({
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setShowRaw((current) => !current)}
-              >
+                onClick={() => setShowRaw((current) => !current)}>
                 {showRaw ? "Preview" : "Raw"}
               </Button>
             )}
@@ -331,8 +335,7 @@ export function DiagnosticOutputViewer({
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => setWrap((current) => !current)}
-            >
+              onClick={() => setWrap((current) => !current)}>
               <WrapText className="size-3.5" />
               {wrap ? "No wrap" : "Wrap"}
             </Button>
@@ -340,8 +343,7 @@ export function DiagnosticOutputViewer({
               type="button"
               variant="outline"
               size="sm"
-              onClick={handleCopy}
-            >
+              onClick={handleCopy}>
               {copied ? (
                 <Check className="size-3.5" />
               ) : (
@@ -352,17 +354,17 @@ export function DiagnosticOutputViewer({
           </div>
         </div>
       </CardHeader>
-      <CardContent className="p-0">
+      <CardContent className="p-0!">
         {!content ? (
-          <div className="flex min-h-[280px] items-center justify-center p-6 text-center text-muted-foreground text-sm">
+          <div className="flex min-h-70 items-center justify-center p-6 text-center text-muted-foreground text-sm">
             {emptyText}
           </div>
         ) : kind === "markdown" && !showRaw ? (
-          <ScrollArea className="h-[580px] bg-background/30">
+          <ScrollArea className="h-145 bg-background/30">
             <MarkdownPreview value={value} />
           </ScrollArea>
         ) : (
-          <ScrollArea className="h-[580px] bg-background/30">
+          <ScrollArea className="h-145 bg-background/30">
             <TextBlock
               value={displayValue}
               wrap={wrap}

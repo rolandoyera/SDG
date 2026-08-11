@@ -121,11 +121,30 @@ export default function UsagePage() {
   const { uid, role, loading: authLoading } = useAuth();
   const router = useRouter();
 
+  const [tab, setTab] = useState<"ai" | "data">("ai");
   const [range, setRange] = useState<RangeValue>("60m");
   const [aiRange, setAiRange] = useState<AiUsageRange>("billing");
   const [usage, setUsage] = useState<FirestoreUsage | null>(null);
   const [totals, setTotals] = useState<UsageTotals | null>(null);
   const [aiUsage, setAiUsage] = useState<AiUsage | null>(null);
+
+  // Deep-link entry from other pages (/dashboard/usage?tab=data). Tab state is
+  // URL-synced like the project detail tabs: handleTabChange mirrors clicks
+  // back into the URL so refresh and copied links land on the same tab.
+  useEffect(() => {
+    const linked = new URLSearchParams(window.location.search).get("tab");
+    if (linked === "ai" || linked === "data") setTab(linked);
+  }, []);
+
+  const handleTabChange = (value: string) => {
+    const next = value as "ai" | "data";
+    setTab(next);
+    window.history.replaceState(
+      null,
+      "",
+      next === "ai" ? "/dashboard/usage" : `/dashboard/usage?tab=${next}`,
+    );
+  };
 
   // Access check & redirect
   useEffect(() => {
@@ -146,18 +165,20 @@ export default function UsagePage() {
     if (authLoading || role !== "SuperAdmin") return;
 
     let cancelled = false;
+    // Only the active tab fetches; the inactive tab keeps its last results
+    // (forceMount) and refreshes on its next activation.
     const load = async () => {
       try {
-        const aiPromise = getAiUsage(aiRange);
-        if (isPeriod(range)) {
+        if (tab === "ai") {
+          const ai = await getAiUsage(aiRange);
+          if (!cancelled) setAiUsage(ai);
+        } else if (isPeriod(range)) {
           const data = await getFirestoreUsageTotals(range);
           if (!cancelled) setTotals(data);
         } else {
           const data = await getFirestoreUsage(range);
           if (!cancelled) setUsage(data);
         }
-        const ai = await aiPromise;
-        if (!cancelled) setAiUsage(ai);
       } catch (error) {
         console.error("Failed to load usage metrics:", error);
         if (!cancelled) toast.error("Failed to load usage metrics.");
@@ -178,7 +199,7 @@ export default function UsagePage() {
       clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [range, aiRange, role, authLoading]);
+  }, [tab, range, aiRange, role, authLoading]);
 
   if (authLoading || role !== "SuperAdmin") {
     return (
@@ -228,7 +249,11 @@ export default function UsagePage() {
           </p>
         </div>
 
-        <Tabs defaultValue="ai" className="flex flex-col gap-6">
+        <Tabs
+          value={tab}
+          onValueChange={handleTabChange}
+          className="flex flex-col gap-6"
+        >
           <TabsList className="gap-1">
             <TabsTrigger value="ai">AI</TabsTrigger>
             <TabsTrigger value="data">Data</TabsTrigger>

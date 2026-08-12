@@ -22,16 +22,27 @@ import { SEO_STOP_WORDS } from "./seo-stop-words";
 // dropped, and tables list phrases occurring at least twice.
 // ---------------------------------------------------------------------------
 
-export type SiteTarget = "live" | "local";
+/** `comp:<index>` into the org's saved competitor list — same keys the Compare tab's source dropdowns use. */
+export type SiteTarget = "live" | "local" | `comp:${number}`;
 
 const LOCAL_BASE_URL = "http://localhost:3000";
+const COMPETITOR_TARGET_RE = /^comp:(\d+)$/;
 
 /**
  * The live target comes from the active org's Company settings (Website
- * field) — no hardcoded domain, so the tool works per tenant.
+ * field) — no hardcoded domain, so the tool works per tenant. Competitor
+ * targets resolve against the org's saved list rather than a URL the client
+ * passes in, so the crawler can only ever be aimed at sites the org configured.
  */
 async function resolveBaseUrl(target: SiteTarget): Promise<string> {
   if (target === "local") return LOCAL_BASE_URL;
+  const competitor = COMPETITOR_TARGET_RE.exec(target);
+  if (competitor) {
+    const saved = await getActiveOrgSeoCompetitors();
+    const url = saved[Number(competitor[1])]?.url;
+    if (!url) throw new Error("That competitor is no longer saved.");
+    return url;
+  }
   const website = await getActiveOrgWebsite();
   if (!website) {
     throw new Error(
@@ -62,6 +73,13 @@ const BOILERPLATE_MIN_PAGES = 3;
 const MIN_DUPLICATE_WORDS = 16;
 // Page cap for the no-sitemap fallback (link-following discovery).
 const MAX_SPIDER_PAGES = 60;
+// Page cap for sitemap discovery, sized to cover a mid-size competitor whole
+// (a partial crawl can't answer the orphan question at all). Not unlimited:
+// the crawl is one server action with no partial result, so overrunning the
+// function budget returns nothing rather than most of the site — and sustained
+// concurrency against a site we don't own is what gets a crawler blocked.
+// Raising this means checking `maxDuration` on the keyword-analyzer page.
+const MAX_CRAWL_PAGES = 250;
 
 export interface SeoResult<T> {
   success: boolean;
@@ -159,6 +177,13 @@ export interface CrawlError {
   error: string;
 }
 
+/** A sitemap entry that didn't serve itself — Search Console's "Page with redirect". */
+export interface CrawlRedirect {
+  path: string;
+  /** Where it lands: a path on this site, or an absolute URL when it leaves. */
+  to: string;
+}
+
 export interface SiteCrawl {
   target: SiteTarget;
   baseUrl: string;
@@ -167,6 +192,18 @@ export interface SiteCrawl {
   discovery: "sitemap" | "links";
   pages: PageAnalysis[];
   errors: CrawlError[];
+  redirects: CrawlRedirect[];
+  /**
+   * Crawled path → how many other crawled pages link to it. 0 reads as an
+   * orphan — reachable from the sitemap but from nowhere on the site — but
+   * only on a complete sitemap crawl. A link-discovered crawl can't contain
+   * orphans at all (links are how it found every page), and if `skipped` is
+   * non-zero the link that would have saved a page may simply live on one of
+   * the pages the cap dropped.
+   */
+  inboundLinks: Record<string, number>;
+  /** Sitemap pages left uncrawled at the MAX_CRAWL_PAGES cap — 0 for a full crawl. */
+  skipped: number;
   duplicatePhrases: DuplicatePhraseFinding[];
   anchorReuse: AnchorReuseFinding[];
 }
@@ -374,7 +411,14 @@ function normalizeHost(host: string): string {
   return host.replace(/^www\./, "");
 }
 
-async function fetchHtml(url: string): Promise<string> {
+/**
+ * `finalUrl` is where the request actually landed — redirects are followed, so
+ * it differs from `url` whenever the page moved. The crawl needs it to file a
+ * page under the path the site really serves.
+ */
+async function fetchHtml(
+  url: string,
+): Promise<{ html: string; finalUrl: string }> {
   const response = await fetch(url, {
     cache: "no-store",
     redirect: "follow",
@@ -384,7 +428,7 @@ async function fetchHtml(url: string): Promise<string> {
   if (!response.ok) {
     throw new Error(`HTTP ${response.status} for ${url}`);
   }
-  return await response.text();
+  return { html: await response.text(), finalUrl: response.url || url };
 }
 
 function analyzeHtml(url: string, html: string): PageAnalysis {
@@ -548,7 +592,10 @@ function mainContentView(
 // ---------------------------------------------------------------------------
 
 const pageCache = new Map<string, PageAnalysis>();
-const crawlCache = new Map<SiteTarget, SiteCrawl>();
+// Keyed by resolved base URL, not by target: "live" and "comp:0" mean
+// different sites for different orgs sharing this server instance, so a
+// target-keyed cache would hand one org another's crawl.
+const crawlCache = new Map<string, SiteCrawl>();
 
 // The cache exists to serve leave-and-return restores; an explicit Analyze
 // passes fresh=true to refetch (and update the cache for the next restore).
@@ -562,7 +609,7 @@ async function analyzeWithCache(
       return cached;
     }
   }
-  const analysis = analyzeHtml(url, await fetchHtml(url));
+  const analysis = analyzeHtml(url, (await fetchHtml(url)).html);
   pageCache.set(url, analysis);
   return analysis;
 }
@@ -579,7 +626,7 @@ async function readSitemapPaths(baseUrl: string): Promise<string[]> {
   const origin = new URL(baseUrl);
 
   const readLocs = async (url: string): Promise<string[]> => {
-    const xml = await fetchHtml(url);
+    const { html: xml } = await fetchHtml(url);
     const $ = cheerio.load(xml, { xmlMode: true });
     if ($("sitemapindex").length > 0) {
       const children = $("sitemap > loc")
@@ -840,7 +887,13 @@ export async function analyzeExternalUrl(
 export async function fetchCachedCrawl(
   target: SiteTarget,
 ): Promise<SeoResult<SiteCrawl | null>> {
-  return { success: true, data: crawlCache.get(target) ?? null };
+  try {
+    const baseUrl = await resolveBaseUrl(target);
+    return { success: true, data: crawlCache.get(baseUrl) ?? null };
+  } catch {
+    // An unresolvable target has no crawl — the empty state says so already.
+    return { success: true, data: null };
+  }
 }
 
 // Paths the link-following fallback should not treat as pages.
@@ -859,27 +912,90 @@ function normalizeSpiderPath(href: string): string | null {
   return path || "/";
 }
 
+/**
+ * How many crawled pages link to each crawled page, counted once per source.
+ *
+ * Deliberately reads each page's full link inventory rather than the
+ * main-content links the anchor-reuse check uses: a careers page reached only
+ * from the footer is properly linked, and would read as an orphan if page
+ * chrome were stripped first. Links to pages outside the crawl are ignored, so
+ * every crawled path gets an entry and nothing else does.
+ */
+function countInboundLinks(
+  pagesByPath: Map<string, PageAnalysis>,
+): Record<string, number> {
+  // Sitemaps and hrefs disagree about trailing slashes — a sitemap listing
+  // /work/ is linked as /work half the time — so pages are matched on a
+  // normalized form but the result is keyed by each page's own `path`, which
+  // is what the table looks up. Matching on the raw paths marks every page on
+  // a trailing-slash site an orphan except the homepage, whose "/" is too
+  // short to normalize.
+  const canonical = new Map<string, string>();
+  const inbound: Record<string, number> = {};
+  for (const analysis of pagesByPath.values()) {
+    inbound[analysis.path] = 0;
+    const normalized = normalizeSpiderPath(analysis.url);
+    if (normalized) canonical.set(normalized, analysis.path);
+  }
+
+  for (const analysis of pagesByPath.values()) {
+    const self = normalizeSpiderPath(analysis.url);
+    const targets = new Set<string>();
+    for (const link of analysis.links) {
+      if (!link.internal) continue;
+      const normalized = normalizeSpiderPath(link.href);
+      if (!normalized || normalized === self) continue;
+      const target = canonical.get(normalized);
+      if (target) targets.add(target);
+    }
+    for (const target of targets) inbound[target] += 1;
+  }
+  return inbound;
+}
+
 /** Crawl the whole site and run the site-wide checks. Takes ~20–40s. */
 export async function runSiteCrawl(
   target: SiteTarget,
 ): Promise<SeoResult<SiteCrawl>> {
   try {
     const baseUrl = await resolveBaseUrl(target);
+    const baseHost = normalizeHost(new URL(baseUrl).host);
     const errors: CrawlError[] = [];
+    const redirects: CrawlRedirect[] = [];
     const contentByPath = new Map<string, string[]>();
     const linksBySource = new Map<string, PageLink[]>();
     const pagesByPath = new Map<string, PageAnalysis>();
 
     const crawlPage = async (path: string): Promise<PageAnalysis | null> => {
       try {
-        const url = new URL(path, baseUrl).href;
-        const html = await fetchHtml(url);
-        const analysis = analyzeHtml(url, html);
-        pageCache.set(url, analysis);
-        const content = mainContentView(url, html);
-        contentByPath.set(path, content.segments);
-        linksBySource.set(path, content.internalLinks);
-        pagesByPath.set(path, analysis);
+        const requested = new URL(path, baseUrl).href;
+        const { html, finalUrl } = await fetchHtml(requested);
+
+        // A page is filed under the path the site actually serves, not the one
+        // the sitemap claimed. Two stale entries redirecting to one live page
+        // would otherwise become two identical rows, and the duplicate check
+        // would report that page as a verbatim copy of itself.
+        let finalPath = path;
+        if (finalUrl !== requested) {
+          const landed = normalizeSpiderPath(finalUrl);
+          if (!landed || normalizeHost(new URL(finalUrl).host) !== baseHost) {
+            // Left the site, or landed on a file rather than a page.
+            redirects.push({ path, to: finalUrl });
+            return null;
+          }
+          finalPath = landed;
+          if (finalPath !== path) {
+            redirects.push({ path, to: finalPath });
+            if (pagesByPath.has(finalPath)) return null;
+          }
+        }
+
+        const analysis = analyzeHtml(finalUrl, html);
+        pageCache.set(finalUrl, analysis);
+        const content = mainContentView(finalUrl, html);
+        contentByPath.set(finalPath, content.segments);
+        linksBySource.set(finalPath, content.internalLinks);
+        pagesByPath.set(finalPath, analysis);
         return analysis;
       } catch (error) {
         errors.push({ path, error: getErrorMessage(error, "Fetch failed.") });
@@ -895,9 +1011,23 @@ export async function runSiteCrawl(
     }
 
     let discovery: SiteCrawl["discovery"];
+    let skipped = 0;
     if (sitemapPaths.length > 0) {
       discovery = "sitemap";
-      await mapLimit(sitemapPaths, CRAWL_CONCURRENCY, crawlPage);
+      skipped = Math.max(0, sitemapPaths.length - MAX_CRAWL_PAGES);
+      // Shallowest paths first, so a capped crawl keeps the shape of the site
+      // — homepage, then top-level pages — instead of the alphabetical slice
+      // the sitemap arrives in, which on a big site stops somewhere inside
+      // /blog and never reaches "/".
+      const byDepth = [...sitemapPaths].sort(
+        (a, b) =>
+          a.split("/").length - b.split("/").length || a.localeCompare(b),
+      );
+      await mapLimit(
+        byDepth.slice(0, MAX_CRAWL_PAGES),
+        CRAWL_CONCURRENCY,
+        crawlPage,
+      );
     } else {
       // No (usable) sitemap — breadth-first discovery from the homepage,
       // following same-origin links up to MAX_SPIDER_PAGES.
@@ -927,10 +1057,13 @@ export async function runSiteCrawl(
       discovery,
       pages: [...pagesByPath.values()],
       errors,
+      redirects,
+      inboundLinks: countInboundLinks(pagesByPath),
+      skipped,
       duplicatePhrases: findDuplicatePhrases(contentByPath),
       anchorReuse: findAnchorReuse(linksBySource),
     };
-    crawlCache.set(target, crawl);
+    crawlCache.set(baseUrl, crawl);
     return { success: true, data: crawl };
   } catch (error) {
     console.error("runSiteCrawl failed:", error);

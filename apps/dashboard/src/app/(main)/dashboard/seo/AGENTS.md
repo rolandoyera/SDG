@@ -40,8 +40,26 @@ Three tabs backed by `src/server/seo-actions.ts`:
   sections rendered: adding one to `ScopePhraseTables` means adding an
   `ALIGNED_SECTIONS` entry.
 - **Site Crawl** — manual "Run Crawl" over every sitemap page (~30s,
-  concurrency 8), TanTable of per-page metrics (row click opens the full
-  report dialog), plus the site-wide checks: duplicated content between pages
+  concurrency 8) for the target picked in the dropdown: Live site,
+  Unpublished, or any saved competitor (`comp:<i>`, the same source keys the
+  Compare tab uses). TanTable of per-page metrics (row click opens the full
+  report dialog) whose **Inbound** column is how many other crawled pages link
+  to that one — 0 is an orphan, in the sitemap but linked from nowhere on the
+  site, which is how a retired blog or careers section usually shows up. The
+  crawl summary line carries the count and the zero cell names it on hover; a
+  bare red zero doesn't explain itself. It is
+  counted from each page's *full* link inventory, not the main-content links
+  the anchor check uses: a page reached only from the footer is properly
+  linked, and matched on a trailing-slash-normalized path while keyed by the
+  page's own `path` — a site whose sitemap lists `/work/` links it as `/work`,
+  and matching raw paths marks every page an orphan but the homepage. The
+  count always shows; the orphan *flag* (red + hover label +
+  summary count) is gated on `discovery === "sitemap" && skipped === 0`,
+  because a partial crawl produces zero inbound links for almost everything —
+  the linking page is simply one the cap dropped. Remaining caveat: nothing
+  here executes JavaScript, so a blog index that hydrates its post list
+  client-side makes every post look orphaned. Then the site-wide checks:
+  duplicated content between pages
   and internal-link anchor text reused across source pages. Duplication is
   found with overlapping 8-word windows merged into passages and a shared-word
   count server-side (the raw window count massively overstates a single copied
@@ -172,13 +190,34 @@ competitor analysis will grow later.
   never hardcode a domain; `local` = localhost:3000, only reachable when the
   dashboard itself runs locally. The UI labels `local` as **"Unpublished"**:
   it shows unpublished code changes, but Sanity content drafts only appear if
-  the local site runs in draft/preview mode.
+  the local site runs in draft/preview mode. `comp:<i>` indexes the org's
+  saved competitor list and is resolved in `resolveBaseUrl` from
+  `getActiveOrgSeoCompetitors()` — the client sends the index, never a URL, so
+  the crawler can only be aimed at sites the org configured.
 - No sitemap is not fatal: the crawl falls back to breadth-first
   link-following from the homepage (same-origin, `MAX_SPIDER_PAGES` cap) and
   the crawl stamps `discovery: "links"`; the Compare tab swaps its page
-  picker for a manual path input.
+  picker for a manual path input. `fetchHtml` returns the URL it landed on, so
+  a crawled page is filed under the path the site actually serves rather than
+  the one the sitemap claimed: without that, two stale entries redirecting to
+  one live page become two identical rows and the duplicate check reports that
+  page as a verbatim copy of itself, and an inbound link to the old path never
+  reaches the new one. Redirects are reported (`SiteCrawl.redirects`), and a
+  redirect that leaves the origin drops the page rather than filing a foreign
+  site's content under a local path. Sitemap crawls stop at `MAX_CRAWL_PAGES`
+  (competitor sitemaps run to hundreds of pages and would blow the action's
+  timeout); the remainder is reported as `SiteCrawl.skipped`, never silently
+  dropped. Paths are ordered shallowest-first before the cap applies, so a
+  truncated crawl keeps the shape of the site — the sitemap's own alphabetical
+  order would spend the whole budget inside `/blog` and never fetch `/`. The
+  cap is 250 with `maxDuration = 60` on the page; going much past that wants a
+  different shape, not a bigger number, since the action returns nothing at all
+  if it overruns and the whole `PageAnalysis` of every page is serialized back
+  to the browser.
 - Caching is **in-memory per server instance** (page analyses 10 min TTL; last
-  crawl per target kept until re-run). A restart loses it by design — no
+  crawl per resolved base URL kept until re-run — keyed by URL, not by target,
+  since "live" and "comp:0" name different sites for different orgs sharing an
+  instance). A restart loses it by design — no
   Firestore. If persistence ever earns its keep, a single JSON blob per crawl
   is the intended upgrade. The cache exists ONLY to serve leave-and-return
   restores: the Site tab pulls the cached crawl on mount (`fetchCachedCrawl`),

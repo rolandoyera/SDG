@@ -17,8 +17,10 @@ import {
 import {
   fetchCachedCrawl,
   fetchCompanyName,
+  fetchCompetitors,
   type PageAnalysis,
   runSiteCrawl,
+  type SeoCompetitor,
   type SiteCrawl,
   type SiteTarget,
 } from "@/server/seo-actions";
@@ -30,6 +32,7 @@ import { SiteChecks } from "./site-checks";
 export function CrawlTab() {
   const [target, setTarget] = useState<SiteTarget>("live");
   const [companyName, setCompanyName] = useState<string | null>(null);
+  const [competitors, setCompetitors] = useState<SeoCompetitor[]>([]);
   const [crawl, setCrawl] = useState<SiteCrawl | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState("");
@@ -45,6 +48,15 @@ export function CrawlTab() {
       })
       .catch(() => {
         // Keep the "Live site" fallback label.
+      });
+    fetchCompetitors()
+      .then((result) => {
+        if (!cancelled && result.success && result.data) {
+          setCompetitors(result.data);
+        }
+      })
+      .catch(() => {
+        // The target dropdown just won't list competitors.
       });
     return () => {
       cancelled = true;
@@ -70,6 +82,15 @@ export function CrawlTab() {
     };
   }, [target]);
 
+  // Calling a page an orphan needs a complete sitemap crawl. Link-following
+  // can't reach a page nothing links to, so every page it finds has an inbound
+  // link by construction; and once the cap drops pages, the link that would
+  // have saved a page may well live on one we never fetched.
+  const orphansKnown = crawl?.discovery === "sitemap" && crawl.skipped === 0;
+  const orphanCount = orphansKnown
+    ? Object.values(crawl.inboundLinks).filter((count) => count === 0).length
+    : 0;
+
   const run = async () => {
     setRunning(true);
     setError("");
@@ -89,12 +110,17 @@ export function CrawlTab() {
           value={target}
           onValueChange={(value) => setTarget(value as SiteTarget)}
         >
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="w-56">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="live">{companyName ?? "Live site"}</SelectItem>
             <SelectItem value="local">Unpublished</SelectItem>
+            {competitors.map((competitor, index) => (
+              <SelectItem key={competitor.url} value={`comp:${index}`}>
+                {competitor.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
 
@@ -108,6 +134,11 @@ export function CrawlTab() {
             Crawled {crawl.pages.length} pages{" "}
             {formatDistanceToNow(crawl.fetchedAt, { addSuffix: true })}
             {crawl.errors.length > 0 && ` · ${crawl.errors.length} failed`}
+            {crawl.redirects.length > 0 &&
+              ` · ${crawl.redirects.length} redirected`}
+            {orphanCount > 0 && ` · ${orphanCount} orphaned`}
+            {crawl.skipped > 0 &&
+              ` · ${crawl.skipped} more in the sitemap not crawled`}
             {crawl.discovery === "links" &&
               " · no sitemap found, pages discovered by following links"}
           </p>
@@ -130,6 +161,8 @@ export function CrawlTab() {
               <CrawlTable
                 pages={crawl.pages}
                 duplicatePhrases={crawl.duplicatePhrases}
+                inboundLinks={crawl.inboundLinks}
+                flagOrphans={orphansKnown}
                 onSelectPage={setDetailPage}
               />
             </CardContent>
@@ -139,6 +172,15 @@ export function CrawlTab() {
             <p className="text-muted-foreground text-sm">
               Failed to fetch:{" "}
               {crawl.errors.map((item) => item.path).join(", ")}
+            </p>
+          )}
+
+          {crawl.redirects.length > 0 && (
+            <p className="text-muted-foreground text-sm">
+              Sitemap URLs that redirect (crawled where they land):{" "}
+              {crawl.redirects
+                .map((item) => `${item.path} → ${item.to}`)
+                .join(", ")}
             </p>
           )}
 

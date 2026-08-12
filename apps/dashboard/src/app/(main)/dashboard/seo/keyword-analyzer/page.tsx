@@ -5,6 +5,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CompareTab } from "./_components/compare-tab";
 import { CrawlTab } from "./_components/crawl-tab";
 
+// Run Crawl fetches and analyzes up to MAX_CRAWL_PAGES pages in one action (8
+// at a time) and returns nothing at all if it overruns — allow up to a minute.
+// 60 is the ceiling on every Vercel plan, so this is safe to keep.
+export const maxDuration = 60;
+
 export default function Page() {
   return (
     <div className="flex flex-col gap-6">

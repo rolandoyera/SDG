@@ -103,10 +103,13 @@ export function SortableHeader<TData>({
   column,
   children,
   align = "left",
+  className,
 }: {
   column: Column<TData, unknown>;
   children: React.ReactNode;
   align?: "left" | "right";
+  /** Escape hatch for the label itself — e.g. `h-auto whitespace-normal` to let a long header wrap. */
+  className?: string;
 }) {
   const sorted = column.getIsSorted();
   const Icon =
@@ -119,6 +122,7 @@ export function SortableHeader<TData>({
       className={cn(
         "-mx-3 h-8 gap-1.5 px-3 font-medium text-foreground text-sm hover:bg-transparent",
         align === "right" && "-mx-3 ml-auto flex flex-row-reverse",
+        className,
       )}
     >
       {children}

@@ -30,6 +30,9 @@ interface CrawlRow {
   imageCount: number;
   missingAltCount: number;
   linkCount: number;
+  inboundCount: number;
+  /** Zero inbound links AND a crawl complete enough for that to mean orphaned. */
+  flagOrphan: boolean;
   analysis: PageAnalysis;
 }
 
@@ -40,14 +43,17 @@ const columns: ColumnDef<CrawlRow>[] = [
       <SortableHeader column={column}>Page</SortableHeader>
     ),
     cell: ({ row }) => (
-      <div className="max-w-72 truncate font-medium">{row.original.path}</div>
+      <div className="max-w-58 font-medium">{row.original.path}</div>
     ),
   },
   {
     accessorKey: "words",
     header: ({ column }) => (
-      <SortableHeader column={column} align="right">
-        Words
+      <SortableHeader column={column} align="right" className="h-auto">
+        <span className="flex flex-col items-center">
+          Words
+          <span className="text-xs">(Count)</span>
+        </span>
       </SortableHeader>
     ),
     cell: ({ row }) => (
@@ -59,8 +65,11 @@ const columns: ColumnDef<CrawlRow>[] = [
   {
     accessorKey: "duplicateRatio",
     header: ({ column }) => (
-      <SortableHeader column={column} align="right">
-        Duplicate
+      <SortableHeader column={column} align="right" className="h-auto">
+        <span className="flex flex-col items-center">
+          Duplicate
+          <span className="text-xs">(Content)</span>
+        </span>
       </SortableHeader>
     ),
     cell: ({ row }) => {
@@ -73,8 +82,7 @@ const columns: ColumnDef<CrawlRow>[] = [
           className={cn(
             "text-right tabular-nums",
             pct >= 20 ? "text-destructive" : "text-muted-foreground",
-          )}
-        >
+          )}>
           {pct}%
         </div>
       );
@@ -82,11 +90,18 @@ const columns: ColumnDef<CrawlRow>[] = [
   },
   {
     accessorKey: "titleLength",
+    // Two explicit lines rather than a wrap: the label is far wider than the
+    // count under it, and letting it wrap puts the break wherever the column
+    // width lands instead of between the name and its unit.
     header: ({ column }) => (
-      <SortableHeader column={column} align="right">
-        Title
+      <SortableHeader column={column} align="right" className="h-auto">
+        <span className="flex flex-col items-center">
+          Meta Title
+          <span className="text-xs">(Chars)</span>
+        </span>
       </SortableHeader>
     ),
+    meta: { headClassName: "w-fit" },
     cell: ({ row }) => (
       <div
         className={cn(
@@ -94,8 +109,7 @@ const columns: ColumnDef<CrawlRow>[] = [
           row.original.titleLength === 0
             ? "text-destructive"
             : "text-muted-foreground",
-        )}
-      >
+        )}>
         {row.original.titleLength}
       </div>
     ),
@@ -103,10 +117,14 @@ const columns: ColumnDef<CrawlRow>[] = [
   {
     accessorKey: "metaLength",
     header: ({ column }) => (
-      <SortableHeader column={column} align="right">
-        Meta
+      <SortableHeader column={column} align="right" className="h-auto">
+        <span className="flex flex-col items-center">
+          Meta Desc
+          <span className="text-xs">(Chars)</span>
+        </span>
       </SortableHeader>
     ),
+    meta: { headClassName: "w-fit" },
     cell: ({ row }) => (
       <div
         className={cn(
@@ -114,8 +132,7 @@ const columns: ColumnDef<CrawlRow>[] = [
           row.original.metaLength === 0
             ? "text-destructive"
             : "text-muted-foreground",
-        )}
-      >
+        )}>
         {row.original.metaLength}
       </div>
     ),
@@ -123,8 +140,11 @@ const columns: ColumnDef<CrawlRow>[] = [
   {
     accessorKey: "h1Count",
     header: ({ column }) => (
-      <SortableHeader column={column} align="right">
-        H1
+      <SortableHeader column={column} align="right" className="h-auto">
+        <span className="flex flex-col items-center">
+          H1
+          <span className="text-xs">(Min 1, Max 1)</span>
+        </span>
       </SortableHeader>
     ),
     cell: ({ row }) => (
@@ -134,8 +154,7 @@ const columns: ColumnDef<CrawlRow>[] = [
           row.original.h1Count === 1
             ? "text-muted-foreground"
             : "text-destructive",
-        )}
-      >
+        )}>
         {row.original.h1Count}
       </div>
     ),
@@ -143,8 +162,11 @@ const columns: ColumnDef<CrawlRow>[] = [
   {
     accessorKey: "imageCount",
     header: ({ column }) => (
-      <SortableHeader column={column} align="right">
-        Images
+      <SortableHeader column={column} align="right" className="h-auto">
+        <span className="flex flex-col items-center">
+          Images
+          <span className="text-xs">(Count)</span>
+        </span>
       </SortableHeader>
     ),
     cell: ({ row }) => (
@@ -156,8 +178,11 @@ const columns: ColumnDef<CrawlRow>[] = [
   {
     accessorKey: "missingAltCount",
     header: ({ column }) => (
-      <SortableHeader column={column} align="right">
-        No Alt
+      <SortableHeader column={column} align="right" className="h-auto">
+        <span className="flex flex-col items-center">
+          No Alt Text
+          <span className="text-xs">(Count)</span>
+        </span>
       </SortableHeader>
     ),
     cell: ({ row }) => (
@@ -167,8 +192,7 @@ const columns: ColumnDef<CrawlRow>[] = [
           row.original.missingAltCount > 0
             ? "text-destructive"
             : "text-muted-foreground",
-        )}
-      >
+        )}>
         {row.original.missingAltCount}
       </div>
     ),
@@ -176,8 +200,11 @@ const columns: ColumnDef<CrawlRow>[] = [
   {
     accessorKey: "linkCount",
     header: ({ column }) => (
-      <SortableHeader column={column} align="right">
-        Links
+      <SortableHeader column={column} align="right" className="h-auto">
+        <span className="flex flex-col items-center">
+          Links
+          <span className="text-xs">(Count)</span>
+        </span>
       </SortableHeader>
     ),
     cell: ({ row }) => (
@@ -186,15 +213,51 @@ const columns: ColumnDef<CrawlRow>[] = [
       </div>
     ),
   },
+  {
+    accessorKey: "inboundCount",
+    header: ({ column }) => (
+      <SortableHeader column={column} align="right" className="h-auto">
+        <span className="flex flex-col items-center">
+          Inbound
+          <span className="text-xs">(Pages)</span>
+        </span>
+      </SortableHeader>
+    ),
+    // A flagged 0 is an orphan: in the sitemap, but nothing on the site links
+    // to it. Said out loud on hover — a bare red zero doesn't explain itself.
+    // On a partial crawl the count still shows, but unflagged: zero inbound
+    // links across 100 of 209 pages isn't evidence of anything.
+    cell: ({ row }) => (
+      <div
+        title={
+          row.original.flagOrphan
+            ? "Orphan — this page is in the sitemap, but no other crawled page links to it"
+            : undefined
+        }
+        className={cn(
+          "text-right tabular-nums",
+          row.original.flagOrphan
+            ? "text-destructive"
+            : "text-muted-foreground",
+        )}>
+        {row.original.inboundCount}
+      </div>
+    ),
+  },
 ];
 
 export function CrawlTable({
   pages,
   duplicatePhrases,
+  inboundLinks,
+  flagOrphans,
   onSelectPage,
 }: {
   pages: PageAnalysis[];
   duplicatePhrases: DuplicatePhraseFinding[];
+  inboundLinks: Record<string, number>;
+  /** False when the crawl was partial, so a zero inbound count proves nothing. */
+  flagOrphans: boolean;
   onSelectPage: (page: PageAnalysis) => void;
 }) {
   // Memoized so the array identity only changes with its inputs — an unstable
@@ -224,9 +287,11 @@ export function CrawlTable({
       imageCount: page.imageCount,
       missingAltCount: page.missingAltCount,
       linkCount: page.linkCount,
+      inboundCount: inboundLinks[page.path] ?? 0,
+      flagOrphan: flagOrphans && (inboundLinks[page.path] ?? 0) === 0,
       analysis: page,
     }));
-  }, [pages, duplicatePhrases]);
+  }, [pages, duplicatePhrases, inboundLinks, flagOrphans]);
 
   const table = useReactTable({
     data,

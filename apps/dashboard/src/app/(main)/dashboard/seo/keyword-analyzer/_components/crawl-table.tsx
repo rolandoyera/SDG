@@ -43,7 +43,11 @@ const columns: ColumnDef<CrawlRow>[] = [
       <SortableHeader column={column}>Page</SortableHeader>
     ),
     cell: ({ row }) => (
-      <div className="max-w-58 font-medium">{row.original.path}</div>
+      // The cap is what decides where a path wraps, not the wrap rules — it
+      // only stops one long slug from squeezing the numeric columns.
+      <div className="max-w-140 wrap-break-word whitespace-normal font-medium">
+        {row.original.path}
+      </div>
     ),
   },
   {

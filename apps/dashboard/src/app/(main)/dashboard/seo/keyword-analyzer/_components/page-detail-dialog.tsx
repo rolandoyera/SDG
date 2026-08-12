@@ -13,8 +13,28 @@ import type { PageAnalysis } from "@/server/seo-actions";
 
 import { type ScopeKey, ScopePhraseTables, ScopePicker } from "./scope-report";
 
+/**
+ * Image srcs run long — an inline `data:` placeholder can be hundreds of
+ * characters — and the middle is the least informative part: the head says
+ * what kind of source it is, the tail carries the filename or the bit that
+ * distinguishes it from its neighbours. The full value stays on hover.
+ */
+function truncateMiddle(value: string, max = 72): string {
+  if (value.length <= max) return value;
+  const head = Math.ceil((max - 1) / 2);
+  return `${value.slice(0, head)}…${value.slice(-(max - 1 - head))}`;
+}
+
 function DetailBody({ page }: { page: PageAnalysis }) {
   const [scope, setScope] = useState<ScopeKey>("all");
+
+  // Key by content + occurrence: the same placeholder src repeats legitimately.
+  const occurrences = new Map<string, number>();
+  const missingAlts = page.missingAltSrcs.map((src) => {
+    const nth = occurrences.get(src) ?? 0;
+    occurrences.set(src, nth + 1);
+    return { src, key: `${src}#${nth}` };
+  });
 
   return (
     <div className="flex flex-col gap-6 overflow-y-auto px-1">
@@ -37,8 +57,12 @@ function DetailBody({ page }: { page: PageAnalysis }) {
         {page.missingAltCount > 0 && (
           <>
             <dt className="font-medium">Missing alts</dt>
-            <dd className="break-all text-muted-foreground">
-              {page.missingAltSrcs.join(", ")}
+            <dd className="flex min-w-0 flex-col gap-1 text-muted-foreground">
+              {missingAlts.map((item) => (
+                <span key={item.key} title={item.src} className="truncate">
+                  {truncateMiddle(item.src)}
+                </span>
+              ))}
             </dd>
           </>
         )}

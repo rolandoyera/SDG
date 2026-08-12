@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 
 import {
   Dialog,
@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import type { PageAnalysis } from "@/server/seo-actions";
 
+import { GoogleSearchLink } from "./google-search-link";
 import { type ScopeKey, ScopePhraseTables, ScopePicker } from "./scope-report";
 
 /**
@@ -28,13 +29,18 @@ function truncateMiddle(value: string, max = 72): string {
 function DetailBody({ page }: { page: PageAnalysis }) {
   const [scope, setScope] = useState<ScopeKey>("all");
 
-  // Key by content + occurrence: the same placeholder src repeats legitimately.
-  const occurrences = new Map<string, number>();
-  const missingAlts = page.missingAltSrcs.map((src) => {
-    const nth = occurrences.get(src) ?? 0;
-    occurrences.set(src, nth + 1);
-    return { src, key: `${src}#${nth}` };
-  });
+  // Key by content + occurrence: the same placeholder src (or, on a broken
+  // page, the same H1 text) repeats legitimately.
+  const keyed = <T,>(values: T[], text: (value: T) => string) => {
+    const occurrences = new Map<string, number>();
+    return values.map((value) => {
+      const nth = occurrences.get(text(value)) ?? 0;
+      occurrences.set(text(value), nth + 1);
+      return { value, key: `${text(value)}#${nth}` };
+    });
+  };
+  const missingAlts = keyed(page.missingAltSrcs, (src) => src);
+  const h1s = keyed(page.h1s, (h1) => h1);
 
   return (
     <div className="flex flex-col gap-6 overflow-y-auto px-1">
@@ -44,7 +50,16 @@ function DetailBody({ page }: { page: PageAnalysis }) {
         <dt className="font-medium">Meta description</dt>
         <dd className="text-muted-foreground">{page.metaDescription || "—"}</dd>
         <dt className="font-medium">H1</dt>
-        <dd className="text-muted-foreground">{page.h1s.join(" · ") || "—"}</dd>
+        <dd className="text-muted-foreground">
+          {h1s.length
+            ? h1s.map((item, index) => (
+                <Fragment key={item.key}>
+                  {index > 0 && " · "}
+                  <GoogleSearchLink query={item.value} />
+                </Fragment>
+              ))
+            : "—"}
+        </dd>
         <dt className="font-medium">Links</dt>
         <dd className="text-muted-foreground">
           {page.linkCount} ({page.internalLinkCount} internal /{" "}
@@ -59,8 +74,8 @@ function DetailBody({ page }: { page: PageAnalysis }) {
             <dt className="font-medium">Missing alts</dt>
             <dd className="flex min-w-0 flex-col gap-1 text-muted-foreground">
               {missingAlts.map((item) => (
-                <span key={item.key} title={item.src} className="truncate">
-                  {truncateMiddle(item.src)}
+                <span key={item.key} title={item.value} className="truncate">
+                  {truncateMiddle(item.value)}
                 </span>
               ))}
             </dd>

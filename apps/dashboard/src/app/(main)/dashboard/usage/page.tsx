@@ -165,8 +165,8 @@ export default function UsagePage() {
     if (authLoading || role !== "SuperAdmin") return;
 
     let cancelled = false;
-    // Only the active tab fetches; the inactive tab keeps its last results
-    // (forceMount) and refreshes on its next activation.
+    // Only the active tab fetches; the inactive tab's last results stay in
+    // page state and refresh on its next activation.
     const load = async () => {
       try {
         if (tab === "ai") {
@@ -259,13 +259,11 @@ export default function UsagePage() {
             <TabsTrigger value="data">Data</TabsTrigger>
           </TabsList>
 
-          {/* forceMount keeps the inactive tab alive so switching doesn't
-              wipe loaded results; with forceMount Radix leaves hiding to us. */}
-          <TabsContent
-            value="ai"
-            forceMount
-            className="data-[state=inactive]:hidden"
-          >
+          {/* No forceMount (unlike the keyword-analyzer tabs): results live in
+              page-level state, so remounting a tab shows them instantly — and
+              keeping hidden charts mounted makes Recharts warn about their
+              0×0 display:none containers on every switch. */}
+          <TabsContent value="ai">
             <div className="flex flex-col gap-6">
               <div className="flex justify-end">
                 <Select
@@ -305,11 +303,7 @@ export default function UsagePage() {
             </div>
           </TabsContent>
 
-          <TabsContent
-            value="data"
-            forceMount
-            className="data-[state=inactive]:hidden"
-          >
+          <TabsContent value="data">
             <div className="flex flex-col gap-6">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <p className="text-muted-foreground text-sm">

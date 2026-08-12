@@ -43,6 +43,7 @@ import {
 
 import { cn } from "@/lib/utils";
 
+import { GoogleSearchLink } from "./google-search-link";
 import { type ScopeKey, ScopePhraseTables, ScopePicker } from "./scope-report";
 
 /**
@@ -162,7 +163,7 @@ const SUMMARY_METRICS: {
   },
   {
     label: "Meta length",
-    value: (page) => `${page.metaDescription.length} chars (120–160 max)`,
+    value: (page) => `${page.metaDescription.length} chars (150–160 max)`,
   },
   {
     label: "Word count",
@@ -179,7 +180,7 @@ const SUMMARY_METRICS: {
     value: (page) =>
       page.h1s.length ? (
         <>
-          {page.h1s[0]}
+          <GoogleSearchLink query={page.h1s[0]} />
           {page.h1s.length > 1 && (
             <span className="text-muted-foreground">
               {" "}

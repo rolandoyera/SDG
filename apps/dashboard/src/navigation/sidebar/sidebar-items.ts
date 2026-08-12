@@ -67,18 +67,6 @@ export const sidebarItems: NavGroup[] = [
         url: "/dashboard/crm",
         icon: ChartBar,
       },
-      {
-        title: "Instagram",
-        url: "/dashboard/instagram",
-        icon: InstagramIcon,
-        // Warm the page (and the cached post URLs) on hover so it opens instantly.
-        prefetch: true,
-      },
-      {
-        title: "Analytics",
-        url: "/dashboard/analytics",
-        icon: Gauge,
-      },
     ],
   },
   {
@@ -126,22 +114,39 @@ export const sidebarItems: NavGroup[] = [
         icon: FileSignature,
         isNew: true,
       },
-      {
-        title: "AI Diagnostics",
-        url: "/dashboard/diagnostics",
-        icon: Activity,
-      },
     ],
   },
   {
     id: 3,
-    label: "Website",
+    label: "Analytics",
     items: [
+      {
+        title: "Instagram",
+        url: "/dashboard/instagram",
+        icon: InstagramIcon,
+        // Warm the page (and the cached post URLs) on hover so it opens instantly.
+        prefetch: true,
+      },
+      {
+        title: "Analytics",
+        url: "/dashboard/analytics",
+        icon: Gauge,
+      },
       {
         title: "SEO",
         url: "/dashboard/seo",
         icon: Globe,
         isNew: true,
+      },
+      {
+        title: "Usage",
+        url: "/dashboard/usage",
+        icon: ChartLine,
+      },
+      {
+        title: "AI Diagnostics",
+        url: "/dashboard/diagnostics",
+        icon: Activity,
       },
     ],
   },
@@ -155,19 +160,14 @@ export const sidebarItems: NavGroup[] = [
         icon: Users,
       },
       {
-        title: "Tenants",
-        url: "/dashboard/tenants",
-        icon: Building2,
-      },
-      {
         title: "Company",
         url: "/dashboard/company",
         icon: Cog,
       },
       {
-        title: "Usage",
-        url: "/dashboard/usage",
-        icon: ChartLine,
+        title: "Tenants",
+        url: "/dashboard/tenants",
+        icon: Building2,
       },
       {
         title: "Docs",

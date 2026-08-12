@@ -307,6 +307,10 @@ export function RankingsTable({
     columns,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    // Best current rank first. posLatest's accessor sorts unplaced (null →
+    // 100) after every real rank and no-data rows last, so the default view
+    // reads top wins down to gaps. Header clicks still re-sort freely.
+    initialState: { sorting: [{ id: "posLatest", desc: false }] },
     state: { rowSelection },
     onRowSelectionChange,
     getRowId: (row) => row.keyword,

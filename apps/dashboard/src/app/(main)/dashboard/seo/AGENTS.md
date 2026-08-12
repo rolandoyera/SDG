@@ -143,6 +143,31 @@ server-side only).
   per 10 points, rounded, non-zero scores keep at least one) beside the
   number, colored green / yellow / red on the 0–33 / 34–66 / 67–100 thirds.
 
+## Page Analyzer page (`page-analyzer/`)
+
+Lighthouse via the **PageSpeed Insights API** (`src/server/pagespeed-actions.ts`)
+— Google runs the audit on its own infrastructure, so no headless Chrome, and
+the response carries both the lab result and the CrUX real-user field data
+Google actually ranks with. Intended to grow into the home for other per-page
+tracking later.
+
+- Targets are the Keyword Analyzer's source keys minus `local`/`none`: Google
+  fetches the page itself, so only public URLs work — "Unpublished" can never
+  be audited. Live/competitor URLs resolve server-side (same posture as the
+  crawler); Custom URL passes through like `analyzeExternalUrl`.
+- One URL per run, ~15–30s (the page exports `maxDuration = 60`). Cached
+  in-memory per instance for 30 min keyed by `strategy|url`, section
+  convention: mount restores via `fetchCachedPagespeed` (never triggers a run
+  the user didn't ask for; the form persists in localStorage `seo-pagespeed`),
+  explicit Analyze always reruns.
+- `PAGESPEED_API_KEY` (optional, server-side only) raises the anonymous quota
+  to ~25k runs/day. Works keyless at low volume.
+- Report: the four category scores (Lighthouse bands: 90+ green / 50+ yellow /
+  red), lab Core Web Vitals, CrUX field data when it exists (small sites often
+  have none — the card says so; `origin_fallback` means site-wide, not
+  page-level, data), and the top opportunity audits by estimated savings.
+  Mobile is the default strategy because Google ranks on the mobile render.
+
 ## Competitor Analysis page (`competitor-analysis/`)
 
 Manages up to 5 competitors (name + URL). Stored on the org document at

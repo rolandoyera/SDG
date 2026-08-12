@@ -41,7 +41,25 @@ import {
   type SiteTarget,
 } from "@/server/seo-actions";
 
+import { cn } from "@/lib/utils";
+
 import { type ScopeKey, ScopePhraseTables, ScopePicker } from "./scope-report";
+
+/**
+ * Both page columns of the Keyword Report are subgrids of the same rows, so a
+ * section starts at the same y on both sides however many phrases each table
+ * lists — otherwise the left page's "3-Word Phrases" sits opposite the right
+ * page's word list and the two stop being comparable by eye.
+ *
+ * Keyed by the number of sections `ScopePhraseTables` renders under the page
+ * label: word totals, three phrase tables, plus the headings or links listing
+ * that Headlines and Links add. Both class strings are spelled out because
+ * Tailwind only generates classes it can see in the source.
+ */
+const ALIGNED_SECTIONS = {
+  5: { rows: "lg:grid-rows-[repeat(5,auto)]", span: "lg:row-span-5" },
+  6: { rows: "lg:grid-rows-[repeat(6,auto)]", span: "lg:row-span-6" },
+} as const;
 
 // Source keys: "live" | "local" | "custom" | "none" | "comp:<index>".
 const sideSchema = z.object({
@@ -627,6 +645,9 @@ export function CompareTab({ single = false }: { single?: boolean }) {
 
   // Whichever sides have results — left alone, right alone, or both.
   const pages = [left, right].filter((page): page is PageAnalysis => !!page);
+  // Headlines and Links append a listing below the phrase tables.
+  const aligned =
+    ALIGNED_SECTIONS[scope === "headlines" || scope === "links" ? 6 : 5];
 
   return (
     <div className="flex flex-col gap-6">
@@ -730,9 +751,20 @@ export function CompareTab({ single = false }: { single?: boolean }) {
             <CardContent className="flex flex-col gap-6">
               <ScopePicker value={scope} onChange={setScope} />
               <div
-                className={single ? "grid gap-8" : "grid gap-8 lg:grid-cols-2"}>
+                className={cn(
+                  "grid gap-8",
+                  !single && ["lg:grid-cols-2 lg:gap-y-6", aligned.rows],
+                )}>
                 {pages.map((page) => (
-                  <div key={page.url} className="flex flex-col gap-4">
+                  <div
+                    key={page.url}
+                    className={cn(
+                      "flex flex-col gap-4",
+                      !single && [
+                        "lg:grid lg:grid-rows-subgrid lg:gap-y-6",
+                        aligned.span,
+                      ],
+                    )}>
                     <p className="font-medium text-sm">{reportHeading(page)}</p>
                     <ScopePhraseTables
                       scope={page.scopes[scope]}
@@ -741,6 +773,7 @@ export function CompareTab({ single = false }: { single?: boolean }) {
                       }
                       links={scope === "links" ? page.bodyLinks : undefined}
                       phrasesInRow={single}
+                      aligned={!single}
                     />
                   </div>
                 ))}

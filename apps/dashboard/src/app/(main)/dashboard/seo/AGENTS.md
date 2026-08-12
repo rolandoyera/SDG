@@ -31,7 +31,14 @@ Three tabs backed by `src/server/seo-actions.ts`:
   list loads: resetting a `comp:<i>` value before its SelectItem exists leaves
   the Radix select stuck on its placeholder. A side whose saved competitor was
   deleted resets to its default and skips its rerun alone. All tabs are `forceMount`ed (hidden via
-  `data-[state=inactive]:hidden`) so switching tabs doesn't wipe results.
+  `data-[state=inactive]:hidden`) so switching tabs doesn't wipe results. At
+  `lg` the two Keyword Report columns are CSS subgrids of the same rows
+  (`ALIGNED_SECTIONS` in `compare-tab.tsx`, `aligned` on `ScopePhraseTables`),
+  so each section starts at the same y on both sides however many phrases the
+  tables list — two pages aren't comparable by eye if one side's "3-Word
+  Phrases" sits opposite the other's word list. The row count must match the
+  sections rendered: adding one to `ScopePhraseTables` means adding an
+  `ALIGNED_SECTIONS` entry.
 - **Site Crawl** — manual "Run Crawl" over every sitemap page (~30s,
   concurrency 8), TanTable of per-page metrics (row click opens the full
   report dialog), plus the site-wide checks: duplicated content between pages

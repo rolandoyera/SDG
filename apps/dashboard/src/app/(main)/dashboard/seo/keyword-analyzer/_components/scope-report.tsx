@@ -9,6 +9,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import type {
   PageHeading,
   PageLink,
@@ -170,17 +171,24 @@ function LinksTable({ links }: { links: PageLink[] }) {
  * or `links` (Links scope only) to list the page's body links below.
  * `phrasesInRow` puts all three phrase tables on one row — for full-width
  * single-page layouts; side-by-side page columns keep them stacked.
+ *
+ * `aligned` dissolves this wrapper into the parent column (see
+ * `ALIGNED_SECTIONS` in compare-tab) so each section becomes a row of the
+ * report grid: comparing two pages means both sides' "2-Word Phrases" start at
+ * the same y even when one page lists twice as many words as the other.
  */
 export function ScopePhraseTables({
   scope,
   headings,
   links,
   phrasesInRow = false,
+  aligned = false,
 }: {
   scope: ScopeReport;
   headings?: PageHeading[];
   links?: PageLink[];
   phrasesInRow?: boolean;
+  aligned?: boolean;
 }) {
   const phraseTables = (
     <>
@@ -191,7 +199,7 @@ export function ScopePhraseTables({
   );
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className={cn("flex flex-col gap-6", aligned && "lg:contents")}>
       <p className="text-muted-foreground text-sm">
         {scope.words.toLocaleString()} words (
         {scope.wordsWithStop.toLocaleString()} incl. stop words) ·{" "}

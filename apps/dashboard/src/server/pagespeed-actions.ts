@@ -20,7 +20,6 @@ const PSI_TIMEOUT_MS = 50_000;
 // serve leave-and-return restores (section convention: in-memory, no
 // Firestore). Explicit Analyze always reruns.
 const CACHE_TTL_MS = 30 * 60 * 1000;
-const MAX_OPPORTUNITIES = 8;
 
 export type PagespeedStrategy = "mobile" | "desktop";
 
@@ -53,10 +52,13 @@ export interface PagespeedFieldMetric {
   category: string;
 }
 
-export interface PagespeedOpportunity {
+/** One Insights/Diagnostics line: title plus the "Est savings of…" headline. */
+export interface PagespeedAuditRow {
+  id: string;
   title: string;
   displayValue: string;
-  savingsMs: number;
+  /** 0–1 audit score; null = informative (Lighthouse's hollow marker). */
+  score: number | null;
 }
 
 export interface PagespeedReport {
@@ -65,27 +67,48 @@ export interface PagespeedReport {
   fetchedAt: number;
   scores: PagespeedScore[];
   metrics: PagespeedMetric[];
+  /** Lighthouse's final render as a data: URI, for the report's phone thumbnail. */
+  screenshot: string | null;
+  /** Loading filmstrip frames (data: URIs), left to right. */
+  filmstrip: string[];
+  /** Failing/informative rows from the performance category's two audit groups. */
+  insights: PagespeedAuditRow[];
+  diagnostics: PagespeedAuditRow[];
+  /** Insight/diagnostic audits that scored ≥ 0.9 — the "Passed audits (N)" line. */
+  passedCount: number;
   /** Null when CrUX has no data for the page (or origin) — common on small sites. */
   fieldData: {
     /** True when CrUX lacked page-level data and reported the whole origin. */
     originFallback: boolean;
     metrics: PagespeedFieldMetric[];
   } | null;
-  opportunities: PagespeedOpportunity[];
 }
 
 // Shapes for just the slices of the PSI response we read.
 interface PsiAudit {
   title?: string;
   score?: number | null;
+  scoreDisplayMode?: string;
   displayValue?: string;
-  details?: { type?: string; overallSavingsMs?: number };
+  details?: {
+    type?: string;
+    overallSavingsMs?: number;
+    data?: string;
+    /** Filmstrip frames on the screenshot-thumbnails audit. */
+    items?: { data?: string }[];
+  };
 }
 
 interface PsiResponse {
   error?: { message?: string };
   lighthouseResult?: {
-    categories?: Record<string, { score?: number | null }>;
+    categories?: Record<
+      string,
+      {
+        score?: number | null;
+        auditRefs?: { id: string; group?: string }[];
+      }
+    >;
     audits?: Record<string, PsiAudit>;
   };
   loadingExperience?: {
@@ -197,20 +220,41 @@ function parseReport(
     };
   });
 
-  const opportunities: PagespeedOpportunity[] = Object.values(audits)
-    .filter(
-      (audit) =>
-        audit.details?.type === "opportunity" &&
-        (audit.details.overallSavingsMs ?? 0) > 0 &&
-        (audit.score ?? 1) < 1,
-    )
-    .map((audit) => ({
-      title: audit.title ?? "",
-      displayValue: audit.displayValue ?? "",
-      savingsMs: audit.details?.overallSavingsMs ?? 0,
-    }))
-    .sort((a, b) => b.savingsMs - a.savingsMs)
-    .slice(0, MAX_OPPORTUNITIES);
+  // Lighthouse's Insights/Diagnostics sections: the performance category's
+  // auditRefs carry the grouping; a row is shown when it fails (score < 0.9)
+  // or is informative (null score, e.g. "LCP breakdown"), and counted as
+  // passed otherwise — same split the Lighthouse report makes.
+  const auditRefs =
+    data.lighthouseResult?.categories?.performance?.auditRefs ?? [];
+  const collectGroup = (group: string) => {
+    const rows: PagespeedAuditRow[] = [];
+    let passed = 0;
+    for (const ref of auditRefs) {
+      if (ref.group !== group) continue;
+      const audit = audits[ref.id];
+      if (!audit) continue;
+      const mode = audit.scoreDisplayMode ?? "";
+      if (mode === "notApplicable" || mode === "manual") continue;
+      const score = typeof audit.score === "number" ? audit.score : null;
+      if (score !== null && score >= 0.9) {
+        passed += 1;
+        continue;
+      }
+      rows.push({
+        id: ref.id,
+        title: audit.title ?? ref.id,
+        displayValue: audit.displayValue ?? "",
+        score,
+      });
+    }
+    return { rows, passed };
+  };
+  const insights = collectGroup("insights");
+  const diagnostics = collectGroup("diagnostics");
+
+  const filmstrip = (
+    audits["screenshot-thumbnails"]?.details?.items ?? []
+  ).flatMap((item) => (item.data ? [item.data] : []));
 
   const cruxMetrics = data.loadingExperience?.metrics ?? {};
   const fieldMetrics: PagespeedFieldMetric[] = FIELD_METRICS.flatMap(
@@ -233,13 +277,17 @@ function parseReport(
     fetchedAt: Date.now(),
     scores,
     metrics,
+    screenshot: audits["final-screenshot"]?.details?.data ?? null,
+    filmstrip,
+    insights: insights.rows,
+    diagnostics: diagnostics.rows,
+    passedCount: insights.passed + diagnostics.passed,
     fieldData: fieldMetrics.length
       ? {
           originFallback: data.loadingExperience?.origin_fallback === true,
           metrics: fieldMetrics,
         }
       : null,
-    opportunities,
   };
 }
 

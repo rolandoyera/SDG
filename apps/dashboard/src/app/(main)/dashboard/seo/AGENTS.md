@@ -162,10 +162,22 @@ tracking later.
   explicit Analyze always reruns.
 - `PAGESPEED_API_KEY` (optional, server-side only) raises the anonymous quota
   to ~25k runs/day. Works keyless at low volume.
-- Report: the four category scores (Lighthouse bands: 90+ green / 50+ yellow /
-  red), lab Core Web Vitals, CrUX field data when it exists (small sites often
-  have none — the card says so; `origin_fallback` means site-wide, not
-  page-level, data), and the top opportunity audits by estimated savings.
+- Report: deliberately Lighthouse's own visual language (the design is
+  Apache-2.0; just never add its logo/wordmark) — ring gauges for the four
+  category scores, then a Performance section with the big ring, band legend,
+  the `final-screenshot` phone thumbnail, and metric tiles carrying
+  Lighthouse's shape coding (● good / ■ average / ▲ poor — shape + color so
+  the bands survive colorblindness) with web.dev "Learn more" links. Bands:
+  90+ green / 50+ yellow / red. Under the metrics: the loading filmstrip
+  (`screenshot-thumbnails` frames) and the **Insights**/**Diagnostics**
+  sections — failing or informative rows from the performance category's two
+  audit groups (classified by `auditRefs[].group`; ≥ 0.9 counts into the
+  "Passed audits (N)" line), each as title + "Est savings" headline only.
+  The expandable per-audit detail tables are deliberately NOT re-implemented
+  (Lighthouse ships a whole renderer for that format) — the "Full report on
+  PageSpeed Insights" link to pagespeed.web.dev is the drill-down. Below
+  that, CrUX field data when it exists (small sites often have none — the
+  card says so; `origin_fallback` means site-wide, not page-level, data).
   Mobile is the default strategy because Google ranks on the mobile render.
 
 ## Competitor Analysis page (`competitor-analysis/`)

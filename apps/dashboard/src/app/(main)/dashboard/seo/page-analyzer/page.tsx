@@ -9,7 +9,7 @@ export const maxDuration = 60;
 
 export default function Page() {
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 max-w-6xl">
       <PageTitle title="Page Analyzer" />
       <PageHeader
         title="Page Analyzer"

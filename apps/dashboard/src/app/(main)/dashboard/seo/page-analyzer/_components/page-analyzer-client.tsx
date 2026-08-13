@@ -24,6 +24,7 @@ import {
 import { cn } from "@/lib/utils";
 import {
   fetchCachedPagespeed,
+  type PagespeedAuditRow,
   type PagespeedReport,
   runPagespeed,
 } from "@/server/pagespeed-actions";
@@ -86,6 +87,170 @@ const FIELD_CATEGORY: Record<string, { label: string; className: string }> = {
   },
   SLOW: { label: "Poor", className: "text-destructive dark:text-red-400" },
 };
+
+/**
+ * Lighthouse's shape coding: circle = good, square = average, triangle =
+ * poor. Shape + color together, so the bands survive colorblindness. Color
+ * comes from the parent's `scoreColor` via bg-current.
+ */
+function BandShape({ score }: { score: number | null }) {
+  // inline-block: a plain span ignores size-3, so outside a flex parent
+  // (the score legend) the shape silently collapses to nothing.
+  if (score === null) {
+    return (
+      <span className="inline-block size-3 shrink-0 rounded-full border border-current" />
+    );
+  }
+  if (score >= 90)
+    return (
+      <span className="inline-block size-3 shrink-0 rounded-full bg-current" />
+    );
+  if (score >= 50)
+    return <span className="inline-block size-3 shrink-0 bg-current" />;
+  return (
+    <span className="inline-block size-3 shrink-0 bg-current [clip-path:polygon(50%_0,100%_100%,0_100%)]" />
+  );
+}
+
+const RING_RADIUS = 56;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+
+/** Lighthouse-style gauge: tinted disc, arc for the score, number centered. */
+function ScoreRing({
+  score,
+  size,
+  textClassName,
+}: {
+  score: number | null;
+  size: number;
+  textClassName: string;
+}) {
+  return (
+    <div
+      className={cn("relative shrink-0", scoreColor(score))}
+      style={{ width: size, height: size }}>
+      {/* Decorative: the score is the real text node below. */}
+      <svg
+        viewBox="0 0 128 128"
+        className="size-full -rotate-90"
+        aria-hidden="true">
+        <circle
+          cx="64"
+          cy="64"
+          r={RING_RADIUS}
+          className="fill-current opacity-10"
+        />
+        {score !== null && (
+          <circle
+            cx="64"
+            cy="64"
+            r={RING_RADIUS}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="8"
+            strokeLinecap="round"
+            strokeDasharray={`${(score / 100) * RING_CIRCUMFERENCE} ${RING_CIRCUMFERENCE}`}
+          />
+        )}
+      </svg>
+      <span
+        className={cn(
+          "absolute inset-0 flex items-center justify-center font-semibold tabular-nums",
+          textClassName,
+        )}>
+        {score ?? "—"}
+      </span>
+    </div>
+  );
+}
+
+/** Lighthouse's own metric definitions, linked to the web.dev explainers. */
+const METRIC_INFO: Record<string, { description: string; href: string }> = {
+  "first-contentful-paint": {
+    description:
+      "First Contentful Paint marks the time at which the first text or image is painted.",
+    href: "https://developer.chrome.com/docs/lighthouse/performance/first-contentful-paint/",
+  },
+  "largest-contentful-paint": {
+    description:
+      "Largest Contentful Paint marks the time at which the largest text or image is painted.",
+    href: "https://developer.chrome.com/docs/lighthouse/performance/lighthouse-largest-contentful-paint/",
+  },
+  "total-blocking-time": {
+    description:
+      "Sum of all time periods between FCP and Time to Interactive, when task length exceeded 50 ms.",
+    href: "https://developer.chrome.com/docs/lighthouse/performance/lighthouse-total-blocking-time/",
+  },
+  "cumulative-layout-shift": {
+    description:
+      "Cumulative Layout Shift measures the movement of visible elements within the viewport.",
+    href: "https://web.dev/articles/cls",
+  },
+  "speed-index": {
+    description:
+      "Speed Index shows how quickly the contents of a page are visibly populated.",
+    href: "https://developer.chrome.com/docs/lighthouse/performance/speed-index/",
+  },
+};
+
+const SCORE_LEGEND: { shapeScore: number; range: string; className: string }[] =
+  [
+    {
+      shapeScore: 0,
+      range: "0–49",
+      className: "text-destructive ",
+    },
+    {
+      shapeScore: 50,
+      range: "50–89",
+      className: "text-yellow-700 dark:text-yellow-300",
+    },
+    {
+      shapeScore: 90,
+      range: "90–100",
+      className: "text-green-600 dark:text-green-400",
+    },
+  ];
+
+/** One Lighthouse Insights/Diagnostics section: band shape, title, savings. */
+function AuditSection({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: PagespeedAuditRow[];
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
+        {title}
+      </p>
+      {rows.length === 0 ? (
+        <p className="py-2 text-muted-foreground text-sm">Nothing flagged.</p>
+      ) : (
+        rows.map((row) => {
+          const pct = row.score === null ? null : Math.round(row.score * 100);
+          return (
+            <div
+              key={row.id}
+              className="flex items-center gap-3 border-border/50 border-b py-3 text-sm">
+              <span className={scoreColor(pct)}>
+                <BandShape score={pct} />
+              </span>
+              <span>{row.title}</span>
+              {row.displayValue && (
+                <span
+                  className={cn("ml-auto shrink-0 text-xs", scoreColor(pct))}>
+                  {row.displayValue}
+                </span>
+              )}
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+}
 
 export function PageAnalyzerClient() {
   const { control, handleSubmit, watch, reset } = useForm<FormData>({
@@ -209,6 +374,15 @@ export function PageAnalyzerClient() {
 
   const sitemap = sitemaps[source];
 
+  // Filmstrip frames can be byte-identical (steady loading states), so key
+  // by content + occurrence, matching the repo's repeated-content pattern.
+  const frameSeen = new Map<string, number>();
+  const filmstrip = (report?.filmstrip ?? []).map((data) => {
+    const nth = frameSeen.get(data) ?? 0;
+    frameSeen.set(data, nth + 1);
+    return { data, key: `${data.length}.${data.slice(-24)}#${nth}` };
+  });
+
   return (
     <div className="flex flex-col gap-6">
       <Card className="gap-2 pt-0">
@@ -219,8 +393,7 @@ export function PageAnalyzerClient() {
           <form
             onSubmit={handleSubmit(onSubmit)}
             className="flex flex-wrap items-start gap-4"
-            noValidate
-          >
+            noValidate>
             <Controller
               control={control}
               name="source"
@@ -238,8 +411,7 @@ export function PageAnalyzerClient() {
                       {competitors.map((competitor, index) => (
                         <SelectItem
                           key={competitor.url}
-                          value={`comp:${index}`}
-                        >
+                          value={`comp:${index}`}>
                           {competitor.name}
                         </SelectItem>
                       ))}
@@ -367,53 +539,145 @@ export function PageAnalyzerClient() {
                 {report.scores.map((item) => (
                   <div
                     key={item.label}
-                    className="flex flex-col items-center gap-1"
-                  >
-                    <span
-                      className={cn(
-                        "font-semibold text-4xl tabular-nums",
-                        scoreColor(item.score),
-                      )}
-                    >
-                      {item.score ?? "—"}
-                    </span>
-                    <span className="text-muted-foreground text-sm">
-                      {item.label}
-                    </span>
+                    className="flex flex-col items-center gap-2">
+                    <ScoreRing
+                      score={item.score}
+                      size={80}
+                      textClassName="text-xl"
+                    />
+                    <span className="text-center text-sm">{item.label}</span>
                   </div>
                 ))}
               </CardContent>
             </Card>
 
-            <Card className="gap-2 pt-0">
+            <Card className="gap-2 pt-0 lg:col-span-2">
               <CardHeader className="bg-muted/50 py-3">
-                <CardTitle>Lab Metrics</CardTitle>
+                <CardTitle>Performance</CardTitle>
               </CardHeader>
-              <CardContent className="flex flex-col gap-2.5">
-                {report.metrics.map((metric) => (
-                  <div
-                    key={metric.id}
-                    className="flex items-center justify-between gap-4 text-sm"
-                  >
-                    <span>{metric.label}</span>
-                    <span
-                      className={cn(
-                        "tabular-nums",
-                        scoreColor(
-                          metric.score === null
-                            ? null
-                            : Math.round(metric.score * 100),
-                        ),
-                      )}
-                    >
-                      {metric.displayValue}
-                    </span>
+              <CardContent className="flex flex-col gap-8 py-4">
+                <div className="flex flex-wrap items-center justify-center gap-x-16 gap-y-6">
+                  <div className="flex flex-col items-center gap-4">
+                    <ScoreRing
+                      score={
+                        report.scores.find((s) => s.label === "Performance")
+                          ?.score ?? null
+                      }
+                      size={144}
+                      textClassName="text-4xl"
+                    />
+                    <p className="max-w-sm text-center text-muted-foreground text-xs">
+                      Values are estimated and may vary. The performance score
+                      is{" "}
+                      <a
+                        href="https://googlechrome.github.io/lighthouse/scorecalc/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline">
+                        calculated
+                      </a>{" "}
+                      directly from these metrics.
+                    </p>
+                    <div className="flex items-center gap-6 text-muted-foreground text-xs">
+                      {SCORE_LEGEND.map((item) => (
+                        <span
+                          key={item.range}
+                          className="flex items-center gap-1.5">
+                          <span className={item.className}>
+                            <BandShape score={item.shapeScore} />
+                          </span>
+                          {item.range}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                ))}
+                  {report.screenshot && (
+                    // biome-ignore lint/performance/noImgElement: PSI returns a data: URI, which next/image cannot optimize.
+                    <img
+                      src={report.screenshot}
+                      alt="Page as Lighthouse rendered it"
+                      className="w-32 rounded border"
+                    />
+                  )}
+                </div>
+
+                <div className="grid gap-x-10 sm:grid-cols-2">
+                  {report.metrics.map((metric) => {
+                    const pct =
+                      metric.score === null
+                        ? null
+                        : Math.round(metric.score * 100);
+                    const info = METRIC_INFO[metric.id];
+                    return (
+                      <div
+                        key={metric.id}
+                        className="flex flex-col gap-1 border-border/50 border-b py-4">
+                        <div
+                          className={cn(
+                            "flex items-center gap-2",
+                            scoreColor(pct),
+                          )}>
+                          <BandShape score={pct} />
+                          <span className="text-foreground text-sm">
+                            {metric.label}
+                          </span>
+                        </div>
+                        <span
+                          className={cn(
+                            "font-semibold text-2xl tabular-nums",
+                            scoreColor(pct),
+                          )}>
+                          {metric.displayValue}
+                        </span>
+                        {info && (
+                          <p className="text-muted-foreground text-xs">
+                            {info.description}{" "}
+                            <a
+                              href={info.href}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary hover:underline">
+                              Learn more
+                            </a>
+                            .
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {filmstrip.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {filmstrip.map((frame, index) => (
+                      // biome-ignore lint/performance/noImgElement: PSI returns data: URIs, which next/image cannot optimize.
+                      <img
+                        key={frame.key}
+                        src={frame.data}
+                        alt={`Loading frame ${index + 1} of ${filmstrip.length}`}
+                        className="w-20 rounded border"
+                      />
+                    ))}
+                  </div>
+                )}
+
+                <AuditSection title="Insights" rows={report.insights} />
+                <AuditSection title="Diagnostics" rows={report.diagnostics} />
+
+                <p className="text-muted-foreground text-sm">
+                  Passed audits ({report.passedCount}) ·{" "}
+                  <a
+                    href={`https://pagespeed.web.dev/analysis?url=${encodeURIComponent(report.url)}&form_factor=${report.strategy}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline">
+                    Full report on PageSpeed Insights
+                  </a>
+                </p>
               </CardContent>
             </Card>
 
-            <Card className="gap-2 pt-0">
+            <Card className="gap-2 pt-0 lg:col-span-2">
               <CardHeader className="bg-muted/50 py-3">
                 <CardTitle>Real-User Data (CrUX)</CardTitle>
               </CardHeader>
@@ -431,15 +695,13 @@ export function PageAnalyzerClient() {
                       return (
                         <div
                           key={metric.label}
-                          className="flex items-center justify-between gap-4 text-sm"
-                        >
+                          className="flex items-center justify-between gap-4 text-sm">
                           <span>{metric.label}</span>
                           <span className="tabular-nums">
                             {metric.displayValue}{" "}
                             {category && (
                               <span
-                                className={cn("text-xs", category.className)}
-                              >
+                                className={cn("text-xs", category.className)}>
                                 {category.label}
                               </span>
                             )}
@@ -453,31 +715,6 @@ export function PageAnalyzerClient() {
                     No real-user Chrome data for this page yet — Google needs
                     more traffic before CrUX reports it.
                   </p>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="gap-2 pt-0 lg:col-span-2">
-              <CardHeader className="bg-muted/50 py-3">
-                <CardTitle>Opportunities</CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-2.5">
-                {report.opportunities.length === 0 ? (
-                  <p className="text-muted-foreground text-sm">
-                    No savings opportunities flagged.
-                  </p>
-                ) : (
-                  report.opportunities.map((opportunity) => (
-                    <div
-                      key={opportunity.title}
-                      className="flex items-center justify-between gap-4 text-sm"
-                    >
-                      <span>{opportunity.title}</span>
-                      <span className="shrink-0 text-muted-foreground tabular-nums">
-                        {opportunity.displayValue}
-                      </span>
-                    </div>
-                  ))
                 )}
               </CardContent>
             </Card>

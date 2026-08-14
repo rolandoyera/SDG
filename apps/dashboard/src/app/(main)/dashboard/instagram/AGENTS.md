@@ -59,6 +59,15 @@ SuperAdmin exposure, but nothing surfaces it. To switch accounts, reconnect (the
 - **Fallback pattern:** `fetchInstagramKpis` tries live, and on Graph failure serves the latest
   snapshot with `source: "fallback"` + `asOf`. The strip shows an "As of {date}" label then.
   Only the strip has this — other live reads have no snapshot equivalent.
+- **Range comes from `?range=`**, default `last-30-days`. The toolbar is the shared
+  `DateRangePicker` (`@/components/date-range-picker`); it always encodes selections as
+  `YYYY-MM-DD_YYYY-MM-DD`, while the legacy `last-N-days` names stay accepted (old links, the
+  default). `rangeToWindows` in `meta-actions.ts` resolves both — custom ranges are UTC-midnight
+  bounded, end-date inclusive, clamped to now, compared against the equal-length window
+  immediately before — and feeds the KPI strip **and** the reach trend. The 30-day Graph API
+  window cap is handled below it by `splitWindow` in `meta-graph.ts`, which chunks and sums.
+  The strip's KPIs (reach, views, likes, comments, profile visits, accounts engaged, website
+  taps) all follow the range; follower gains can't (Meta only exposes ~30 days of history).
 
 - **Server render safety:** Instagram live read actions must catch credential, Firestore, and Graph
   failures and return `{ success: false }` instead of throwing. A bad Meta token or production

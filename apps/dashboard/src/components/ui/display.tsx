@@ -30,7 +30,7 @@ function DisplayIcon({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="display-icon"
       className={cn(
-        "flex size-7 items-center justify-center rounded bg-primary/10 text-primary",
+        "flex size-7 items-center justify-center rounded bg-primary/10 text-primary [&_svg:not([class*='size-'])]:size-4",
         className,
       )}
       {...props}

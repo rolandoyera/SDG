@@ -40,6 +40,8 @@ export async function InstagramKpiStrip({ range }: { range?: string }) {
   const {
     reach,
     views,
+    likes,
+    comments,
     profileViews,
     accountsEngaged,
     websiteClicks,
@@ -48,6 +50,8 @@ export async function InstagramKpiStrip({ range }: { range?: string }) {
   const kpis = [
     { title: "Accounts Reached", metric: reach },
     { title: "Views", metric: views },
+    { title: "Likes", metric: likes },
+    { title: "Comments", metric: comments },
     { title: "Profile Visits", metric: profileViews },
     { title: "Accounts Engaged", metric: accountsEngaged },
     { title: "Website Taps", metric: websiteClicks },
@@ -61,7 +65,7 @@ export async function InstagramKpiStrip({ range }: { range?: string }) {
           {asOfLabel(result.asOf)}.
         </div>
       )}
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-5">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-7">
         {kpis.map(({ title, metric }) => {
           const noChange = Number.parseFloat(metric.change) === 0;
 

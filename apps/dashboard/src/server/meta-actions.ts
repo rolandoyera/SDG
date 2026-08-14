@@ -36,14 +36,38 @@ const RANGE_DAYS: Record<string, number> = {
   "last-90-days": 90,
 };
 
+// Custom "?range=" encoding from the date-range picker: "YYYY-MM-DD_YYYY-MM-DD".
+const CUSTOM_RANGE_PATTERN = /^(\d{4}-\d{2}-\d{2})_(\d{4}-\d{2}-\d{2})$/;
+
+const DAY_SECONDS = 24 * 60 * 60;
+
 /** Current window + the equal-length window immediately before it (for "vs previous"). */
 function rangeToWindows(range?: string): {
   current: { since: number; until: number };
   previous: { since: number; until: number };
   comparisonLabel: string;
 } {
+  const custom = range ? CUSTOM_RANGE_PATTERN.exec(range) : null;
+  if (custom) {
+    const since = Math.floor(Date.parse(`${custom[1]}T00:00:00Z`) / 1000);
+    // End date inclusive; clamp to now so a range ending today doesn't send
+    // a future timestamp to the Graph API.
+    const endExclusive =
+      Math.floor(Date.parse(`${custom[2]}T00:00:00Z`) / 1000) + DAY_SECONDS;
+    const span = endExclusive - since;
+    const days = Math.round(span / DAY_SECONDS);
+    return {
+      current: {
+        since,
+        until: Math.min(endExclusive, Math.floor(Date.now() / 1000)),
+      },
+      previous: { since: since - span, until: since },
+      comparisonLabel: days === 1 ? "previous day" : `previous ${days} days`,
+    };
+  }
+
   const days = RANGE_DAYS[range ?? ""] ?? 30;
-  const span = days * 24 * 60 * 60;
+  const span = days * DAY_SECONDS;
   const until = Math.floor(Date.now() / 1000);
   const since = until - span;
   return {
@@ -225,6 +249,8 @@ export async function selectMetaPage(pageId: string): Promise<{
 export interface InstagramKpiComparison {
   reach: KpiMetric;
   views: KpiMetric;
+  likes: KpiMetric;
+  comments: KpiMetric;
   profileViews: KpiMetric;
   accountsEngaged: KpiMetric;
   websiteClicks: KpiMetric;
@@ -246,7 +272,7 @@ function flatMetric(value: number): KpiMetric {
   return { value, previousValue: 0, change: "0.0%", isPositive: true };
 }
 
-/** Account KPI totals (reach, views, profile visits, accounts engaged) with vs-previous comparison. */
+/** Account KPI totals (reach, views, likes, comments, profile visits, accounts engaged) with vs-previous comparison. */
 export async function fetchInstagramKpis(
   range?: string,
 ): Promise<InstagramKpiResult> {
@@ -269,6 +295,8 @@ export async function fetchInstagramKpis(
       data: {
         reach: compareMetric(cur.reach, prev.reach),
         views: compareMetric(cur.views, prev.views),
+        likes: compareMetric(cur.likes, prev.likes),
+        comments: compareMetric(cur.comments, prev.comments),
         profileViews: compareMetric(cur.profileViews, prev.profileViews),
         accountsEngaged: compareMetric(
           cur.accountsEngaged,
@@ -295,6 +323,8 @@ export async function fetchInstagramKpis(
             data: {
               reach: flatMetric(snapshot.reach),
               views: flatMetric(snapshot.views),
+              likes: flatMetric(snapshot.likes),
+              comments: flatMetric(snapshot.comments),
               profileViews: flatMetric(snapshot.profileViews),
               accountsEngaged: flatMetric(snapshot.accountsEngaged),
               websiteClicks: flatMetric(snapshot.websiteClicks),

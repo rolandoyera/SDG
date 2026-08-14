@@ -160,7 +160,7 @@ export function MetricCards() {
       <Display>
         <DisplayHeader>
           <DisplayIcon>
-            <DollarSign className="size-4" />
+            <DollarSign />
           </DisplayIcon>
           <DisplayTitle>Total Revenue</DisplayTitle>
         </DisplayHeader>
@@ -180,7 +180,7 @@ export function MetricCards() {
       <Display>
         <DisplayHeader>
           <DisplayIcon>
-            <Users className="size-4" />
+            <Users />
           </DisplayIcon>
           <DisplayTitle>Active Projects</DisplayTitle>
         </DisplayHeader>
@@ -226,7 +226,7 @@ export function MetricCards() {
         <Display>
           <DisplayHeader>
             <DisplayIcon>
-              <Globe className="size-4" />
+              <Globe />
             </DisplayIcon>
             <DisplayTitle>Website Visits</DisplayTitle>
           </DisplayHeader>

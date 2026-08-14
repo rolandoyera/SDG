@@ -1,18 +1,19 @@
-import { Eye, Heart, MessageCircle, UserPlus } from "lucide-react";
+import { UserPlus } from "lucide-react";
 
 import { InstagramIcon } from "@/components/icons/icons";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+
 import { Label } from "@/components/ui/label";
 import {
   fetchInstagramFollowers,
   fetchInstagramHeadline,
 } from "@/server/meta-actions";
+import {
+  Display,
+  DisplayContent,
+  DisplayHeader,
+  DisplayIcon,
+  DisplayTitle,
+} from "@/components/ui/display";
 
 export async function InstagramHeadlineCards({
   followersCount,
@@ -37,59 +38,38 @@ export async function InstagramHeadlineCards({
       label: "New Followers",
       value: fmt(data?.newFollowers),
     },
-    {
-      icon: <Heart className="size-4" />,
-      label: "Likes",
-      value: fmt(data?.likes),
-    },
-    {
-      icon: <MessageCircle className="size-4" />,
-      label: "New Comments",
-      value: fmt(data?.comments),
-    },
-    {
-      icon: <Eye className="size-4" />,
-      label: "Profile Visits",
-      value: fmt(data?.profileViews),
-    },
   ];
 
   return (
-    <div className="grid grid-cols-1 gap-6 *:data-[slot=card]:bg-linear-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs xl:grid-cols-5 dark:*:data-[slot=card]:bg-card">
-      <Card>
-        <CardHeader className="flex items-center gap-4">
-          <CardTitle>
-            <div className="flex size-7 items-center justify-center rounded bg-muted text-muted-foreground">
-              <InstagramIcon size={20} strokeWidth={1.5} />
-            </div>
-          </CardTitle>
-          <CardDescription>Followers</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col items-center gap-2 pt-1">
+    <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
+      <Display>
+        <DisplayHeader>
+          <DisplayIcon>
+            <InstagramIcon size={20} strokeWidth={1.5} />
+          </DisplayIcon>
+          <DisplayTitle>Followers</DisplayTitle>
+        </DisplayHeader>
+        <DisplayContent className="flex flex-col items-center gap-2 pt-1">
           <p className="font-medium text-3xl leading-none tracking-tight tabular-nums">
             {followers.toLocaleString()}
           </p>
           <Label>Current Count</Label>
-        </CardContent>
-      </Card>
+        </DisplayContent>
+      </Display>
 
       {cards.map((card) => (
-        <Card key={card.label}>
-          <CardHeader className="flex items-center gap-4">
-            <CardTitle>
-              <div className="flex size-7 items-center justify-center rounded bg-muted text-muted-foreground">
-                {card.icon}
-              </div>
-            </CardTitle>
-            <CardDescription>{card.label}</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col items-center gap-2 pt-1">
+        <Display key={card.label}>
+          <DisplayHeader>
+            <DisplayIcon>{card.icon}</DisplayIcon>
+            <DisplayTitle>{card.label}</DisplayTitle>
+          </DisplayHeader>
+          <DisplayContent className="flex flex-col items-center gap-2 pt-1">
             <p className="font-medium text-3xl leading-none tracking-tight tabular-nums">
               {card.value}
             </p>
             <Label>Past 30 days</Label>
-          </CardContent>
-        </Card>
+          </DisplayContent>
+        </Display>
       ))}
     </div>
   );

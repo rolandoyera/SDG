@@ -132,9 +132,8 @@ export function AnalyticsToolbar({
       {options.length > 0 && (
         <Select
           value={currentCampaign || ALL_CAMPAIGNS}
-          onValueChange={handleCampaignChange}
-        >
-          <SelectTrigger className="max-w-48">
+          onValueChange={handleCampaignChange}>
+          <SelectTrigger className="max-w-fit">
             <SelectValue placeholder="Campaign" />
           </SelectTrigger>
           <SelectContent>
@@ -182,8 +181,7 @@ export function AnalyticsToolbar({
               // Keep the menu from closing so the spinner stays visible while refreshing.
               event.preventDefault();
               startRefresh(() => router.refresh());
-            }}
-          >
+            }}>
             <RefreshCw className={cn(isRefreshing && "animate-spin")} />
             {isRefreshing ? "Refreshing…" : "Refresh metrics"}
           </DropdownMenuItem>

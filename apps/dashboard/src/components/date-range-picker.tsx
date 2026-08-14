@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { CalendarIcon } from "lucide-react";
-import type { DateRange } from "react-day-picker";
+import type { DateRange, Modifiers } from "react-day-picker";
 
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -118,9 +118,10 @@ function presetFor(
 }
 
 /**
- * Shared date-range picker: two-month calendar plus quick presets, applied
- * only on "Apply" so browsing never disturbs the caller's state. Pass
- * `earliest` (first day with data) to enable the "All time" preset.
+ * Shared date-range picker: two-month calendar plus quick presets. Presets
+ * apply immediately; calendar selections apply only on "Apply" so browsing
+ * never disturbs the caller's state. Pass `earliest` (first day with data)
+ * to enable the "All time" preset.
  */
 export function DateRangePicker({
   value,
@@ -140,8 +141,27 @@ export function DateRangePicker({
 }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<DateRange | undefined>(value);
+  // Two-click selection: the first click anchors a single-day range (already
+  // appliable); while it's set, hovering previews anchor→cursor and days
+  // before the anchor are disabled. The second click completes the range.
+  const [anchor, setAnchor] = useState<Date | undefined>(undefined);
 
   const today = startOfDay(new Date());
+
+  const handleDayClick = (day: Date) => {
+    if (anchor) {
+      setDraft({ from: anchor, to: day });
+      setAnchor(undefined);
+    } else {
+      setDraft({ from: day, to: day });
+      setAnchor(day);
+    }
+  };
+
+  const handleDayMouseEnter = (day: Date, modifiers: Modifiers) => {
+    if (!anchor || modifiers.disabled) return;
+    setDraft({ from: anchor, to: day });
+  };
   const presets: { label: string; range: AppliedDateRange }[] = [
     ...presetKeys.map((key) => presetFor(key, today)),
     ...(earliest
@@ -164,7 +184,10 @@ export function DateRangePicker({
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
-        if (next) setDraft(value);
+        if (next) {
+          setDraft(value);
+          setAnchor(undefined);
+        }
       }}
     >
       <PopoverTrigger asChild>
@@ -176,18 +199,34 @@ export function DateRangePicker({
       {/* The shared PopoverContent stacks children (flex-col); force a row so
           the presets sit beside the calendar, SEMrush-style. */}
       <PopoverContent align={align} className="w-auto flex-row gap-0 p-0">
-        <Calendar
-          mode="range"
-          numberOfMonths={2}
-          showOutsideDays={false}
-          selected={draft}
-          onSelect={setDraft}
-          defaultMonth={
-            new Date(value.from.getFullYear(), value.from.getMonth(), 1)
-          }
-          disabled={{ after: today }}
-          className="p-3"
-        />
+        {/* Leaving the grid mid-selection collapses the hover preview back to
+            the anchored day, so moving to Apply applies just that day. */}
+        {/* biome-ignore lint/a11y/noStaticElementInteractions: mouse-only hover-preview cleanup, not an interactive control — keyboard users never see hover previews. */}
+        <div
+          onMouseLeave={() => {
+            if (anchor) setDraft({ from: anchor, to: anchor });
+          }}
+        >
+          <Calendar
+            mode="range"
+            numberOfMonths={2}
+            showOutsideDays={false}
+            selected={draft}
+            // Selection renders from `selected` only when an onSelect prop is
+            // present (react-day-picker falls back to internal state without
+            // one). The no-op keeps it controlled; onDayClick owns the logic.
+            onSelect={() => undefined}
+            onDayClick={handleDayClick}
+            onDayMouseEnter={handleDayMouseEnter}
+            defaultMonth={
+              new Date(value.from.getFullYear(), value.from.getMonth(), 1)
+            }
+            disabled={
+              anchor ? [{ after: today }, { before: anchor }] : { after: today }
+            }
+            className="p-3"
+          />
+        </div>
         <div className="flex w-40 flex-col gap-0.5 border-l p-3">
           {presets.map((preset) => (
             <Button
@@ -200,7 +239,11 @@ export function DateRangePicker({
                   sameDay(draft?.to, preset.range.to) &&
                   "bg-muted font-medium",
               )}
-              onClick={() => setDraft(preset.range)}
+              onClick={() => {
+                setAnchor(undefined);
+                setDraft(preset.range);
+                apply(preset.range);
+              }}
             >
               {preset.label}
             </Button>
@@ -217,7 +260,14 @@ export function DateRangePicker({
             >
               Apply
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => setDraft(value)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setAnchor(undefined);
+                setDraft(value);
+              }}
+            >
               Reset
             </Button>
           </div>

@@ -118,7 +118,7 @@ export const sidebarItems: NavGroup[] = [
   },
   {
     id: 3,
-    label: "Analytics",
+    label: "Marketing",
     items: [
       {
         title: "Instagram",
@@ -137,16 +137,6 @@ export const sidebarItems: NavGroup[] = [
         url: "/dashboard/seo",
         icon: Globe,
         isNew: true,
-      },
-      {
-        title: "Usage",
-        url: "/dashboard/usage",
-        icon: ChartLine,
-      },
-      {
-        title: "AI Diagnostics",
-        url: "/dashboard/diagnostics",
-        icon: Activity,
       },
     ],
   },
@@ -168,6 +158,16 @@ export const sidebarItems: NavGroup[] = [
         title: "Tenants",
         url: "/dashboard/tenants",
         icon: Building2,
+      },
+      {
+        title: "Usage",
+        url: "/dashboard/usage",
+        icon: ChartLine,
+      },
+      {
+        title: "AI Diagnostics",
+        url: "/dashboard/diagnostics",
+        icon: Activity,
       },
       {
         title: "Docs",

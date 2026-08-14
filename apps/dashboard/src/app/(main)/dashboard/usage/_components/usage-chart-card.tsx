@@ -94,7 +94,8 @@ export function UsageChartCard({
                 <span className="text-muted-foreground text-sm">{s.label}</span>
                 <label
                   htmlFor={`${idPrefix}${s.key}`}
-                  className="flex cursor-pointer items-center gap-2">
+                  className="flex cursor-pointer items-center gap-2"
+                >
                   <Checkbox
                     id={`${idPrefix}${s.key}`}
                     checked={!hidden.has(s.key)}
@@ -130,7 +131,8 @@ export function UsageChartCard({
                 <LineChart
                   accessibilityLayer
                   data={data}
-                  margin={{ bottom: 0, left: 0, right: 12, top: 8 }}>
+                  margin={{ bottom: 0, left: 0, right: 12, top: 8 }}
+                >
                   <CartesianGrid vertical={false} strokeOpacity={0.4} />
                   <XAxis
                     dataKey="t"

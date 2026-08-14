@@ -275,7 +275,8 @@ function SideFields({
               onValueChange={(value) => {
                 field.onChange(value);
                 onSourceChange();
-              }}>
+              }}
+            >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Choose a source" />
               </SelectTrigger>
@@ -372,7 +373,8 @@ function SideFields({
               disabled={!visitHref}
               onClick={() => {
                 if (visitHref) window.open(visitHref, "_blank", "noopener");
-              }}>
+              }}
+            >
               <ExternalLink className="size-4" />
               Visit Page
             </DropdownMenuItem>
@@ -660,7 +662,8 @@ export function CompareTab({ single = false }: { single?: boolean }) {
           <form
             onSubmit={handleSubmit(onSubmit)}
             className="flex flex-col gap-4"
-            noValidate>
+            noValidate
+          >
             {/* Single mode caps the row so the page picker matches the width
                 it has as a compare column instead of stretching full-bleed. */}
             <div className={single ? "max-w-4xl" : "grid gap-6 lg:grid-cols-2"}>
@@ -721,7 +724,8 @@ export function CompareTab({ single = false }: { single?: boolean }) {
                   values wrap inside their own half instead of pushing the
                   other page's column. */}
               <div
-                className={single ? "grid gap-8" : "grid gap-8 lg:grid-cols-2"}>
+                className={single ? "grid gap-8" : "grid gap-8 lg:grid-cols-2"}
+              >
                 {pages.map((page) => (
                   <div key={page.url} className="flex flex-col gap-4">
                     <p className="font-medium text-sm">{reportHeading(page)}</p>
@@ -755,7 +759,8 @@ export function CompareTab({ single = false }: { single?: boolean }) {
                 className={cn(
                   "grid gap-8",
                   !single && ["lg:grid-cols-2 lg:gap-y-6", aligned.rows],
-                )}>
+                )}
+              >
                 {pages.map((page) => (
                   <div
                     key={page.url}
@@ -765,7 +770,8 @@ export function CompareTab({ single = false }: { single?: boolean }) {
                         "lg:grid lg:grid-rows-subgrid lg:gap-y-6",
                         aligned.span,
                       ],
-                    )}>
+                    )}
+                  >
                     <p className="font-medium text-sm">{reportHeading(page)}</p>
                     <ScopePhraseTables
                       scope={page.scopes[scope]}

@@ -48,12 +48,12 @@ Three tabs backed by `src/server/seo-actions.ts`:
   site, which is how a retired blog or careers section usually shows up. The
   crawl summary line carries the count and the zero cell names it on hover; a
   bare red zero doesn't explain itself. It is
-  counted from each page's *full* link inventory, not the main-content links
+  counted from each page's _full_ link inventory, not the main-content links
   the anchor check uses: a page reached only from the footer is properly
   linked, and matched on a trailing-slash-normalized path while keyed by the
   page's own `path` — a site whose sitemap lists `/work/` links it as `/work`,
   and matching raw paths marks every page an orphan but the homepage. The
-  count always shows; the orphan *flag* (red + hover label +
+  count always shows; the orphan _flag_ (red + hover label +
   summary count) is gated on `discovery === "sitemap" && skipped === 0`,
   because a partial crawl produces zero inbound links for almost everything —
   the linking page is simply one the cap dropped. Remaining caveat: nothing
@@ -75,7 +75,7 @@ Three tabs backed by `src/server/seo-actions.ts`:
   `data-dup-ignore` on an element drops it by hand. Both exclusions are scoped
   to `mainContentView`, so they never touch the keyword/density tables: those
   must keep counting testimonials and CTAs, since Google indexes that text.
-  `aside` is *not* treated as chrome — it is a layout column as often as a
+  `aside` is _not_ treated as chrome — it is a layout column as often as a
   sidebar (oshrat project pages hold their whole write-up in one), and repeated
   sidebars are already caught by the frequency filter.
 

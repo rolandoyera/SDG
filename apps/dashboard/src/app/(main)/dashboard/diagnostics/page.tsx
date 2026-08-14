@@ -169,7 +169,8 @@ export default function DiagnosticsPage() {
             variant="outline"
             onClick={() => loadRuns(true)}
             disabled={loading}
-            className="flex items-center gap-2">
+            className="flex items-center gap-2"
+          >
             <RefreshCw className={cn("size-4", loading && "animate-spin")} />
             Refresh Logs
           </Button>
@@ -177,7 +178,8 @@ export default function DiagnosticsPage() {
             variant="destructive"
             onClick={handleClear}
             disabled={clearing || runs.length === 0}
-            className="flex items-center gap-2">
+            className="flex items-center gap-2"
+          >
             <Trash2 className="size-4" />
             Clear History
           </Button>
@@ -234,13 +236,15 @@ export default function DiagnosticsPage() {
                     active
                       ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20"
                       : "bg-card/40 hover:bg-primary/10",
-                  )}>
+                  )}
+                >
                   <CardContent className="flex flex-col gap-2.5 p-0">
                     <div className="flex w-full items-center justify-between">
                       <Badge
                         variant={
                           run.type === "product" ? "default" : "secondary"
-                        }>
+                        }
+                      >
                         {run.type === "product"
                           ? "Product Autofill"
                           : "Vendor Profile"}
@@ -282,7 +286,8 @@ export default function DiagnosticsPage() {
                       href={selectedRun.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="mt-1 flex items-center gap-1.5 text-muted-foreground text-xs hover:text-primary hover:underline">
+                      className="mt-1 flex items-center gap-1.5 text-muted-foreground text-xs hover:text-primary hover:underline"
+                    >
                       <Globe className="size-3" />
                       {selectedRun.url}
                       <ExternalLink className="size-2.5" />
@@ -310,7 +315,8 @@ export default function DiagnosticsPage() {
                       active
                         ? "border-primary bg-primary/5 text-primary"
                         : "border-transparent text-muted-foreground hover:bg-muted/30 hover:text-foreground",
-                    )}>
+                    )}
+                  >
                     <ActiveIcon className="size-3.5" />
                     {tab.label}
                   </button>
@@ -628,7 +634,8 @@ export default function DiagnosticsPage() {
                               return (
                                 <div
                                   key={field}
-                                  className="flex flex-col rounded border border-border/40 bg-background/40 p-2.5">
+                                  className="flex flex-col rounded border border-border/40 bg-background/40 p-2.5"
+                                >
                                   <span className="truncate font-bold text-[10px] text-muted-foreground uppercase tracking-wider">
                                     {field}
                                   </span>
@@ -641,7 +648,8 @@ export default function DiagnosticsPage() {
                                           : val >= 0.4
                                             ? "text-amber-500"
                                             : "text-rose-500",
-                                      )}>
+                                      )}
+                                    >
                                       {pct}%
                                     </span>
                                     <span className="font-semibold text-[9px] text-muted-foreground">

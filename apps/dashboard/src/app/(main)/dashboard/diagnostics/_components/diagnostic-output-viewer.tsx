@@ -182,10 +182,8 @@ function MarkdownPreview({ value }: { value: string }) {
           return (
             <h3
               key={block.id}
-              className={cn(
-                "font-heading font-semibold text-foreground",
-                size,
-              )}>
+              className={cn("font-heading font-semibold text-foreground", size)}
+            >
               {block.text}
             </h3>
           );
@@ -204,7 +202,8 @@ function MarkdownPreview({ value }: { value: string }) {
           return (
             <code
               key={block.id}
-              className="block rounded border bg-muted/35 px-3 py-2 font-mono text-muted-foreground text-xs">
+              className="block rounded border bg-muted/35 px-3 py-2 font-mono text-muted-foreground text-xs"
+            >
               {block.text}
             </code>
           );
@@ -243,7 +242,8 @@ function TextBlock({
       className={cn(
         "grid min-w-full grid-cols-[auto_1fr] gap-x-4 p-4 font-mono text-[12px] leading-6",
         wrap ? "whitespace-pre-wrap wrap-break-word" : "whitespace-pre",
-      )}>
+      )}
+    >
       {lines.map(({ id, line, number }) => (
         <div key={id} className="contents">
           <span className="select-none text-right text-muted-foreground/55 tabular-nums">
@@ -309,7 +309,8 @@ export function DiagnosticOutputViewer({
             {meta && (
               <Badge
                 className="h-7 font-normal bg-background px-2.5 text-[0.8rem]"
-                variant="outline">
+                variant="outline"
+              >
                 {meta}
               </Badge>
             )}
@@ -318,7 +319,8 @@ export function DiagnosticOutputViewer({
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setShowRaw((current) => !current)}>
+                onClick={() => setShowRaw((current) => !current)}
+              >
                 {showRaw ? "Pretty" : "Raw"}
               </Button>
             )}
@@ -327,7 +329,8 @@ export function DiagnosticOutputViewer({
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setShowRaw((current) => !current)}>
+                onClick={() => setShowRaw((current) => !current)}
+              >
                 {showRaw ? "Preview" : "Raw"}
               </Button>
             )}
@@ -335,7 +338,8 @@ export function DiagnosticOutputViewer({
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => setWrap((current) => !current)}>
+              onClick={() => setWrap((current) => !current)}
+            >
               <WrapText className="size-3.5" />
               {wrap ? "No wrap" : "Wrap"}
             </Button>
@@ -343,7 +347,8 @@ export function DiagnosticOutputViewer({
               type="button"
               variant="outline"
               size="sm"
-              onClick={handleCopy}>
+              onClick={handleCopy}
+            >
               {copied ? (
                 <Check className="size-3.5" />
               ) : (

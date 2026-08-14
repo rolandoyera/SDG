@@ -33,7 +33,7 @@ export default function Page() {
               <CardHeader>
                 <CardTitle>Tasks</CardTitle>
               </CardHeader>
-              <CardContent className="pt-0"></CardContent>
+              <CardContent className="pt-0" />
             </Card>
           </div>
           <div className="md:col-span-12 xl:col-span-6">

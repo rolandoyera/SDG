@@ -128,12 +128,14 @@ function ScoreRing({
   return (
     <div
       className={cn("relative shrink-0", scoreColor(score))}
-      style={{ width: size, height: size }}>
+      style={{ width: size, height: size }}
+    >
       {/* Decorative: the score is the real text node below. */}
       <svg
         viewBox="0 0 128 128"
         className="size-full -rotate-90"
-        aria-hidden="true">
+        aria-hidden="true"
+      >
         <circle
           cx="64"
           cy="64"
@@ -157,7 +159,8 @@ function ScoreRing({
         className={cn(
           "absolute inset-0 flex items-center justify-center font-semibold tabular-nums",
           textClassName,
-        )}>
+        )}
+      >
         {score ?? "—"}
       </span>
     </div>
@@ -233,14 +236,16 @@ function AuditSection({
           return (
             <div
               key={row.id}
-              className="flex items-center gap-3 border-border/50 border-b py-3 text-sm">
+              className="flex items-center gap-3 border-border/50 border-b py-3 text-sm"
+            >
               <span className={scoreColor(pct)}>
                 <BandShape score={pct} />
               </span>
               <span>{row.title}</span>
               {row.displayValue && (
                 <span
-                  className={cn("ml-auto shrink-0 text-xs", scoreColor(pct))}>
+                  className={cn("ml-auto shrink-0 text-xs", scoreColor(pct))}
+                >
                   {row.displayValue}
                 </span>
               )}
@@ -393,7 +398,8 @@ export function PageAnalyzerClient() {
           <form
             onSubmit={handleSubmit(onSubmit)}
             className="flex flex-wrap items-start gap-4"
-            noValidate>
+            noValidate
+          >
             <Controller
               control={control}
               name="source"
@@ -411,7 +417,8 @@ export function PageAnalyzerClient() {
                       {competitors.map((competitor, index) => (
                         <SelectItem
                           key={competitor.url}
-                          value={`comp:${index}`}>
+                          value={`comp:${index}`}
+                        >
                           {competitor.name}
                         </SelectItem>
                       ))}
@@ -539,7 +546,8 @@ export function PageAnalyzerClient() {
                 {report.scores.map((item) => (
                   <div
                     key={item.label}
-                    className="flex flex-col items-center gap-2">
+                    className="flex flex-col items-center gap-2"
+                  >
                     <ScoreRing
                       score={item.score}
                       size={80}
@@ -573,7 +581,8 @@ export function PageAnalyzerClient() {
                         href="https://googlechrome.github.io/lighthouse/scorecalc/"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-primary hover:underline">
+                        className="text-primary hover:underline"
+                      >
                         calculated
                       </a>{" "}
                       directly from these metrics.
@@ -582,7 +591,8 @@ export function PageAnalyzerClient() {
                       {SCORE_LEGEND.map((item) => (
                         <span
                           key={item.range}
-                          className="flex items-center gap-1.5">
+                          className="flex items-center gap-1.5"
+                        >
                           <span className={item.className}>
                             <BandShape score={item.shapeScore} />
                           </span>
@@ -611,12 +621,14 @@ export function PageAnalyzerClient() {
                     return (
                       <div
                         key={metric.id}
-                        className="flex flex-col gap-1 border-border/50 border-b py-4">
+                        className="flex flex-col gap-1 border-border/50 border-b py-4"
+                      >
                         <div
                           className={cn(
                             "flex items-center gap-2",
                             scoreColor(pct),
-                          )}>
+                          )}
+                        >
                           <BandShape score={pct} />
                           <span className="text-foreground text-sm">
                             {metric.label}
@@ -626,7 +638,8 @@ export function PageAnalyzerClient() {
                           className={cn(
                             "font-semibold text-2xl tabular-nums",
                             scoreColor(pct),
-                          )}>
+                          )}
+                        >
                           {metric.displayValue}
                         </span>
                         {info && (
@@ -636,7 +649,8 @@ export function PageAnalyzerClient() {
                               href={info.href}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-primary hover:underline">
+                              className="text-primary hover:underline"
+                            >
                               Learn more
                             </a>
                             .
@@ -670,7 +684,8 @@ export function PageAnalyzerClient() {
                     href={`https://pagespeed.web.dev/analysis?url=${encodeURIComponent(report.url)}&form_factor=${report.strategy}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-primary hover:underline">
+                    className="text-primary hover:underline"
+                  >
                     Full report on PageSpeed Insights
                   </a>
                 </p>
@@ -695,13 +710,15 @@ export function PageAnalyzerClient() {
                       return (
                         <div
                           key={metric.label}
-                          className="flex items-center justify-between gap-4 text-sm">
+                          className="flex items-center justify-between gap-4 text-sm"
+                        >
                           <span>{metric.label}</span>
                           <span className="tabular-nums">
                             {metric.displayValue}{" "}
                             {category && (
                               <span
-                                className={cn("text-xs", category.className)}>
+                                className={cn("text-xs", category.className)}
+                              >
                                 {category.label}
                               </span>
                             )}

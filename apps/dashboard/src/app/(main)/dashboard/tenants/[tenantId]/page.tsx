@@ -13,6 +13,7 @@ import {
   Key,
   LineChart,
   Loader2,
+  Megaphone,
   Save,
   Search,
   Settings,
@@ -61,6 +62,7 @@ import HeaderBackLink from "../../_components/HeaderBackLink";
 const tenantConfigSchema = z.object({
   gaPropertyId: z.string().trim().optional().or(z.literal("")),
   gscSiteUrl: z.string().trim().optional().or(z.literal("")),
+  googleAdsCustomerId: z.string().trim().optional().or(z.literal("")),
   googleDriveFolderId: z.string().trim().optional().or(z.literal("")),
   customGeminiKey: z.string().trim().optional().or(z.literal("")),
   aiMonthlyLimit: z.number().min(0, "Limit must be 0 or greater."),
@@ -91,6 +93,7 @@ export default function TenantDetailPage({ params }: PageProps) {
     defaultValues: {
       gaPropertyId: "",
       gscSiteUrl: "",
+      googleAdsCustomerId: "",
       googleDriveFolderId: "",
       customGeminiKey: "",
       aiMonthlyLimit: 100,
@@ -131,6 +134,7 @@ export default function TenantDetailPage({ params }: PageProps) {
       reset({
         gaPropertyId: orgData.config?.gaPropertyId || "",
         gscSiteUrl: orgData.config?.gscSiteUrl || "",
+        googleAdsCustomerId: orgData.config?.googleAdsCustomerId || "",
         googleDriveFolderId: orgData.config?.googleDriveFolderId || "",
         customGeminiKey: orgData.config?.customGeminiKey || "",
         aiMonthlyLimit: orgData.config?.aiMonthlyLimit ?? 100,
@@ -160,6 +164,7 @@ export default function TenantDetailPage({ params }: PageProps) {
         ...org.config,
         gaPropertyId: data.gaPropertyId?.trim() || "",
         gscSiteUrl: data.gscSiteUrl?.trim() || "",
+        googleAdsCustomerId: data.googleAdsCustomerId?.trim() || "",
         googleDriveFolderId: data.googleDriveFolderId?.trim() || "",
         customGeminiKey: data.customGeminiKey?.trim() || "",
         aiMonthlyLimit: data.aiMonthlyLimit,
@@ -378,6 +383,42 @@ export default function TenantDetailPage({ params }: PageProps) {
                           `sc-domain:example.com` for a domain property, or
                           `https://example.com/` (with trailing slash) for a
                           URL-prefix property.
+                        </p>
+                        {fieldState.invalid && (
+                          <FieldError errors={[fieldState.error]} />
+                        )}
+                      </Field>
+                    )}
+                  />
+
+                  {/* Google Ads */}
+                  <Controller
+                    control={control}
+                    name="googleAdsCustomerId"
+                    render={({ field, fieldState }) => (
+                      <Field
+                        className="gap-1.5"
+                        data-invalid={fieldState.invalid}
+                      >
+                        <FieldLabel
+                          htmlFor="google-ads-id"
+                          className="flex items-center gap-1.5"
+                        >
+                          <Megaphone className="size-3.5 text-muted-foreground" />
+                          Google Ads Customer ID
+                        </FieldLabel>
+                        <Input
+                          {...field}
+                          id="google-ads-id"
+                          placeholder="e.g. 728-365-1449"
+                          disabled={saving}
+                          aria-invalid={fieldState.invalid}
+                          autoComplete="off"
+                        />
+                        <p className="text-[10px] text-muted-foreground/80 leading-normal">
+                          Optionally provide a Google Ads account ID (with or
+                          without dashes) to feed the Google Ads dashboard page
+                          for this studio.
                         </p>
                         {fieldState.invalid && (
                           <FieldError errors={[fieldState.error]} />

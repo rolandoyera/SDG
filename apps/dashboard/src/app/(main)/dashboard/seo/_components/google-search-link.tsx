@@ -12,7 +12,8 @@ export function GoogleSearchLink({ query }: { query: string }) {
       href={`https://www.google.com/search?${new URLSearchParams({ q: query })}`}
       target="_blank"
       rel="noopener noreferrer"
-      className="text-primary hover:underline">
+      className="text-primary hover:underline"
+    >
       {query}
       <ExternalLink className="ml-1 inline size-3.5 shrink-0 align-[-2px]" />
     </a>

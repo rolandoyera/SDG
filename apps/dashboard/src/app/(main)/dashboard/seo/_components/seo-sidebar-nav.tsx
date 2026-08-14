@@ -32,7 +32,8 @@ export function SeoSidebarNav() {
             pathname === item.href
               ? "bg-muted font-medium text-foreground"
               : "text-muted-foreground",
-          )}>
+          )}
+        >
           {item.title}
         </Link>
       ))}

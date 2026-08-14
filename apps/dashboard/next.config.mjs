@@ -1,7 +1,7 @@
 import createMDX from "@next/mdx";
 // Suppress Node.js DEP0108 warning from Google Analytics SDK zlib stream
 const originalEmit = process.emit;
-process.emit = function (name, data, ...args) {
+process.emit = (name, data, ...args) => {
   if (
     name === "warning" &&
     typeof data === "object" &&

@@ -86,7 +86,8 @@ const columns: ColumnDef<CrawlRow>[] = [
           className={cn(
             "text-right tabular-nums",
             pct >= 20 ? "text-destructive" : "text-muted-foreground",
-          )}>
+          )}
+        >
           {pct}%
         </div>
       );
@@ -113,7 +114,8 @@ const columns: ColumnDef<CrawlRow>[] = [
           row.original.titleLength === 0
             ? "text-destructive"
             : "text-muted-foreground",
-        )}>
+        )}
+      >
         {row.original.titleLength}
       </div>
     ),
@@ -136,7 +138,8 @@ const columns: ColumnDef<CrawlRow>[] = [
           row.original.metaLength === 0
             ? "text-destructive"
             : "text-muted-foreground",
-        )}>
+        )}
+      >
         {row.original.metaLength}
       </div>
     ),
@@ -158,7 +161,8 @@ const columns: ColumnDef<CrawlRow>[] = [
           row.original.h1Count === 1
             ? "text-muted-foreground"
             : "text-destructive",
-        )}>
+        )}
+      >
         {row.original.h1Count}
       </div>
     ),
@@ -196,7 +200,8 @@ const columns: ColumnDef<CrawlRow>[] = [
           row.original.missingAltCount > 0
             ? "text-destructive"
             : "text-muted-foreground",
-        )}>
+        )}
+      >
         {row.original.missingAltCount}
       </div>
     ),
@@ -243,7 +248,8 @@ const columns: ColumnDef<CrawlRow>[] = [
           row.original.flagOrphan
             ? "text-destructive"
             : "text-muted-foreground",
-        )}>
+        )}
+      >
         {row.original.inboundCount}
       </div>
     ),

@@ -159,7 +159,8 @@ export function RankingsTable({
             <Badge
               variant={intent === "commercial" ? "default" : "secondary"}
               title={intent}
-              className="uppercase w-5">
+              className="uppercase w-5"
+            >
               {intent.charAt(0)}
             </Badge>
           );
@@ -293,7 +294,8 @@ export function RankingsTable({
               target="_blank"
               rel="noopener noreferrer"
               className="flex max-w-full items-center gap-1 text-primary hover:underline"
-              onClick={(event) => event.stopPropagation()}>
+              onClick={(event) => event.stopPropagation()}
+            >
               <span className="min-w-0 truncate">{path}</span>
               <ExternalLink className="size-3.5 shrink-0" />
             </a>

@@ -9,6 +9,7 @@ import { getAdminDb } from "./firebase-admin";
 interface OrgConfig {
   gaPropertyId?: string;
   gscSiteUrl?: string;
+  googleAdsCustomerId?: string;
 }
 
 /**

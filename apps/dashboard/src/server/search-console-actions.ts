@@ -22,6 +22,17 @@ function getDateRange(range?: string): { startDate: string; endDate: string } {
   const end = new Date();
   end.setDate(end.getDate() - DATA_DELAY_DAYS);
 
+  // Custom picker ranges ("YYYY-MM-DD_YYYY-MM-DD") pass through, with the end
+  // clamped to the lagged window. A selection entirely inside the lag window
+  // (e.g. today/yesterday) has no data yet — fall through to the 28-day default.
+  const custom = /^(\d{4}-\d{2}-\d{2})_(\d{4}-\d{2}-\d{2})$/.exec(range ?? "");
+  if (custom) {
+    const laggedEnd = formatDate(end);
+    const startDate = custom[1];
+    const endDate = custom[2] < laggedEnd ? custom[2] : laggedEnd;
+    if (startDate <= endDate) return { startDate, endDate };
+  }
+
   let days = 28;
   if (range === "last-7-days") days = 7;
   else if (range === "last-3-months") days = 90;

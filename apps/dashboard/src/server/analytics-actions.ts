@@ -1,5 +1,7 @@
 ﻿"use server";
 
+import type { protos } from "@google-analytics/data";
+
 import { getGA4Client, hasGA4Credentials } from "./ga4";
 import type { KpiMetric } from "./meta-actions";
 import { getActiveOrgConfig } from "./org-config";
@@ -99,6 +101,7 @@ export interface TopPageItem {
 
 export async function fetchTopPagesData(
   range?: string,
+  campaign?: string,
 ): Promise<{ success: boolean; data: TopPageItem[]; error?: string }> {
   const propertyId = await getConfiguredPropertyId();
 
@@ -131,6 +134,7 @@ export async function fetchTopPagesData(
           name: "bounceRate", // Fraction 0–1: sessions that were not engaged
         },
       ],
+      dimensionFilter: campaignFilter(campaign),
     });
 
     const items: TopPageItem[] = (response.rows || []).map((row) => {
@@ -188,12 +192,53 @@ export interface FetchKpiResult {
   comparisonLabel: string;
 }
 
+// Custom "?range=" encoding from the date-range picker: "YYYY-MM-DD_YYYY-MM-DD".
+const CUSTOM_RANGE_PATTERN = /^(\d{4}-\d{2}-\d{2})_(\d{4}-\d{2}-\d{2})$/;
+
+function parseCustomRange(
+  range?: string,
+): { startDate: string; endDate: string } | null {
+  const match = range ? CUSTOM_RANGE_PATTERN.exec(range) : null;
+  return match ? { startDate: match[1], endDate: match[2] } : null;
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const parseDay = (value: string) => new Date(`${value}T00:00:00Z`);
+const formatDay = (date: Date) => date.toISOString().split("T")[0];
+const prettyDay = (date: Date) =>
+  date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+
 function getDateRangesForRange(range: string): {
   current: { startDate: string; endDate: string };
   previous: { startDate: string; endDate: string };
   label: string;
   comparisonLabel: string;
 } {
+  const custom = parseCustomRange(range);
+  if (custom) {
+    const start = parseDay(custom.startDate);
+    const end = parseDay(custom.endDate);
+    const days = Math.round((end.getTime() - start.getTime()) / DAY_MS) + 1;
+    return {
+      current: custom,
+      // Compare against the window of equal length immediately before.
+      previous: {
+        startDate: formatDay(new Date(start.getTime() - days * DAY_MS)),
+        endDate: formatDay(new Date(start.getTime() - DAY_MS)),
+      },
+      label:
+        days === 1
+          ? prettyDay(start)
+          : `${prettyDay(start)} – ${prettyDay(end)}`,
+      comparisonLabel: days === 1 ? "previous day" : `previous ${days} days`,
+    };
+  }
+
   if (range === "today") {
     return {
       current: { startDate: "today", endDate: "today" },
@@ -278,7 +323,10 @@ function getDateRangesForRange(range: string): {
   };
 }
 
-export async function fetchKpiData(range?: string): Promise<FetchKpiResult> {
+export async function fetchKpiData(
+  range?: string,
+  campaign?: string,
+): Promise<FetchKpiResult> {
   const activeRange = range ?? "last-4-weeks";
   const dateRanges = getDateRangesForRange(activeRange);
 
@@ -317,6 +365,7 @@ export async function fetchKpiData(range?: string): Promise<FetchKpiResult> {
         { name: "engagementRate" },
         { name: "sessionConversionRate" },
       ],
+      dimensionFilter: campaignFilter(campaign),
     });
 
     let currentData = {
@@ -465,10 +514,64 @@ async function getConfiguredPropertyId(): Promise<string | null> {
 const CONFIG_MISSING_ERROR =
   "Google Analytics 4 is not configured in .env.local yet.";
 
+type FilterExpression = protos.google.analytics.data.v1beta.IFilterExpression;
+
+/**
+ * Session-scoped campaign filter for the toolbar's `?campaign=` param.
+ * Returns undefined when no campaign is selected so `dimensionFilter` is
+ * simply omitted; `merge` folds it into a query's own filter via andGroup.
+ */
+function campaignFilter(campaign?: string): FilterExpression | undefined {
+  if (!campaign?.trim()) return undefined;
+  return {
+    filter: {
+      fieldName: "sessionCampaignName",
+      stringFilter: { matchType: "EXACT", value: campaign.trim() },
+    },
+  };
+}
+
+function mergeFilters(
+  own: FilterExpression,
+  campaign?: FilterExpression,
+): FilterExpression {
+  return campaign ? { andGroup: { expressions: [own, campaign] } } : own;
+}
+
+/**
+ * Campaign values (`sessionCampaignName`) with sessions in the range, busiest
+ * first — the toolbar's campaign dropdown options. Includes "(not set)",
+ * "(direct)" etc.; they are real GA4 buckets and filterable like any other.
+ */
+export async function fetchCampaignOptions(range?: string): Promise<string[]> {
+  const propertyId = await getConfiguredPropertyId();
+  if (!propertyId) return [];
+
+  try {
+    const client = getGA4Client();
+    const [response] = await client.runReport({
+      property: `properties/${propertyId}`,
+      dateRanges: [rangeToDates(range)],
+      dimensions: [{ name: "sessionCampaignName" }],
+      metrics: [{ name: "sessions" }],
+      orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
+      limit: 100,
+    });
+    return (response.rows || [])
+      .map((row) => row.dimensionValues?.[0]?.value || "")
+      .filter(Boolean);
+  } catch (error: unknown) {
+    console.error("Failed to fetch campaign options from GA4:", error);
+    return [];
+  }
+}
+
 function rangeToDates(range?: string): {
   startDate: string;
   endDate: string;
 } {
+  const custom = parseCustomRange(range);
+  if (custom) return custom;
   if (range === "today") return { startDate: "today", endDate: "today" };
   if (range === "yesterday")
     return { startDate: "yesterday", endDate: "yesterday" };
@@ -483,6 +586,8 @@ function rangeToDates(range?: string): {
 
 // Single-day ranges render trends hourly (dateHour) instead of daily.
 function isSingleDayRange(range?: string): boolean {
+  const custom = parseCustomRange(range);
+  if (custom) return custom.startDate === custom.endDate;
   return range === "today" || range === "yesterday";
 }
 
@@ -510,6 +615,7 @@ export interface TrendPoint {
 
 export async function fetchTrafficTrend(
   range?: string,
+  campaign?: string,
 ): Promise<{ success: boolean; data: TrendPoint[]; error?: string }> {
   const propertyId = await getConfiguredPropertyId();
   if (!propertyId)
@@ -526,6 +632,7 @@ export async function fetchTrafficTrend(
       dimensions: [{ name: dimension }],
       metrics: [{ name: "activeUsers" }, { name: "sessions" }],
       orderBys: [{ dimension: { dimensionName: dimension } }],
+      dimensionFilter: campaignFilter(campaign),
       limit: 200,
     });
 
@@ -564,6 +671,7 @@ export interface TrafficSourcesData {
 
 export async function fetchTrafficSources(
   range?: string,
+  campaign?: string,
 ): Promise<{ success: boolean; data?: TrafficSourcesData; error?: string }> {
   const propertyId = await getConfiguredPropertyId();
   if (!propertyId) return { success: false, error: CONFIG_MISSING_ERROR };
@@ -578,6 +686,7 @@ export async function fetchTrafficSources(
         dimensions: [{ name: dimension }],
         metrics: [{ name: "sessions" }],
         orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
+        dimensionFilter: campaignFilter(campaign),
         // Over-fetch so filtering "(not set)" can't starve the top-8 slice.
         limit: 10,
       });
@@ -713,6 +822,7 @@ export interface ConversionsData {
 
 export async function fetchConversionsData(
   range?: string,
+  campaign?: string,
 ): Promise<{ success: boolean; data?: ConversionsData; error?: string }> {
   const propertyId = await getConfiguredPropertyId();
   if (!propertyId) return { success: false, error: CONFIG_MISSING_ERROR };
@@ -720,6 +830,7 @@ export async function fetchConversionsData(
   const hourly = isSingleDayRange(range);
   const trendDimension = hourly ? "dateHour" : "date";
   const dateRanges = [rangeToDates(range)];
+  const cFilter = campaignFilter(campaign);
 
   try {
     const client = getGA4Client();
@@ -736,6 +847,7 @@ export async function fetchConversionsData(
         dimensions: [{ name: trendDimension }],
         metrics: [{ name: "keyEvents" }],
         orderBys: [{ dimension: { dimensionName: trendDimension } }],
+        dimensionFilter: cFilter,
         limit: 200,
       }),
       client.runReport({
@@ -744,29 +856,36 @@ export async function fetchConversionsData(
         dimensions: [{ name: "sessionDefaultChannelGroup" }],
         metrics: [{ name: "sessions" }, { name: "keyEvents" }],
         orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
+        dimensionFilter: cFilter,
       }),
       client.runReport({
         property: `properties/${propertyId}`,
         dateRanges,
         dimensions: [{ name: "eventName" }],
         metrics: [{ name: "eventCount" }],
-        dimensionFilter: {
-          filter: {
-            fieldName: "eventName",
-            inListFilter: { values: [...TRACKED_EVENTS] },
+        dimensionFilter: mergeFilters(
+          {
+            filter: {
+              fieldName: "eventName",
+              inListFilter: { values: [...TRACKED_EVENTS] },
+            },
           },
-        },
+          cFilter,
+        ),
       }),
       client.runReport({
         property: `properties/${propertyId}`,
         dateRanges,
         metrics: [{ name: "screenPageViews" }],
-        dimensionFilter: {
-          filter: {
-            fieldName: "pagePath",
-            stringFilter: { matchType: "EXACT", value: "/contact" },
+        dimensionFilter: mergeFilters(
+          {
+            filter: {
+              fieldName: "pagePath",
+              stringFilter: { matchType: "EXACT", value: "/contact" },
+            },
           },
-        },
+          cFilter,
+        ),
       }),
     ]);
 
@@ -780,12 +899,15 @@ export async function fetchConversionsData(
         dateRanges,
         dimensions: [{ name: "eventName" }, { name: "customEvent:form_type" }],
         metrics: [{ name: "eventCount" }],
-        dimensionFilter: {
-          filter: {
-            fieldName: "eventName",
-            inListFilter: { values: ["form_start", "contact_form_error"] },
+        dimensionFilter: mergeFilters(
+          {
+            filter: {
+              fieldName: "eventName",
+              inListFilter: { values: ["form_start", "contact_form_error"] },
+            },
           },
-        },
+          cFilter,
+        ),
       });
       for (const row of formTypeResponse.rows || []) {
         const eventName = row.dimensionValues?.[0]?.value || "";
@@ -856,6 +978,7 @@ export interface LandingPageItem {
 
 export async function fetchLandingPages(
   range?: string,
+  campaign?: string,
 ): Promise<{ success: boolean; data: LandingPageItem[]; error?: string }> {
   const propertyId = await getConfiguredPropertyId();
   if (!propertyId)
@@ -869,6 +992,7 @@ export async function fetchLandingPages(
       dimensions: [{ name: "landingPage" }],
       metrics: [{ name: "sessions" }, { name: "keyEvents" }],
       orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
+      dimensionFilter: campaignFilter(campaign),
     });
 
     // GA4 can return an empty-string landing page (sessions with no recorded
@@ -913,11 +1037,13 @@ export interface AudienceData {
 
 export async function fetchAudienceData(
   range?: string,
+  campaign?: string,
 ): Promise<{ success: boolean; data?: AudienceData; error?: string }> {
   const propertyId = await getConfiguredPropertyId();
   if (!propertyId) return { success: false, error: CONFIG_MISSING_ERROR };
 
   const dateRanges = [rangeToDates(range)];
+  const dimensionFilter = campaignFilter(campaign);
 
   try {
     const client = getGA4Client();
@@ -936,6 +1062,7 @@ export async function fetchAudienceData(
         dimensions: [{ name: "city" }],
         metrics: [{ name: "activeUsers" }],
         orderBys: [{ metric: { metricName: "activeUsers" }, desc: true }],
+        dimensionFilter,
         limit: 250,
       }),
       // Secondary lookup only: maps each city to its dominant country for the flag.
@@ -945,6 +1072,7 @@ export async function fetchAudienceData(
         dimensions: [{ name: "city" }, { name: "countryId" }],
         metrics: [{ name: "activeUsers" }],
         orderBys: [{ metric: { metricName: "activeUsers" }, desc: true }],
+        dimensionFilter,
         limit: 250,
       }),
       client.runReport({
@@ -953,6 +1081,7 @@ export async function fetchAudienceData(
         dimensions: [{ name: "countryId" }],
         metrics: [{ name: "activeUsers" }],
         orderBys: [{ metric: { metricName: "activeUsers" }, desc: true }],
+        dimensionFilter,
         limit: 250,
       }),
       client.runReport({
@@ -961,12 +1090,14 @@ export async function fetchAudienceData(
         dimensions: [{ name: "deviceCategory" }],
         metrics: [{ name: "activeUsers" }],
         orderBys: [{ metric: { metricName: "activeUsers" }, desc: true }],
+        dimensionFilter,
       }),
       client.runReport({
         property: `properties/${propertyId}`,
         dateRanges,
         dimensions: [{ name: "newVsReturning" }],
         metrics: [{ name: "activeUsers" }],
+        dimensionFilter,
       }),
     ]);
 
@@ -1081,11 +1212,13 @@ export interface AcquisitionData {
 
 export async function fetchAcquisitionData(
   range?: string,
+  campaign?: string,
 ): Promise<{ success: boolean; data?: AcquisitionData; error?: string }> {
   const propertyId = await getConfiguredPropertyId();
   if (!propertyId) return { success: false, error: CONFIG_MISSING_ERROR };
 
   const dateRanges = [rangeToDates(range)];
+  const dimensionFilter = campaignFilter(campaign);
 
   try {
     const client = getGA4Client();
@@ -1102,6 +1235,7 @@ export async function fetchAcquisitionData(
           { name: "keyEvents" },
         ],
         orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
+        dimensionFilter,
       }),
       client.runReport({
         property: `properties/${propertyId}`,
@@ -1109,6 +1243,7 @@ export async function fetchAcquisitionData(
         dimensions: [{ name: "sessionSource" }, { name: "sessionMedium" }],
         metrics: [{ name: "sessions" }, { name: "keyEvents" }],
         orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
+        dimensionFilter,
       }),
     ]);
 

@@ -48,9 +48,73 @@ function fmt(d: Date, withYear: boolean): string {
   });
 }
 
-/** "Jul 2 – Aug 9, 2026" (years shown only where needed). */
+/** "Jul 2 – Aug 9, 2026" (years shown only where needed); single days as "Aug 9, 2026". */
 export function formatDateRange({ from, to }: AppliedDateRange): string {
+  if (sameDay(from, to)) return fmt(to, true);
   return `${fmt(from, from.getFullYear() !== to.getFullYear())} – ${fmt(to, true)}`;
+}
+
+export type DateRangePresetKey =
+  | "today"
+  | "yesterday"
+  | "past-2-days"
+  | "past-7-days"
+  | "past-30-days"
+  | "past-60-days"
+  | "past-90-days"
+  | "previous-month";
+
+const DEFAULT_PRESET_KEYS: DateRangePresetKey[] = [
+  "past-2-days",
+  "past-7-days",
+  "past-30-days",
+  "past-60-days",
+  "past-90-days",
+  "previous-month",
+];
+
+function presetFor(
+  key: DateRangePresetKey,
+  today: Date,
+): { label: string; range: AppliedDateRange } {
+  const presets: Record<
+    DateRangePresetKey,
+    { label: string; range: AppliedDateRange }
+  > = {
+    today: { label: "Today", range: { from: today, to: today } },
+    yesterday: {
+      label: "Yesterday",
+      range: { from: daysAgo(1), to: daysAgo(1) },
+    },
+    "past-2-days": {
+      label: "Past 2 days",
+      range: { from: daysAgo(1), to: today },
+    },
+    "past-7-days": {
+      label: "Past 7 days",
+      range: { from: daysAgo(6), to: today },
+    },
+    "past-30-days": {
+      label: "Past 30 days",
+      range: { from: daysAgo(29), to: today },
+    },
+    "past-60-days": {
+      label: "Past 60 days",
+      range: { from: daysAgo(59), to: today },
+    },
+    "past-90-days": {
+      label: "Past 90 days",
+      range: { from: daysAgo(89), to: today },
+    },
+    "previous-month": {
+      label: "Previous month",
+      range: {
+        from: new Date(today.getFullYear(), today.getMonth() - 1, 1),
+        to: new Date(today.getFullYear(), today.getMonth(), 0),
+      },
+    },
+  };
+  return presets[key];
 }
 
 /**
@@ -62,12 +126,15 @@ export function DateRangePicker({
   value,
   onChange,
   earliest,
+  presetKeys = DEFAULT_PRESET_KEYS,
   align = "end",
   className,
 }: {
   value: AppliedDateRange;
   onChange: (range: AppliedDateRange) => void;
   earliest?: Date;
+  /** Which quick presets to offer, in order. Defaults to the past-N-days set. */
+  presetKeys?: DateRangePresetKey[];
   align?: "start" | "center" | "end";
   className?: string;
 }) {
@@ -76,18 +143,7 @@ export function DateRangePicker({
 
   const today = startOfDay(new Date());
   const presets: { label: string; range: AppliedDateRange }[] = [
-    { label: "Past 2 days", range: { from: daysAgo(1), to: today } },
-    { label: "Past 7 days", range: { from: daysAgo(6), to: today } },
-    { label: "Past 30 days", range: { from: daysAgo(29), to: today } },
-    { label: "Past 60 days", range: { from: daysAgo(59), to: today } },
-    { label: "Past 90 days", range: { from: daysAgo(89), to: today } },
-    {
-      label: "Previous month",
-      range: {
-        from: new Date(today.getFullYear(), today.getMonth() - 1, 1),
-        to: new Date(today.getFullYear(), today.getMonth(), 0),
-      },
-    },
+    ...presetKeys.map((key) => presetFor(key, today)),
     ...(earliest
       ? [
           {

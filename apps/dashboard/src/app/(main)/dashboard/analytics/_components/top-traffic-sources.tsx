@@ -13,8 +13,14 @@ import { fetchTrafficSources } from "@/server/analytics-actions";
 import { AnalyticsSetupRequired } from "./analytics-setup-required";
 import { TrafficSourceBarChart } from "./traffic-source-chart";
 
-export async function TopTrafficSources({ range }: { range?: string }) {
-  const result = await fetchTrafficSources(range);
+export async function TopTrafficSources({
+  range,
+  campaign,
+}: {
+  range?: string;
+  campaign?: string;
+}) {
+  const result = await fetchTrafficSources(range, campaign);
 
   return (
     <Card className="h-full gap-2 pt-0">

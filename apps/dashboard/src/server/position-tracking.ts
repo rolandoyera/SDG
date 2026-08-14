@@ -192,6 +192,90 @@ async function dfsPost<T>(path: string, payload: unknown[]): Promise<T[]> {
   return task.result ?? [];
 }
 
+// ---------------------------------------------------------------------------
+// Location registry — typeahead source for the add-keywords city field
+// ---------------------------------------------------------------------------
+
+export interface SerpLocationSuggestion {
+  /** Full canonical DataForSEO location_name, e.g. "Aventura,Florida,United States". */
+  name: string;
+  /** DataForSEO location_type: City, Neighborhood, County, Airport, … */
+  type: string;
+}
+
+export const MAX_LOCATION_SUGGESTIONS = 8;
+/** The registry rarely changes; one download per country per day is plenty. */
+const LOCATIONS_TTL_MS = 24 * 60 * 60 * 1000;
+const locationsCache = new Map<
+  string,
+  { fetchedAt: number; locations: SerpLocationSuggestion[] }
+>();
+
+/** Downloads a country's full location registry (~60k rows for the US). */
+async function loadSerpLocations(
+  country: string,
+): Promise<SerpLocationSuggestion[]> {
+  const key = country.toLowerCase();
+  const cached = locationsCache.get(key);
+  if (cached && Date.now() - cached.fetchedAt < LOCATIONS_TTL_MS) {
+    return cached.locations;
+  }
+  const task = (
+    await dfsRequest<{ location_name: string; location_type: string }>(
+      `/serp/google/locations/${key}`,
+    )
+  )[0];
+  if (!task || task.status_code !== 20000) {
+    throw new Error(task?.status_message ?? "Could not load locations.");
+  }
+  const locations = (task.result ?? []).map((row) => ({
+    name: row.location_name,
+    type: row.location_type,
+  }));
+  locationsCache.set(key, { fetchedAt: Date.now(), locations });
+  return locations;
+}
+
+/**
+ * Matches a typed fragment against the place part of each location_name
+ * (the segment before the first comma). Prefix matches rank above
+ * substring matches; within a tier the company's home state comes first
+ * (so a Florida org typing "mia" sees Miami, FL above Miami, TX), then
+ * shorter names, so "Miami" beats "Miami Gardens" beats "Tamiami".
+ */
+export async function searchSerpLocations(
+  country: string,
+  stateCode: string | null,
+  query: string,
+): Promise<SerpLocationSuggestion[]> {
+  const needle = query.trim().toLowerCase();
+  if (needle.length < 2) return [];
+  const locations = await loadSerpLocations(country);
+  const homeState = stateCode ? US_STATE_NAMES[stateCode.toUpperCase()] : null;
+  const prefix: SerpLocationSuggestion[] = [];
+  const substring: SerpLocationSuggestion[] = [];
+  for (const location of locations) {
+    const comma = location.name.indexOf(",");
+    const place = (
+      comma === -1 ? location.name : location.name.slice(0, comma)
+    ).toLowerCase();
+    if (place.startsWith(needle)) prefix.push(location);
+    else if (place.includes(needle)) substring.push(location);
+  }
+  const rank = (a: SerpLocationSuggestion, b: SerpLocationSuggestion) => {
+    if (homeState) {
+      const aHome = a.name.includes(`,${homeState},`);
+      const bHome = b.name.includes(`,${homeState},`);
+      if (aHome !== bHome) return aHome ? -1 : 1;
+    }
+    return a.name.length - b.name.length || a.name.localeCompare(b.name);
+  };
+  return [...prefix.sort(rank), ...substring.sort(rank)].slice(
+    0,
+    MAX_LOCATION_SUGGESTIONS,
+  );
+}
+
 interface SerpItem {
   type: string;
   rank_absolute: number;

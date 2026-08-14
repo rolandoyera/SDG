@@ -12,8 +12,14 @@ import { fetchTopPagesData } from "@/server/analytics-actions";
 import { AnalyticsSetupRequired } from "./analytics-setup-required";
 import { TopPagesTable } from "./top-pages-table";
 
-export async function TopPages({ range }: { range?: string }) {
-  const result = await fetchTopPagesData(range);
+export async function TopPages({
+  range,
+  campaign,
+}: {
+  range?: string;
+  campaign?: string;
+}) {
+  const result = await fetchTopPagesData(range, campaign);
 
   return (
     <Card className="h-full gap-2 pt-0">

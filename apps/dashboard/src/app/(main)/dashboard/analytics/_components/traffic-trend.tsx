@@ -12,8 +12,14 @@ import { fetchTrafficTrend } from "@/server/analytics-actions";
 import { AnalyticsSetupRequired } from "./analytics-setup-required";
 import { TrafficTrendChart } from "./traffic-trend-chart";
 
-export async function TrafficTrend({ range }: { range?: string }) {
-  const result = await fetchTrafficTrend(range);
+export async function TrafficTrend({
+  range,
+  campaign,
+}: {
+  range?: string;
+  campaign?: string;
+}) {
+  const result = await fetchTrafficTrend(range, campaign);
 
   return (
     <Card className="h-full pt-0">

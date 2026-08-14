@@ -12,8 +12,14 @@ import { fetchAcquisitionData } from "@/server/analytics-actions";
 import { AnalyticsSetupRequired } from "./analytics-setup-required";
 import { ChannelsTable, SourceMediumTable } from "./acquisition-tables";
 
-export async function AcquisitionSection({ range }: { range?: string }) {
-  const result = await fetchAcquisitionData(range);
+export async function AcquisitionSection({
+  range,
+  campaign,
+}: {
+  range?: string;
+  campaign?: string;
+}) {
+  const result = await fetchAcquisitionData(range, campaign);
 
   if (!result.success || !result.data) {
     return (

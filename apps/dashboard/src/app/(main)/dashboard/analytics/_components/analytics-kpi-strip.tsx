@@ -15,12 +15,14 @@ import { Label } from "@/components/ui/label";
 
 interface AnalyticsKpiStripProps {
   range?: string;
+  campaign?: string;
 }
 
 export async function AnalyticsKpiStrip({
   range = "today",
+  campaign,
 }: AnalyticsKpiStripProps) {
-  const result = await fetchKpiData(range);
+  const result = await fetchKpiData(range, campaign);
 
   if (!result.success || !result.data) {
     return (

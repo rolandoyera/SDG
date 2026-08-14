@@ -18,8 +18,14 @@ const VISITOR_TYPE_LABELS: Record<string, string> = {
   returning: "Returning",
 };
 
-export async function AudienceSection({ range }: { range?: string }) {
-  const result = await fetchAudienceData(range);
+export async function AudienceSection({
+  range,
+  campaign,
+}: {
+  range?: string;
+  campaign?: string;
+}) {
+  const result = await fetchAudienceData(range, campaign);
 
   if (!result.success || !result.data) {
     return (

@@ -16,7 +16,10 @@ import { TrafficTrend } from "./_components/traffic-trend";
 import "@/styles/flag-icons/flags.css";
 import PageHeader from "@/components/page-header";
 import { PageTitle } from "@/components/page-title-updater";
-import { testGA4Connection } from "@/server/analytics-actions";
+import {
+  fetchCampaignOptions,
+  testGA4Connection,
+} from "@/server/analytics-actions";
 
 interface PageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
@@ -25,7 +28,11 @@ interface PageProps {
 export default async function Page({ searchParams }: PageProps) {
   const resolvedSearchParams = await searchParams;
   const range = (resolvedSearchParams.range as string) || "today";
-  const connection = await testGA4Connection();
+  const campaign = (resolvedSearchParams.campaign as string) || undefined;
+  const [connection, campaignOptions] = await Promise.all([
+    testGA4Connection(),
+    fetchCampaignOptions(range),
+  ]);
   const connected = connection.success;
 
   return (
@@ -64,15 +71,15 @@ export default async function Page({ searchParams }: PageProps) {
             <TabsTrigger value="google">Google</TabsTrigger>
           </TabsList>
 
-          <AnalyticsToolbar />
+          <AnalyticsToolbar campaignOptions={campaignOptions} />
         </div>
 
         <TabsContent value="overview" className="flex flex-col gap-6">
-          <AnalyticsKpiStrip range={range} />
+          <AnalyticsKpiStrip range={range} campaign={campaign} />
 
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
             <div className="md:col-span-1 lg:col-span-4">
-              <TrafficTrend range={range} />
+              <TrafficTrend range={range} campaign={campaign} />
             </div>
             <div className="md:col-span-1 lg:col-span-3">
               <RealtimeVisitors />
@@ -81,31 +88,31 @@ export default async function Page({ searchParams }: PageProps) {
 
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
             <div className="md:col-span-1 lg:col-span-4">
-              <TopPages range={range} />
+              <TopPages range={range} campaign={campaign} />
             </div>
             <div className="md:col-span-1 lg:col-span-3">
-              <TopTrafficSources range={range} />
+              <TopTrafficSources range={range} campaign={campaign} />
             </div>
           </div>
         </TabsContent>
 
         <TabsContent value="audience">
-          <AudienceSection range={range} />
+          <AudienceSection range={range} campaign={campaign} />
         </TabsContent>
 
         <TabsContent value="acquisition">
-          <AcquisitionSection range={range} />
+          <AcquisitionSection range={range} campaign={campaign} />
         </TabsContent>
 
         <TabsContent value="engagement">
           <div className="grid gap-6 lg:grid-cols-2">
-            <TopPages range={range} />
-            <LandingPages range={range} />
+            <TopPages range={range} campaign={campaign} />
+            <LandingPages range={range} campaign={campaign} />
           </div>
         </TabsContent>
 
         <TabsContent value="conversions">
-          <ConversionsSection range={range} />
+          <ConversionsSection range={range} campaign={campaign} />
         </TabsContent>
 
         <TabsContent value="google">

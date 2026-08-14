@@ -24,6 +24,8 @@ import {
   type QueuedSerpTask,
   readPendingChecks,
   saveTrackedKeywords,
+  searchSerpLocations,
+  type SerpLocationSuggestion,
   type TrackedKeyword,
   websiteDomain,
 } from "./position-tracking";
@@ -32,6 +34,7 @@ export type {
   PositionResult,
   PositionSnapshot,
   QueuedSerpTask,
+  SerpLocationSuggestion,
   TrackedKeyword,
 } from "./position-tracking";
 
@@ -98,6 +101,26 @@ export async function fetchPositionTracking(): Promise<
       success: false,
       error: getErrorMessage(error, "Could not load position tracking."),
     };
+  }
+}
+
+/**
+ * Typeahead for the add-keywords city field: matches against DataForSEO's
+ * location registry for the company's country, so a picked suggestion is a
+ * location_name the SERP API is guaranteed to accept (free-typed cities
+ * still work via composeLocation, with its country-wide downgrade risk).
+ */
+export async function searchKeywordLocations(
+  query: string,
+): Promise<SerpLocationSuggestion[]> {
+  const organizationId = await getActiveOrgId();
+  if (!organizationId) return [];
+  try {
+    const { state, country } = await getActiveOrgCompanyAddress();
+    return await searchSerpLocations(country ?? "US", state, query);
+  } catch (error) {
+    console.error("searchKeywordLocations failed:", error);
+    return [];
   }
 }
 

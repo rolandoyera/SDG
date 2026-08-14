@@ -78,10 +78,25 @@ tenant. The Admin SDK in `org-config.ts` bypasses security rules; keep it server
   GSC uses `rowLimit: 1000`. The PDF report (`AnalyticsReport`) shows top-10 slices of the same
   uncapped data and does its own formatting.
 - **Range comes from `?range=` search param**, default `today`, threaded as a `range` prop
-  into sections. The single-day ranges (`today`, `yesterday`) switch GA4 trend dimensions to
-  hourly (`dateHour`); there is no rolling "last 24 hours" — GA4 date ranges are whole calendar
-  days. Search Console ignores single-day ranges (its data lags ~3 days) and falls back to its
-  28-day default.
+  into sections. The toolbar is the shared `DateRangePicker` (`@/components/date-range-picker`,
+  with `presetKeys` adding Today/Yesterday and dropping Past 2 days); it encodes single days as
+  the named tokens `today`/`yesterday` (GA4 resolves those in the property's timezone) and
+  everything else as `YYYY-MM-DD_YYYY-MM-DD`. The legacy named values (`last-7-days`,
+  `last-4-weeks`, `last-3-months`, `year-to-date`) are still accepted server-side so old links
+  keep working. Single-day ranges (named or custom) switch GA4 trend dimensions to hourly
+  (`dateHour`); there is no rolling "last 24 hours" — GA4 date ranges are whole calendar days.
+  KPI comparisons for custom ranges use the equal-length window immediately before. Search
+  Console clamps a custom range's end to its ~3-day data lag and falls back to its 28-day
+  default when the selection lies entirely inside the lag window (so `today`/`yesterday` too).
+- **Campaign filter comes from `?campaign=`** (no param = all campaigns). The toolbar dropdown's
+  options come from `fetchCampaignOptions(range)` (one extra GA4 report per page load, fetched in
+  `page.tsx`); "(not set)"/"(direct)" are kept deliberately — they're real GA4 buckets. Every
+  GA4-backed section action takes `campaign` as its second arg and applies a session-scoped
+  `sessionCampaignName` EXACT filter via `campaignFilter`/`mergeFilters` (the merge matters for
+  the Conversions queries that already have their own `dimensionFilter`). The Realtime card
+  (realtime API) and the Google tab (Search Console — no campaign concept) are NOT filtered.
+  `fetchWebsiteVisits` (home card) is also unfiltered by design. The export report link and the
+  report's back-link both carry the param.
 
 ## Form-error alert cron (`src/server/form-error-alert.ts`)
 

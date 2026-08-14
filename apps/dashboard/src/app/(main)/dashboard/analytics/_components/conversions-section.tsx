@@ -116,8 +116,14 @@ function LeadBreakdown({
   );
 }
 
-export async function ConversionsSection({ range }: { range?: string }) {
-  const result = await fetchConversionsData(range);
+export async function ConversionsSection({
+  range,
+  campaign,
+}: {
+  range?: string;
+  campaign?: string;
+}) {
+  const result = await fetchConversionsData(range, campaign);
 
   if (!result.success || !result.data) {
     return (

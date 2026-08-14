@@ -92,7 +92,13 @@ server-side only).
   bare city; `composeLocation` title-cases it and appends the company
   profile's state/country ("aventura" → "Aventura,Florida,United States").
   Blank = country-wide; a comma in the input passes through as a full
-  `location_name`; non-US companies fall back to country-wide. Daily results are one
+  `location_name`; non-US companies fall back to country-wide. The dialog's
+  City field is a typeahead (`CityCombobox` → `searchKeywordLocations`)
+  over DataForSEO's location registry (`/serp/google/locations/{country}`,
+  ~60k US rows, in-memory cached 24h per country) — picking a suggestion
+  writes the full canonical `location_name` into the field so the comma
+  passthrough applies and the country-wide downgrade can't trigger; free
+  text still composes as before. Daily results are one
   doc per America/New_York day at
   `organizations/{org}/positionSnapshots/{YYYY-MM-DD}` — the SEO section's
   deliberate exception to "no Firestore": trend history can't be recomputed.

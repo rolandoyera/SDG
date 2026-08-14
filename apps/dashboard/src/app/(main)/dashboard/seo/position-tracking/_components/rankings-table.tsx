@@ -23,6 +23,8 @@ import {
 } from "@/components/ui/tan-table";
 import { cn } from "@/lib/utils";
 
+import { GoogleSearchLink } from "../../_components/google-search-link";
+
 export interface RankingRow {
   keyword: string;
   /** Saved DataForSEO location_name the keyword is checked from. */
@@ -125,7 +127,7 @@ export function RankingsTable({
         meta: { headClassName: "w-80" },
         cell: ({ row }) => (
           <div className="font-medium wrap-break-word whitespace-normal">
-            {row.original.keyword}
+            <GoogleSearchLink query={row.original.keyword} />
           </div>
         ),
       },

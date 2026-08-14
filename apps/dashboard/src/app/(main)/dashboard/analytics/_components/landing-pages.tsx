@@ -12,8 +12,14 @@ import { fetchLandingPages } from "@/server/analytics-actions";
 import { AnalyticsSetupRequired } from "./analytics-setup-required";
 import { LandingPagesTable } from "./landing-pages-table";
 
-export async function LandingPages({ range }: { range?: string }) {
-  const result = await fetchLandingPages(range);
+export async function LandingPages({
+  range,
+  campaign,
+}: {
+  range?: string;
+  campaign?: string;
+}) {
+  const result = await fetchLandingPages(range, campaign);
 
   return (
     <Card className="h-full gap-2 pt-0">

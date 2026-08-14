@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import type { PageAnalysis } from "@/server/seo-actions";
 
-import { GoogleSearchLink } from "./google-search-link";
+import { GoogleSearchLink } from "../../_components/google-search-link";
 import { type ScopeKey, ScopePhraseTables, ScopePicker } from "./scope-report";
 
 /**

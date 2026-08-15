@@ -11,7 +11,7 @@ const items = [
     href: "/dashboard/seo/position-tracking",
   },
   { title: "Keyword Analyzer", href: "/dashboard/seo/keyword-analyzer" },
-  { title: "Page Analyzer", href: "/dashboard/seo/page-analyzer" },
+  { title: "Page Vitals", href: "/dashboard/seo/page-vitals" },
   {
     title: "Competitor Analysis",
     href: "/dashboard/seo/competitor-analysis",

@@ -454,9 +454,11 @@ export async function runPagespeed(
     if (!response.ok) {
       const message = data.error?.message ?? `PSI HTTP ${response.status}`;
       // Keyless runs draw from a shared anonymous pool that routinely runs
-      // dry — the raw quota message doesn't say what to do about it.
+      // dry — the raw quota message doesn't say what to do about it. With a
+      // key configured, "set the key" is misleading advice; show the real
+      // message (likely a per-minute limit or the key's own quota).
       throw new Error(
-        /quota/i.test(message)
+        /quota/i.test(message) && !apiKey
           ? "PageSpeed quota exceeded — set PAGESPEED_API_KEY (a free key from Google Cloud Console) for a ~25k/day quota of your own."
           : message,
       );
@@ -472,4 +474,48 @@ export async function runPagespeed(
       error: getErrorMessage(error, "The Lighthouse run failed."),
     };
   }
+}
+
+// ---------------------------------------------------------------------------
+// Both-strategy wrappers. Next.js runs server actions from one client
+// serially, so two runPagespeed invocations execute back-to-back (~50s and
+// the desktop tab sits empty the whole first half). One invocation running
+// both strategies via Promise.all finishes with the slower run instead.
+// ---------------------------------------------------------------------------
+
+export type PagespeedTarget = Omit<PagespeedInput, "strategy">;
+
+export async function runPagespeedBoth(input: PagespeedTarget): Promise<{
+  mobile: SeoResult<PagespeedReport>;
+  desktop: SeoResult<PagespeedReport>;
+}> {
+  const [mobile, desktop] = await Promise.all([
+    runPagespeed({ ...input, strategy: "mobile" }),
+    runPagespeed({ ...input, strategy: "desktop" }),
+  ]);
+  return { mobile, desktop };
+}
+
+export async function fetchCruxBoth(input: PagespeedTarget): Promise<{
+  mobile: SeoResult<CruxFieldData | null>;
+  desktop: SeoResult<CruxFieldData | null>;
+}> {
+  const [mobile, desktop] = await Promise.all([
+    fetchCruxFieldData({ ...input, strategy: "mobile" }),
+    fetchCruxFieldData({ ...input, strategy: "desktop" }),
+  ]);
+  return { mobile, desktop };
+}
+
+export async function fetchCachedPagespeedBoth(
+  input: PagespeedTarget,
+): Promise<{
+  mobile: SeoResult<PagespeedReport | null>;
+  desktop: SeoResult<PagespeedReport | null>;
+}> {
+  const [mobile, desktop] = await Promise.all([
+    fetchCachedPagespeed({ ...input, strategy: "mobile" }),
+    fetchCachedPagespeed({ ...input, strategy: "desktop" }),
+  ]);
+  return { mobile, desktop };
 }

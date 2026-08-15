@@ -149,7 +149,7 @@ server-side only).
   per 10 points, rounded, non-zero scores keep at least one) beside the
   number, colored green / yellow / red on the 0–33 / 34–66 / 67–100 thirds.
 
-## Page Analyzer page (`page-analyzer/`)
+## Page Vitals page (`page-vitals/`)
 
 Lighthouse via the **PageSpeed Insights API** (`src/server/pagespeed-actions.ts`)
 — Google runs the audit on its own infrastructure, so no headless Chrome, and
@@ -161,23 +161,28 @@ tracking later.
   fetches the page itself, so only public URLs work — "Unpublished" can never
   be audited. Live/competitor URLs resolve server-side (same posture as the
   crawler); Custom URL passes through like `analyzeExternalUrl`.
-- Analyze runs **both strategies in parallel** — two PSI calls, each its own
-  server action invocation with its own 60s budget (the page exports
-  `maxDuration = 60`), so the pair still lands in the same ~15–30s. A
-  Mobile/Desktop tab bar under the Target card swaps which report is shown
-  (mobile default, plain state — no strategy field in the form anymore).
-  Reports cached in-memory per instance for 30 min keyed by `strategy|url`,
-  section convention: mount restores via `fetchCachedPagespeed` for both
-  strategies (never triggers a run the user didn't ask for; the form persists
-  in localStorage `seo-pagespeed`), explicit Analyze always reruns.
-- Analyze also fires `fetchCruxFieldData` per strategy — the dedicated
-  **Chrome UX Report API** (`records:queryRecord`), sub-second, so the
-  Real-User card fills while Lighthouse is still running. Page-level query
-  first, origin-level on 404 (`originFallback`); categories derived from p75
-  web-vitals thresholds (CrUX reports CLS as a decimal string, not PSI's
-  ×100). Resolves null — never an error — without a key or data; the PSI
-  report's embedded field data is the fallback (also what cache restores
-  show, since they never re-query CrUX).
+- Analyze runs **both strategies at once**. Next.js executes server actions
+  from one client serially, so per-strategy calls would run back-to-back
+  (~50s with the desktop tab empty the whole first half) — instead the
+  `*Both` wrappers bundle each phase into ONE invocation that fans out with
+  `Promise.all` server-side: `fetchCruxBoth` is dispatched first (sub-second;
+  must not queue behind Lighthouse), then `runPagespeedBoth` runs both audits
+  concurrently and lands together in the slower run's ~15–30s (fits the
+  page's `maxDuration = 60`). A Mobile/Desktop tab bar under the Target card
+  swaps which report is shown (mobile default, plain state — no strategy
+  field in the form anymore). Reports cached in-memory per instance for 30
+  min keyed by `strategy|url`, section convention: mount restores via
+  `fetchCachedPagespeedBoth` (never triggers a run the user didn't ask for;
+  the form persists in localStorage `seo-pagespeed`), explicit Analyze
+  always reruns.
+- The CrUX side is the dedicated **Chrome UX Report API**
+  (`records:queryRecord`), so the Real-User card fills while Lighthouse is
+  still running. Page-level query first, origin-level on 404
+  (`originFallback`); categories derived from p75 web-vitals thresholds
+  (CrUX reports CLS as a decimal string, not PSI's ×100). Resolves null —
+  never an error — without a key or data; the PSI report's embedded field
+  data is the fallback (also what cache restores show, since they never
+  re-query CrUX).
 - `PAGESPEED_API_KEY` (optional, server-side only) raises the anonymous quota
   to ~25k runs/day; PSI works keyless at low volume. The dedicated CrUX calls
   **require** it, with the Chrome UX Report API enabled on its project.

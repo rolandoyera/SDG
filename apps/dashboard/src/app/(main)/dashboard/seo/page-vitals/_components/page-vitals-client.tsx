@@ -25,12 +25,12 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import {
   type CruxFieldData,
-  fetchCachedPagespeed,
-  fetchCruxFieldData,
+  fetchCachedPagespeedBoth,
+  fetchCruxBoth,
   type PagespeedAuditRow,
   type PagespeedReport,
   type PagespeedStrategy,
-  runPagespeed,
+  runPagespeedBoth,
 } from "@/server/pagespeed-actions";
 import {
   fetchCompanyName,
@@ -265,7 +265,7 @@ function AuditSection({
   );
 }
 
-export function PageAnalyzerClient() {
+export function PageVitalsClient() {
   const { control, handleSubmit, watch, reset } = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: DEFAULTS,
@@ -280,10 +280,8 @@ export function PageAnalyzerClient() {
     mobile: null,
     desktop: null,
   });
-  const [running, setRunning] = useState<PerStrategy<boolean>>({
-    mobile: false,
-    desktop: false,
-  });
+  // One flag for both: the audits land together (single action, see onSubmit).
+  const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<PerStrategy<string>>({
     mobile: "",
     desktop: "",
@@ -377,65 +375,72 @@ export function PageAnalyzerClient() {
       return;
     }
     reset(saved);
-    for (const strategy of STRATEGIES) {
-      fetchCachedPagespeed({ ...saved, strategy })
-        .then((result) => {
-          if (result.success && result.data) {
-            setReports((prev) => ({ ...prev, [strategy]: result.data }));
-          }
-        })
-        .catch(() => {
-          // Cold cache is a normal state.
-        });
-    }
+    fetchCachedPagespeedBoth(saved)
+      .then((result) => {
+        setReports((prev) => ({
+          mobile: result.mobile.success
+            ? (result.mobile.data ?? null)
+            : prev.mobile,
+          desktop: result.desktop.success
+            ? (result.desktop.data ?? null)
+            : prev.desktop,
+        }));
+      })
+      .catch(() => {
+        // Cold cache is a normal state.
+      });
   }, [pendingRestore, competitorsReady, competitors, reset]);
 
-  // Both strategies run in parallel — each PSI call is its own server action
-  // invocation, so the pair still fits the page's maxDuration. The CrUX calls
-  // are sub-second and fill the Real-User card while Lighthouse runs.
+  // Server actions from one client run serially, so both-strategy work is
+  // bundled into single invocations that fan out server-side: the CrUX pair
+  // is dispatched first (sub-second — it must not queue behind the ~30s
+  // Lighthouse invocation), then one action runs both audits concurrently.
   const onSubmit = (data: FormData) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    setRunning({ mobile: true, desktop: true });
+    setLoading(true);
     setErrors({ mobile: "", desktop: "" });
-    for (const strategy of STRATEGIES) {
-      const input = { ...data, strategy };
-      runPagespeed(input)
-        .then((result) => {
-          if (result.success && result.data) {
-            setReports((prev) => ({ ...prev, [strategy]: result.data }));
+    fetchCruxBoth(data)
+      .then((result) => {
+        setCrux({
+          mobile: result.mobile.success ? (result.mobile.data ?? null) : null,
+          desktop: result.desktop.success
+            ? (result.desktop.data ?? null)
+            : null,
+        });
+      })
+      .catch(() => {
+        // Supplemental — the PSI report's embedded field data covers it.
+      });
+    runPagespeedBoth(data)
+      .then((result) => {
+        for (const strategy of STRATEGIES) {
+          const run = result[strategy];
+          if (run.success && run.data) {
+            const report = run.data;
+            setReports((prev) => ({ ...prev, [strategy]: report }));
           } else {
             setErrors((prev) => ({
               ...prev,
-              [strategy]: result.error ?? "The Lighthouse run failed.",
+              [strategy]: run.error ?? "The Lighthouse run failed.",
             }));
           }
-        })
-        .catch(() => {
-          setErrors((prev) => ({
-            ...prev,
-            [strategy]: "The Lighthouse run failed.",
-          }));
-        })
-        .finally(() => {
-          setRunning((prev) => ({ ...prev, [strategy]: false }));
+        }
+      })
+      .catch(() => {
+        setErrors({
+          mobile: "The Lighthouse run failed.",
+          desktop: "The Lighthouse run failed.",
         });
-      fetchCruxFieldData(input)
-        .then((result) => {
-          if (result.success) {
-            setCrux((prev) => ({ ...prev, [strategy]: result.data }));
-          }
-        })
-        .catch(() => {
-          // Supplemental — the PSI report's embedded field data covers it.
-        });
-    }
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   };
 
   const sitemap = sitemaps[source];
 
-  const anyRunning = running.mobile || running.desktop;
   const anyStarted =
-    anyRunning || reports.mobile !== null || reports.desktop !== null;
+    loading || reports.mobile !== null || reports.desktop !== null;
 
   // The tab picks which strategy's slots the page renders.
   const report = reports[tab];
@@ -559,9 +564,9 @@ export function PageAnalyzerClient() {
 
             <div className="flex flex-col gap-1.5">
               <Label className="invisible">Run</Label>
-              <Button type="submit" disabled={anyRunning}>
-                {anyRunning && <Loader2 className="size-4 animate-spin" />}
-                {anyRunning ? "Auditing…" : "Analyze"}
+              <Button type="submit" disabled={loading}>
+                {loading && <Loader2 className="size-4 animate-spin" />}
+                {loading ? "Auditing…" : "Analyze"}
               </Button>
             </div>
           </form>
@@ -580,7 +585,7 @@ export function PageAnalyzerClient() {
         </Tabs>
       )}
 
-      {running[tab] ? (
+      {loading ? (
         <p className="text-muted-foreground text-sm">
           Google is running a full Lighthouse audit — this takes 15–30 seconds.
         </p>

@@ -50,8 +50,12 @@ SuperAdmin exposure, but nothing surfaces it. To switch accounts, reconnect (the
 
 ## Rules that are easy to break
 
-- **`config.metaIntegration.followersCount` is a display cache, NOT source of truth.** Snapshots
-  are its only writer. Display logic is `live ?? cached ?? "—"`. Do not write it on page load.
+- **The `config.metaIntegration` profile fields are a display cache, NOT source of truth.**
+  Snapshots are their only writer: the daily cron re-fetches the profile (`fetchProfileDisplay`)
+  and refreshes `followersCount`, `mediaCount`, username/name, and `instagramProfilePictureUrl` —
+  the picture URL is a signed, expiring CDN URL, so without this daily rewrite the avatar decays
+  into the initials fallback. Display logic is `live ?? cached ?? "—"`. Do not write any of it on
+  page load.
 - **Snapshot fields mix levels and flows.** `followersCount` is a point-in-time level; `reach`,
   `views`, `profileViews`, `accountsEngaged`, `likes`, `comments`, `websiteClicks` are 24h flows.
   Don't chart them on the same axis.

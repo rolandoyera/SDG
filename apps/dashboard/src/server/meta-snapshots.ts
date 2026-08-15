@@ -1,7 +1,7 @@
 import { getAdminDb } from "./firebase-admin";
 import {
   fetchAccountKpis,
-  fetchFollowerCount,
+  fetchProfileDisplay,
   getStoredMetaCreds,
 } from "./meta-graph";
 
@@ -41,10 +41,11 @@ export async function getLatestSnapshot(
 }
 
 /**
- * Captures one daily snapshot for a single org: pulls the live follower count and
- * the just-completed UTC day's account KPIs, writes them to Firestore, and refreshes
- * the `followersCount` display cache. Returns the snapshot, or null when the org has
- * no stored Meta creds. Throws on Graph API failure so callers can isolate per-org.
+ * Captures one daily snapshot for a single org: pulls the live profile and
+ * the just-completed UTC day's account KPIs, writes them to Firestore, and
+ * refreshes the display cache on the org config. Returns the snapshot, or null
+ * when the org has no stored Meta creds. Throws on Graph API failure so
+ * callers can isolate per-org.
  */
 export async function snapshotInstagramForOrg(
   organizationId: string,
@@ -55,15 +56,15 @@ export async function snapshotInstagramForOrg(
   // Measure the just-completed 24h window.
   const until = Math.floor(Date.now() / 1000);
   const since = until - 24 * 60 * 60;
-  const [followersCount, kpis] = await Promise.all([
-    fetchFollowerCount(creds),
+  const [profile, kpis] = await Promise.all([
+    fetchProfileDisplay(creds),
     fetchAccountKpis(creds, since, until),
   ]);
 
   const date = utcDateKey(new Date(since * 1000));
   const snapshot: InstagramSnapshot = {
     date,
-    followersCount,
+    followersCount: profile.followersCount,
     reach: kpis.reach,
     views: kpis.views,
     profileViews: kpis.profileViews,
@@ -76,9 +77,19 @@ export async function snapshotInstagramForOrg(
 
   const orgRef = getAdminDb().collection("organizations").doc(organizationId);
   await orgRef.collection("instagramSnapshots").doc(date).set(snapshot);
-  // Snapshots are the only writer of the cached follower count now.
+  // Snapshots are the only writer of the cached profile display fields. The
+  // picture URL matters most: it's a signed, expiring CDN URL, and the copy
+  // stored at connect time eventually 403s (the avatar falls back to
+  // initials) unless something re-fetches it — this daily write is that
+  // something.
   await orgRef.update({
-    "config.metaIntegration.followersCount": followersCount,
+    "config.metaIntegration.followersCount": profile.followersCount,
+    "config.metaIntegration.mediaCount": profile.mediaCount,
+    "config.metaIntegration.instagramUsername": profile.username,
+    "config.metaIntegration.instagramName": profile.name,
+    "config.metaIntegration.instagramProfilePictureUrl":
+      profile.profilePictureUrl,
+    "config.metaIntegration.updatedAt": Date.now(),
   });
 
   return snapshot;

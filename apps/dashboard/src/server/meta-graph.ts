@@ -343,6 +343,50 @@ export async function fetchFollowerCount(
 }
 
 /**
+ * Current profile display fields for the IG account. The daily snapshot re-
+ * fetches these because `profile_picture_url` is a signed, expiring CDN URL —
+ * the copy stored at connect time eventually 403s and the avatar breaks.
+ */
+export async function fetchProfileDisplay(creds: StoredMetaCreds): Promise<{
+  username: string;
+  name: string;
+  profilePictureUrl: string;
+  followersCount: number;
+  mediaCount: number;
+}> {
+  const res = await fetch(
+    `${GRAPH}/${creds.igId}?` +
+      new URLSearchParams({
+        fields: "username,name,profile_picture_url,followers_count,media_count",
+        access_token: creds.token,
+      }),
+    { cache: "no-store" },
+  );
+  const json = (await res.json()) as {
+    username?: string;
+    name?: string;
+    profile_picture_url?: string;
+    followers_count?: number;
+    media_count?: number;
+    error?: { message?: string; error_user_msg?: string };
+  };
+  if (json.error) {
+    throw new Error(
+      json.error.error_user_msg ??
+        json.error.message ??
+        "Instagram Graph API error.",
+    );
+  }
+  return {
+    username: json.username ?? "",
+    name: json.name ?? "",
+    profilePictureUrl: json.profile_picture_url ?? "",
+    followersCount: json.followers_count ?? 0,
+    mediaCount: json.media_count ?? 0,
+  };
+}
+
+/**
  * New followers gained per day, summed over the window (≤30 days). Returns null
  * when the metric is unavailable — Instagram doesn't expose `follower_count` for
  * accounts under 100 followers, which we treat as "no comparison" rather than an error.

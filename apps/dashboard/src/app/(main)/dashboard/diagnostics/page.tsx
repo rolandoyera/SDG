@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { H1 } from "@/components/ui/typography";
 import { SCRAPER_CONFIG } from "@/config/scraper-config";
+import { AI_ASSISTANT_NAME } from "@/lib/ai-assistant";
 import { clearDiagnosticRuns, getDiagnosticRuns } from "@/lib/db";
 import type { DiagnosticRun } from "@/lib/types";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -161,7 +162,7 @@ export default function DiagnosticsPage() {
           <H1>Logs & Extraction Diagnostics</H1>
           <p className="mt-1 text-muted-foreground text-sm">
             Real-time inspection center showing scraped markdown data, prompts,
-            and raw JSON returned by Luna.
+            and raw JSON returned by {AI_ASSISTANT_NAME}.
           </p>
         </div>
         <div className="flex items-center gap-3">

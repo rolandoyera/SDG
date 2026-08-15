@@ -6,4 +6,4 @@
  * This is a plain constant with no client/server directives, so it is safe to
  * import from both Server Actions and client components.
  */
-export const AI_ASSISTANT_NAME = "Luna";
+export const AI_ASSISTANT_NAME = "SHIRA";

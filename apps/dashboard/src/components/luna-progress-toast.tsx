@@ -124,7 +124,7 @@ export function startLunaProductAutofillToast() {
     showRetry(attempt: number, maxAttempts: number) {
       window.clearInterval(intervalId);
       updateLunaProgressToast(toastId, PRODUCT_AUTOFILL_STAGES.length - 1, {
-        label: `Luna found a busy AI server - retrying ${attempt}/${maxAttempts}`,
+        label: `${AI_ASSISTANT_NAME} found a busy AI server - retrying ${attempt}/${maxAttempts}`,
         detail:
           "She is keeping the scraped page context and asking again after a short pause.",
       });

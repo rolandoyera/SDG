@@ -21,11 +21,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import {
+  type CruxFieldData,
   fetchCachedPagespeed,
+  fetchCruxFieldData,
   type PagespeedAuditRow,
   type PagespeedReport,
+  type PagespeedStrategy,
   runPagespeed,
 } from "@/server/pagespeed-actions";
 import {
@@ -37,12 +41,12 @@ import {
 } from "@/server/seo-actions";
 
 // PSI only audits public URLs (Google fetches the page), so no
-// local/"Unpublished" source here.
+// local/"Unpublished" source here. No strategy field: Analyze always runs
+// both, and the tabs under the Target card pick which report is shown.
 const baseSchema = z.object({
   source: z.string().regex(/^(live|custom|comp:\d+)$/),
   path: z.string(),
   url: z.string().trim(),
-  strategy: z.enum(["mobile", "desktop"]),
 });
 
 const formSchema = baseSchema.superRefine((data, ctx) => {
@@ -61,10 +65,14 @@ const DEFAULTS: FormData = {
   source: "live",
   path: "",
   url: "",
-  strategy: "mobile",
 };
 
 const STORAGE_KEY = "seo-pagespeed";
+
+const STRATEGIES = ["mobile", "desktop"] as const;
+
+/** One slot per strategy — the tabs swap between them. */
+type PerStrategy<T> = Record<PagespeedStrategy, T>;
 
 type SitemapState =
   | { status: "loading" }
@@ -268,9 +276,23 @@ export function PageAnalyzerClient() {
   const [competitors, setCompetitors] = useState<SeoCompetitor[]>([]);
   const [competitorsReady, setCompetitorsReady] = useState(false);
   const [sitemaps, setSitemaps] = useState<Record<string, SitemapState>>({});
-  const [report, setReport] = useState<PagespeedReport | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [reports, setReports] = useState<PerStrategy<PagespeedReport | null>>({
+    mobile: null,
+    desktop: null,
+  });
+  const [running, setRunning] = useState<PerStrategy<boolean>>({
+    mobile: false,
+    desktop: false,
+  });
+  const [errors, setErrors] = useState<PerStrategy<string>>({
+    mobile: "",
+    desktop: "",
+  });
+  const [crux, setCrux] = useState<PerStrategy<CruxFieldData | null>>({
+    mobile: null,
+    desktop: null,
+  });
+  const [tab, setTab] = useState<PagespeedStrategy>("mobile");
   const [pendingRestore, setPendingRestore] = useState<FormData | null>(null);
 
   useEffect(() => {
@@ -355,29 +377,71 @@ export function PageAnalyzerClient() {
       return;
     }
     reset(saved);
-    fetchCachedPagespeed(saved)
-      .then((result) => {
-        if (result.success && result.data) setReport(result.data);
-      })
-      .catch(() => {
-        // Cold cache is a normal state.
-      });
+    for (const strategy of STRATEGIES) {
+      fetchCachedPagespeed({ ...saved, strategy })
+        .then((result) => {
+          if (result.success && result.data) {
+            setReports((prev) => ({ ...prev, [strategy]: result.data }));
+          }
+        })
+        .catch(() => {
+          // Cold cache is a normal state.
+        });
+    }
   }, [pendingRestore, competitorsReady, competitors, reset]);
 
-  const onSubmit = async (data: FormData) => {
-    setLoading(true);
-    setError("");
+  // Both strategies run in parallel — each PSI call is its own server action
+  // invocation, so the pair still fits the page's maxDuration. The CrUX calls
+  // are sub-second and fill the Real-User card while Lighthouse runs.
+  const onSubmit = (data: FormData) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    const result = await runPagespeed(data);
-    if (result.success && result.data) {
-      setReport(result.data);
-    } else {
-      setError(result.error ?? "The Lighthouse run failed.");
+    setRunning({ mobile: true, desktop: true });
+    setErrors({ mobile: "", desktop: "" });
+    for (const strategy of STRATEGIES) {
+      const input = { ...data, strategy };
+      runPagespeed(input)
+        .then((result) => {
+          if (result.success && result.data) {
+            setReports((prev) => ({ ...prev, [strategy]: result.data }));
+          } else {
+            setErrors((prev) => ({
+              ...prev,
+              [strategy]: result.error ?? "The Lighthouse run failed.",
+            }));
+          }
+        })
+        .catch(() => {
+          setErrors((prev) => ({
+            ...prev,
+            [strategy]: "The Lighthouse run failed.",
+          }));
+        })
+        .finally(() => {
+          setRunning((prev) => ({ ...prev, [strategy]: false }));
+        });
+      fetchCruxFieldData(input)
+        .then((result) => {
+          if (result.success) {
+            setCrux((prev) => ({ ...prev, [strategy]: result.data }));
+          }
+        })
+        .catch(() => {
+          // Supplemental — the PSI report's embedded field data covers it.
+        });
     }
-    setLoading(false);
   };
 
   const sitemap = sitemaps[source];
+
+  const anyRunning = running.mobile || running.desktop;
+  const anyStarted =
+    anyRunning || reports.mobile !== null || reports.desktop !== null;
+
+  // The tab picks which strategy's slots the page renders.
+  const report = reports[tab];
+  // Dedicated CrUX data lands ~30s before the report; the report's embedded
+  // copy is the fallback (cache restores never re-query CrUX).
+  const fieldData = crux[tab] ?? report?.fieldData ?? null;
 
   // Filmstrip frames can be byte-identical (steady loading states), so key
   // by content + occurrence, matching the repo's repeated-content pattern.
@@ -493,250 +557,246 @@ export function PageAnalyzerClient() {
               />
             )}
 
-            <Controller
-              control={control}
-              name="strategy"
-              render={({ field }) => (
-                <Field className="flex w-32 flex-col gap-1.5">
-                  <Label>Device</Label>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="mobile">Mobile</SelectItem>
-                      <SelectItem value="desktop">Desktop</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </Field>
-              )}
-            />
-
             <div className="flex flex-col gap-1.5">
               <Label className="invisible">Run</Label>
-              <Button type="submit" disabled={loading}>
-                {loading && <Loader2 className="size-4 animate-spin" />}
-                {loading ? "Auditing…" : "Analyze"}
+              <Button type="submit" disabled={anyRunning}>
+                {anyRunning && <Loader2 className="size-4 animate-spin" />}
+                {anyRunning ? "Auditing…" : "Analyze"}
               </Button>
             </div>
           </form>
-          {loading && (
-            <p className="mt-3 text-muted-foreground text-sm">
-              Google is running a full Lighthouse audit — this takes 15–30
-              seconds.
-            </p>
-          )}
-          {error && <p className="mt-3 text-destructive text-sm">{error}</p>}
         </CardContent>
       </Card>
 
-      {report && (
-        <>
+      {anyStarted && (
+        <Tabs
+          value={tab}
+          onValueChange={(value) => setTab(value as PagespeedStrategy)}
+        >
+          <TabsList>
+            <TabsTrigger value="mobile">Mobile</TabsTrigger>
+            <TabsTrigger value="desktop">Desktop</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      )}
+
+      {running[tab] ? (
+        <p className="text-muted-foreground text-sm">
+          Google is running a full Lighthouse audit — this takes 15–30 seconds.
+        </p>
+      ) : errors[tab] ? (
+        <p className="text-destructive text-sm">{errors[tab]}</p>
+      ) : (
+        report && (
           <p className="text-muted-foreground text-sm">
             {report.url} · {report.strategy} · analyzed{" "}
             {formatDistanceToNow(report.fetchedAt, { addSuffix: true })}
           </p>
+        )
+      )}
 
-          <div className="grid gap-6 lg:grid-cols-2">
-            <Card className="gap-2 pt-0 lg:col-span-2">
-              <CardHeader className="bg-muted/50 py-3">
-                <CardTitle>Lighthouse Scores</CardTitle>
-              </CardHeader>
-              <CardContent className="grid grid-cols-2 gap-6 py-4 sm:grid-cols-4">
-                {report.scores.map((item) => (
-                  <div
-                    key={item.label}
-                    className="flex flex-col items-center gap-2"
-                  >
-                    <ScoreRing
-                      score={item.score}
-                      size={80}
-                      textClassName="text-xl"
-                    />
-                    <span className="text-center text-sm">{item.label}</span>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-
-            <Card className="gap-2 pt-0 lg:col-span-2">
-              <CardHeader className="bg-muted/50 py-3">
-                <CardTitle>Performance</CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-8 py-4">
-                <div className="flex flex-wrap items-center justify-center gap-x-16 gap-y-6">
-                  <div className="flex flex-col items-center gap-4">
-                    <ScoreRing
-                      score={
-                        report.scores.find((s) => s.label === "Performance")
-                          ?.score ?? null
-                      }
-                      size={144}
-                      textClassName="text-4xl"
-                    />
-                    <p className="max-w-sm text-center text-muted-foreground text-xs">
-                      Values are estimated and may vary. The performance score
-                      is{" "}
-                      <a
-                        href="https://googlechrome.github.io/lighthouse/scorecalc/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary hover:underline"
-                      >
-                        calculated
-                      </a>{" "}
-                      directly from these metrics.
-                    </p>
-                    <div className="flex items-center gap-6 text-muted-foreground text-xs">
-                      {SCORE_LEGEND.map((item) => (
-                        <span
-                          key={item.range}
-                          className="flex items-center gap-1.5"
-                        >
-                          <span className={item.className}>
-                            <BandShape score={item.shapeScore} />
-                          </span>
-                          {item.range}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  {report.screenshot && (
-                    // biome-ignore lint/performance/noImgElement: PSI returns a data: URI, which next/image cannot optimize.
-                    <img
-                      src={report.screenshot}
-                      alt="Page as Lighthouse rendered it"
-                      className="w-32 rounded border"
-                    />
-                  )}
-                </div>
-
-                <div className="grid gap-x-10 sm:grid-cols-2">
-                  {report.metrics.map((metric) => {
-                    const pct =
-                      metric.score === null
-                        ? null
-                        : Math.round(metric.score * 100);
-                    const info = METRIC_INFO[metric.id];
-                    return (
-                      <div
-                        key={metric.id}
-                        className="flex flex-col gap-1 border-border/50 border-b py-4"
-                      >
-                        <div
-                          className={cn(
-                            "flex items-center gap-2",
-                            scoreColor(pct),
-                          )}
-                        >
-                          <BandShape score={pct} />
-                          <span className="text-foreground text-sm">
-                            {metric.label}
-                          </span>
-                        </div>
-                        <span
-                          className={cn(
-                            "font-semibold text-2xl tabular-nums",
-                            scoreColor(pct),
-                          )}
-                        >
-                          {metric.displayValue}
-                        </span>
-                        {info && (
-                          <p className="text-muted-foreground text-xs">
-                            {info.description}{" "}
-                            <a
-                              href={info.href}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-primary hover:underline"
-                            >
-                              Learn more
-                            </a>
-                            .
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {filmstrip.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {filmstrip.map((frame, index) => (
-                      // biome-ignore lint/performance/noImgElement: PSI returns data: URIs, which next/image cannot optimize.
-                      <img
-                        key={frame.key}
-                        src={frame.data}
-                        alt={`Loading frame ${index + 1} of ${filmstrip.length}`}
-                        className="w-20 rounded border"
+      {(report || fieldData) && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          {report && (
+            <>
+              <Card className="gap-2 pt-0 lg:col-span-2">
+                <CardHeader className="bg-muted/50 py-3">
+                  <CardTitle>Lighthouse Scores</CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-2 gap-6 py-4 sm:grid-cols-4">
+                  {report.scores.map((item) => (
+                    <div
+                      key={item.label}
+                      className="flex flex-col items-center gap-2"
+                    >
+                      <ScoreRing
+                        score={item.score}
+                        size={80}
+                        textClassName="text-xl"
                       />
-                    ))}
-                  </div>
-                )}
+                      <span className="text-center text-sm">{item.label}</span>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
 
-                <AuditSection title="Insights" rows={report.insights} />
-                <AuditSection title="Diagnostics" rows={report.diagnostics} />
-
-                <p className="text-muted-foreground text-sm">
-                  Passed audits ({report.passedCount}) ·{" "}
-                  <a
-                    href={`https://pagespeed.web.dev/analysis?url=${encodeURIComponent(report.url)}&form_factor=${report.strategy}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline"
-                  >
-                    Full report on PageSpeed Insights
-                  </a>
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="gap-2 pt-0 lg:col-span-2">
-              <CardHeader className="bg-muted/50 py-3">
-                <CardTitle>Real-User Data (CrUX)</CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-2.5">
-                {report.fieldData ? (
-                  <>
-                    {report.fieldData.originFallback && (
-                      <p className="text-muted-foreground text-xs">
-                        Not enough traffic on this page — showing site-wide data
-                        instead.
+              <Card className="gap-2 pt-0 lg:col-span-2">
+                <CardHeader className="bg-muted/50 py-3">
+                  <CardTitle>Performance</CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-8 py-4">
+                  <div className="flex flex-wrap items-center justify-center gap-x-16 gap-y-6">
+                    <div className="flex flex-col items-center gap-4">
+                      <ScoreRing
+                        score={
+                          report.scores.find((s) => s.label === "Performance")
+                            ?.score ?? null
+                        }
+                        size={144}
+                        textClassName="text-4xl"
+                      />
+                      <p className="max-w-sm text-center text-muted-foreground text-xs">
+                        Values are estimated and may vary. The performance score
+                        is{" "}
+                        <a
+                          href="https://googlechrome.github.io/lighthouse/scorecalc/"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline"
+                        >
+                          calculated
+                        </a>{" "}
+                        directly from these metrics.
                       </p>
+                      <div className="flex items-center gap-6 text-muted-foreground text-xs">
+                        {SCORE_LEGEND.map((item) => (
+                          <span
+                            key={item.range}
+                            className="flex items-center gap-1.5"
+                          >
+                            <span className={item.className}>
+                              <BandShape score={item.shapeScore} />
+                            </span>
+                            {item.range}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    {report.screenshot && (
+                      // biome-ignore lint/performance/noImgElement: PSI returns a data: URI, which next/image cannot optimize.
+                      <img
+                        src={report.screenshot}
+                        alt="Page as Lighthouse rendered it"
+                        className="w-32 rounded border"
+                      />
                     )}
-                    {report.fieldData.metrics.map((metric) => {
-                      const category = FIELD_CATEGORY[metric.category];
+                  </div>
+
+                  <div className="grid gap-x-10 sm:grid-cols-2">
+                    {report.metrics.map((metric) => {
+                      const pct =
+                        metric.score === null
+                          ? null
+                          : Math.round(metric.score * 100);
+                      const info = METRIC_INFO[metric.id];
                       return (
                         <div
-                          key={metric.label}
-                          className="flex items-center justify-between gap-4 text-sm"
+                          key={metric.id}
+                          className="flex flex-col gap-1 border-border/50 border-b py-4"
                         >
-                          <span>{metric.label}</span>
-                          <span className="tabular-nums">
-                            {metric.displayValue}{" "}
-                            {category && (
-                              <span
-                                className={cn("text-xs", category.className)}
-                              >
-                                {category.label}
-                              </span>
+                          <div
+                            className={cn(
+                              "flex items-center gap-2",
+                              scoreColor(pct),
                             )}
+                          >
+                            <BandShape score={pct} />
+                            <span className="text-foreground text-sm">
+                              {metric.label}
+                            </span>
+                          </div>
+                          <span
+                            className={cn(
+                              "font-semibold text-2xl tabular-nums",
+                              scoreColor(pct),
+                            )}
+                          >
+                            {metric.displayValue}
                           </span>
+                          {info && (
+                            <p className="text-muted-foreground text-xs">
+                              {info.description}{" "}
+                              <a
+                                href={info.href}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-primary hover:underline"
+                              >
+                                Learn more
+                              </a>
+                              .
+                            </p>
+                          )}
                         </div>
                       );
                     })}
-                  </>
-                ) : (
+                  </div>
+
+                  {filmstrip.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {filmstrip.map((frame, index) => (
+                        // biome-ignore lint/performance/noImgElement: PSI returns data: URIs, which next/image cannot optimize.
+                        <img
+                          key={frame.key}
+                          src={frame.data}
+                          alt={`Loading frame ${index + 1} of ${filmstrip.length}`}
+                          className="w-20 rounded border"
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  <AuditSection title="Insights" rows={report.insights} />
+                  <AuditSection title="Diagnostics" rows={report.diagnostics} />
+
                   <p className="text-muted-foreground text-sm">
-                    No real-user Chrome data for this page yet — Google needs
-                    more traffic before CrUX reports it.
+                    Passed audits ({report.passedCount}) ·{" "}
+                    <a
+                      href={`https://pagespeed.web.dev/analysis?url=${encodeURIComponent(report.url)}&form_factor=${report.strategy}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline"
+                    >
+                      Full report on PageSpeed Insights
+                    </a>
                   </p>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </>
+                </CardContent>
+              </Card>
+            </>
+          )}
+
+          <Card className="gap-2 pt-0 lg:col-span-2">
+            <CardHeader className="bg-muted/50 py-3">
+              <CardTitle>Real-User Data (CrUX)</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-2.5">
+              {fieldData ? (
+                <>
+                  {fieldData.originFallback && (
+                    <p className="text-muted-foreground text-xs">
+                      Not enough traffic on this page — showing site-wide data
+                      instead.
+                    </p>
+                  )}
+                  {fieldData.metrics.map((metric) => {
+                    const category = FIELD_CATEGORY[metric.category];
+                    return (
+                      <div
+                        key={metric.label}
+                        className="flex items-center justify-between gap-4 text-sm"
+                      >
+                        <span>{metric.label}</span>
+                        <span className="tabular-nums">
+                          {metric.displayValue}{" "}
+                          {category && (
+                            <span className={cn("text-xs", category.className)}>
+                              {category.label}
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </>
+              ) : (
+                <p className="text-muted-foreground text-sm">
+                  No real-user Chrome data for this page yet — Google needs more
+                  traffic before CrUX reports it.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   );

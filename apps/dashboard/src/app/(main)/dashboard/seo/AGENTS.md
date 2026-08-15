@@ -161,13 +161,26 @@ tracking later.
   fetches the page itself, so only public URLs work — "Unpublished" can never
   be audited. Live/competitor URLs resolve server-side (same posture as the
   crawler); Custom URL passes through like `analyzeExternalUrl`.
-- One URL per run, ~15–30s (the page exports `maxDuration = 60`). Cached
-  in-memory per instance for 30 min keyed by `strategy|url`, section
-  convention: mount restores via `fetchCachedPagespeed` (never triggers a run
-  the user didn't ask for; the form persists in localStorage `seo-pagespeed`),
-  explicit Analyze always reruns.
+- Analyze runs **both strategies in parallel** — two PSI calls, each its own
+  server action invocation with its own 60s budget (the page exports
+  `maxDuration = 60`), so the pair still lands in the same ~15–30s. A
+  Mobile/Desktop tab bar under the Target card swaps which report is shown
+  (mobile default, plain state — no strategy field in the form anymore).
+  Reports cached in-memory per instance for 30 min keyed by `strategy|url`,
+  section convention: mount restores via `fetchCachedPagespeed` for both
+  strategies (never triggers a run the user didn't ask for; the form persists
+  in localStorage `seo-pagespeed`), explicit Analyze always reruns.
+- Analyze also fires `fetchCruxFieldData` per strategy — the dedicated
+  **Chrome UX Report API** (`records:queryRecord`), sub-second, so the
+  Real-User card fills while Lighthouse is still running. Page-level query
+  first, origin-level on 404 (`originFallback`); categories derived from p75
+  web-vitals thresholds (CrUX reports CLS as a decimal string, not PSI's
+  ×100). Resolves null — never an error — without a key or data; the PSI
+  report's embedded field data is the fallback (also what cache restores
+  show, since they never re-query CrUX).
 - `PAGESPEED_API_KEY` (optional, server-side only) raises the anonymous quota
-  to ~25k runs/day. Works keyless at low volume.
+  to ~25k runs/day; PSI works keyless at low volume. The dedicated CrUX calls
+  **require** it, with the Chrome UX Report API enabled on its project.
 - Report: deliberately Lighthouse's own visual language (the design is
   Apache-2.0; just never add its logo/wordmark) — ring gauges for the four
   category scores, then a Performance section with the big ring, band legend,
@@ -184,7 +197,7 @@ tracking later.
   PageSpeed Insights" link to pagespeed.web.dev is the drill-down. Below
   that, CrUX field data when it exists (small sites often have none — the
   card says so; `origin_fallback` means site-wide, not page-level, data).
-  Mobile is the default strategy because Google ranks on the mobile render.
+  Mobile is the default tab because Google ranks on the mobile render.
 
 ## Competitor Analysis page (`competitor-analysis/`)
 

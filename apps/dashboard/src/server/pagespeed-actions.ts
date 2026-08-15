@@ -292,6 +292,122 @@ function parseReport(
 }
 
 // ---------------------------------------------------------------------------
+// CrUX (dedicated Chrome UX Report API — instant field data, no Lighthouse)
+// ---------------------------------------------------------------------------
+
+const CRUX_ENDPOINT =
+  "https://chromeuxreport.googleapis.com/v1/records:queryRecord";
+
+export interface CruxFieldData {
+  originFallback: boolean;
+  metrics: PagespeedFieldMetric[];
+}
+
+/** p75 → bucket using the web-vitals thresholds PSI itself categorizes with. */
+const CRUX_METRICS: {
+  key: string;
+  label: string;
+  good: number;
+  poor: number;
+  display: (p75: number) => string;
+}[] = [
+  {
+    key: "largest_contentful_paint",
+    label: "LCP",
+    good: 2500,
+    poor: 4000,
+    display: formatMs,
+  },
+  {
+    key: "interaction_to_next_paint",
+    label: "INP",
+    good: 200,
+    poor: 500,
+    display: formatMs,
+  },
+  {
+    key: "cumulative_layout_shift",
+    label: "CLS",
+    good: 0.1,
+    poor: 0.25,
+    // The CrUX API reports CLS p75 as a decimal string, not ×100 like PSI.
+    display: (p75) => p75.toFixed(2),
+  },
+];
+
+interface CruxResponse {
+  record?: {
+    metrics?: Record<string, { percentiles?: { p75?: number | string } }>;
+  };
+}
+
+async function queryCrux(
+  body: Record<string, unknown>,
+  apiKey: string,
+): Promise<CruxResponse | null> {
+  const response = await fetch(`${CRUX_ENDPOINT}?key=${apiKey}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    cache: "no-store",
+    signal: AbortSignal.timeout(10_000),
+  });
+  // 404 = CrUX has no record at this level (page vs origin), not a failure.
+  if (!response.ok) return null;
+  return (await response.json()) as CruxResponse;
+}
+
+/**
+ * Real-user field data straight from the CrUX API — sub-second, so the card
+ * fills while the Lighthouse runs are still going. Resolves null (never an
+ * error) when there's no API key or no data: field data is supplemental, and
+ * the PSI report's embedded copy is the fallback. Needs the Chrome UX Report
+ * API enabled on the PAGESPEED_API_KEY project.
+ */
+export async function fetchCruxFieldData(
+  input: PagespeedInput,
+): Promise<SeoResult<CruxFieldData | null>> {
+  try {
+    const apiKey = process.env.PAGESPEED_API_KEY;
+    if (!apiKey) return { success: true, data: null };
+    const url = await resolveUrl(input);
+    const formFactor = input.strategy === "desktop" ? "DESKTOP" : "PHONE";
+
+    let originFallback = false;
+    let data = await queryCrux({ url, formFactor }, apiKey);
+    if (!data?.record?.metrics) {
+      originFallback = true;
+      data = await queryCrux(
+        { origin: new URL(url).origin, formFactor },
+        apiKey,
+      );
+    }
+    const cruxMetrics = data?.record?.metrics;
+    if (!cruxMetrics) return { success: true, data: null };
+
+    const metrics: PagespeedFieldMetric[] = CRUX_METRICS.flatMap(
+      ({ key, label, good, poor, display }) => {
+        const p75 = Number(cruxMetrics[key]?.percentiles?.p75);
+        if (!Number.isFinite(p75)) return [];
+        return [
+          {
+            label,
+            displayValue: display(p75),
+            category: p75 <= good ? "FAST" : p75 <= poor ? "AVERAGE" : "SLOW",
+          },
+        ];
+      },
+    );
+    return {
+      success: true,
+      data: metrics.length ? { originFallback, metrics } : null,
+    };
+  } catch {
+    return { success: true, data: null };
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Cache (in-memory per server instance, same policy as the analyzer caches)
 // ---------------------------------------------------------------------------
 

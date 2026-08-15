@@ -70,7 +70,8 @@ const campaignColumns: ColumnDef<AdsCampaignRow>[] = [
           {row.original.name}
         </span>
         <Badge
-          variant={row.original.status === "ENABLED" ? "success" : "ghost"}>
+          variant={row.original.status === "ENABLED" ? "success" : "ghost"}
+        >
           {titleCase(row.original.status)}
         </Badge>
       </div>
@@ -259,7 +260,8 @@ function SearchTermActions({
           <DropdownMenuItem
             variant="destructive"
             disabled={excluded || isPending}
-            onClick={handleExclude}>
+            onClick={handleExclude}
+          >
             <Ban />
             Exclude Term
           </DropdownMenuItem>

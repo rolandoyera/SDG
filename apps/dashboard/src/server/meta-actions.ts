@@ -9,7 +9,7 @@ import { ACTIVE_ORG_COOKIE } from "@/lib/org-cookie";
 import type { MetaIntegrationConfig, MetaPendingPage } from "@/types/meta";
 
 import { getAdminDb } from "./firebase-admin";
-import { getLatestSnapshot } from "./meta-snapshots";
+import { getLatestSnapshot, getSnapshotRange } from "./meta-snapshots";
 import {
   type DemographicItem,
   fetchAccountKpis,
@@ -476,6 +476,69 @@ export async function fetchInstagramReachTrend(
     return {
       success: false,
       error: error instanceof Error ? error.message : "Failed to load reach.",
+    };
+  }
+}
+
+export interface FollowerTrendPoint {
+  /** Snapshot date formatted for the x-axis. */
+  label: string;
+  followers: number;
+}
+
+export interface InstagramFollowerTrend {
+  points: FollowerTrendPoint[];
+  /** Net follower change across the window: last snapshot − first. */
+  netChange: number;
+}
+
+/**
+ * Follower total per day from the stored snapshots — the only long-range
+ * follower history (Meta exposes ~30 rolling days and never backfills, but
+ * the daily cron has been accumulating levels since 2026-06). No Graph call,
+ * so this renders even while the token is broken.
+ */
+export async function fetchInstagramFollowerTrend(range?: string): Promise<{
+  success: boolean;
+  data?: InstagramFollowerTrend;
+  error?: string;
+}> {
+  try {
+    const organizationId = await getActiveOrgId();
+    if (!organizationId) return { success: false, error: NOT_CONNECTED };
+
+    const { current } = rangeToWindows(range);
+    const sinceDate = new Date(current.since * 1000).toISOString().slice(0, 10);
+    // `until` is exclusive — step inside it for the inclusive end date key.
+    const untilDate = new Date((current.until - 1) * 1000)
+      .toISOString()
+      .slice(0, 10);
+    const snapshots = await getSnapshotRange(
+      organizationId,
+      sinceDate,
+      untilDate,
+    );
+
+    const points: FollowerTrendPoint[] = snapshots.map((s) => ({
+      label: new Date(`${s.date}T00:00:00Z`).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        timeZone: "UTC",
+      }),
+      followers: s.followersCount,
+    }));
+    const netChange =
+      snapshots.length >= 2
+        ? snapshots[snapshots.length - 1].followersCount -
+          snapshots[0].followersCount
+        : 0;
+    return { success: true, data: { points, netChange } };
+  } catch (error) {
+    console.error("Failed to fetch Instagram follower trend:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Failed to load followers.",
     };
   }
 }

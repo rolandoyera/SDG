@@ -26,6 +26,23 @@ function utcDateKey(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** Stored snapshots between two UTC date keys (inclusive), oldest first. */
+export async function getSnapshotRange(
+  organizationId: string,
+  sinceDate: string,
+  untilDate: string,
+): Promise<InstagramSnapshot[]> {
+  const snap = await getAdminDb()
+    .collection("organizations")
+    .doc(organizationId)
+    .collection("instagramSnapshots")
+    .where("date", ">=", sinceDate)
+    .where("date", "<=", untilDate)
+    .orderBy("date")
+    .get();
+  return snap.docs.map((doc) => doc.data() as InstagramSnapshot);
+}
+
 /** Most recent stored snapshot for an org, or null if none exist yet. */
 export async function getLatestSnapshot(
   organizationId: string,

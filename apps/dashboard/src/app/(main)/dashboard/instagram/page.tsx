@@ -5,6 +5,7 @@ import { getMetaConnection, getMetaPendingPages } from "@/server/meta-actions";
 
 import { InstagramConnect } from "./_components/instagram-connect";
 import { InstagramDemographics } from "./_components/instagram-demographics";
+import { InstagramFollowerTrend } from "./_components/instagram-follower-trend";
 import { InstagramHeadlineCards } from "./_components/instagram-headline-cards";
 import { InstagramKpiStrip } from "./_components/instagram-kpi-strip";
 import { InstagramReachTrend } from "./_components/instagram-reach-trend";
@@ -80,10 +81,11 @@ export default async function Page({
 
               <InstagramKpiStrip range={range} />
 
-              <div className="grid gap-6 lg:grid-cols-1">
+              <div className="grid gap-6 lg:grid-cols-2">
                 <InstagramReachTrend range={range} />
-                <InstagramRecentPosts />
+                <InstagramFollowerTrend range={range} />
               </div>
+              <InstagramRecentPosts />
             </>
           }
           posts={<InstagramPostsGrid />}

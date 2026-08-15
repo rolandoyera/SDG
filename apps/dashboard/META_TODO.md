@@ -53,10 +53,10 @@ their Facebook password, revokes the app, or Meta forces a refresh — see the r
       (token expired/invalid), mark the integration disconnected and surface a
       "Reconnect Instagram" prompt. The cron now hits the token daily, so a dead token
       currently just fails silently every morning — this is actionable now.
-- [ ] **Follower growth chart:** `follower_count` (period=day) is confirmed working and
-      the cron has been accumulating daily `followersCount` since June — a real
-      long-range trend chart (the original point of snapshots) is now buildable beside
-      the reach chart. The "New Followers" headline card exists; the chart doesn't.
+- [x] **Follower growth chart (2026-08-14):** Followers card beside the Reach chart,
+      drawn from the stored snapshots (`fetchInstagramFollowerTrend`) — follows the
+      range picker past Meta's 30-day cap, needs no Graph call, badge shows the net
+      change over the range. Points exist from the cron's first run (2026-06) onward.
 - [ ] **Per-post insights columns:** per-media insights are confirmed working
       (`reach, views, saved, likes, comments, shares, total_interactions`; one Graph
       call per post). Would upgrade the posts UI from likes/comments to

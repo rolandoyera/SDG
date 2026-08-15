@@ -46,7 +46,11 @@ SuperAdmin exposure, but nothing surfaces it. To switch accounts, reconnect (the
    demographics, headline, followers.
 2. **Stored snapshots (history):** the daily cron writes one doc per day to
    `organizations/{orgId}/instagramSnapshots/{YYYY-MM-DD}`. This is the **only** source of
-   long-range history — Meta only exposes rolling windows and never backfills.
+   long-range history — Meta only exposes rolling windows and never backfills. The
+   **Followers chart** (`instagram-follower-trend.tsx` → `fetchInstagramFollowerTrend`) reads
+   exclusively from here — no Graph call, so it renders even with a dead token, follows the
+   range picker past Meta's 30-day cap, and simply has no points before the cron's first run
+   (2026-06) or on days the cron missed.
 
 ## Rules that are easy to break
 

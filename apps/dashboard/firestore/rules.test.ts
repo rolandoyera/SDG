@@ -677,6 +677,84 @@ describe("firestore rules", () => {
     );
   });
 
+  it("lets SuperAdmins work across orgs but never move a doc between orgs", async () => {
+    await seedUser("super-a", "org-a", "SuperAdmin");
+    await seedUser("user-a", "org-a", "Admin");
+    await seed("clients/client-b", {
+      uid: "client-b",
+      organizationId: "org-b",
+      createdAt: 1,
+    });
+    await seed("leads/lead-b", {
+      uid: "lead-b",
+      organizationId: "org-b",
+      stage: "new",
+      createdAt: 1,
+    });
+    await seed("projects/project-b", {
+      projectId: "project-b",
+      organizationId: "org-b",
+      createdAt: 1,
+    });
+
+    const superDb = dbFor("super-a");
+
+    // Cross-org read: single get and an org-filtered list.
+    await assertSucceeds(getDoc(doc(superDb, "clients/client-b")));
+    await assertSucceeds(
+      getDocs(
+        query(
+          collection(superDb, "clients"),
+          where("organizationId", "==", "org-b"),
+        ),
+      ),
+    );
+
+    // Cross-org create into the other org.
+    await assertSucceeds(
+      setDoc(doc(superDb, "leads/lead-new"), {
+        uid: "lead-new",
+        organizationId: "org-b",
+        stage: "new",
+        createdAt: 2,
+      }),
+    );
+
+    // Cross-org update is allowed, but re-homing a doc to another org is not.
+    await assertSucceeds(
+      updateDoc(doc(superDb, "leads/lead-b"), { stage: "qualified" }),
+    );
+    await assertFails(
+      updateDoc(doc(superDb, "leads/lead-b"), { organizationId: "org-a" }),
+    );
+
+    // Parent-org collections (project notes) inherit the cross-org access; the
+    // note doc must still carry the PARENT project's org.
+    await assertSucceeds(
+      setDoc(doc(superDb, "projects/project-b/notes/note-1"), {
+        id: "note-1",
+        organizationId: "org-b",
+        projectId: "project-b",
+        body: "From HQ",
+        createdBy: { type: "user", id: "super-a", name: "super-a" },
+        createdAt: 2,
+      }),
+    );
+    await assertFails(
+      setDoc(doc(superDb, "projects/project-b/notes/note-2"), {
+        id: "note-2",
+        organizationId: "org-a",
+        projectId: "project-b",
+        body: "Wrong org stamp",
+        createdBy: { type: "user", id: "super-a", name: "super-a" },
+        createdAt: 2,
+      }),
+    );
+
+    // An ordinary Admin of another org still can't reach org-b.
+    await assertFails(getDoc(doc(dbFor("user-a"), "clients/client-b")));
+  });
+
   it("keeps the mail outbox server-only", async () => {
     await seedUser("admin-a", "org-a", "Admin");
     await seedUser("contributor-a", "org-a", "Contributor");

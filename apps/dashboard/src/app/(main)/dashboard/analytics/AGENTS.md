@@ -25,16 +25,17 @@ Server logic lives in `src/server/`, not this folder. Two external APIs, two sep
   independent of the `?range=` presets; hidden when GA4 isn't configured for the org).
 - `gsc.ts` / `search-console-actions.ts` — Google Search Console (the "Google" tab only). A
   **different** API and quota from GA4; `fetchSearchTotals`/`fetchTopSearchQueries`/`fetchTopSearchPages`.
-- `org-config.ts` — `getActiveOrgConfig()`, the single cookie-scoped read of
+- `org-config.ts` — `getActiveOrgConfig()`, the single verified-caller-scoped read of
   `organizations/{orgId}.config` shared by both the GA4 and GSC property/site resolvers.
 
 ## Tenant isolation — non-negotiable
 
-Property/site are resolved **server-side only**, from the `ACTIVE_ORG_COOKIE`, never from caller
-input. `getConfiguredPropertyId` (GA4) and `getConfiguredSiteUrl` (GSC) read
+Property/site are resolved **server-side only**, from the VERIFIED caller's active org
+(`getActiveOrgId()` in `src/server/auth.ts`), never from caller input.
+`getConfiguredPropertyId` (GA4) and `getConfiguredSiteUrl` (GSC) read
 `getActiveOrgConfig()`: with an active org, only that org's `config.gaPropertyId` /
 `config.gscSiteUrl` counts — **no env fallback**, so one tenant can never see another's data.
-Env vars (`GA_PROPERTY_ID`, `GSC_SITE_URL`) apply **only** when there is no org cookie.
+Env vars (`GA_PROPERTY_ID`, `GSC_SITE_URL`) apply **only** when the request has no valid session.
 Never add a propertyId/siteUrl prop or action argument — that would let a client spoof another
 tenant. The Admin SDK in `org-config.ts` bypasses security rules; keep it server-only.
 

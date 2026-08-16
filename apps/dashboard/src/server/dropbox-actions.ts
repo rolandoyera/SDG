@@ -1,10 +1,7 @@
 "use server";
 
-import { cookies } from "next/headers";
-
 import { FieldValue } from "firebase-admin/firestore";
 
-import { ACTIVE_ORG_COOKIE } from "@/lib/org-cookie";
 import type { Project } from "@/lib/types";
 import type {
   DropboxFolder,
@@ -12,17 +9,13 @@ import type {
   DropboxIntegrationConfig,
 } from "@/types/dropbox";
 
+import { getActiveOrgId } from "./auth";
 import {
   getValidDropboxAccessToken,
   listDropboxFolders,
   listDropboxImages,
 } from "./dropbox";
 import { getAdminDb } from "./firebase-admin";
-
-async function getActiveOrgId(): Promise<string | null> {
-  const cookieStore = await cookies();
-  return cookieStore.get(ACTIVE_ORG_COOKIE)?.value ?? null;
-}
 
 /** Returns the tenant's Dropbox integration config, or null when not connected. */
 export async function getDropboxConnection(): Promise<DropboxIntegrationConfig | null> {

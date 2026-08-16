@@ -1,16 +1,14 @@
 // Authenticated download of a project document's file (the project "Files" tab).
 // The file lives privately in Storage and is never served from a public URL; this
-// route resolves the `projectDocuments` record, confirms the caller's active org
-// matches the document's org (same trust model as the dashboard's server actions),
-// then streams the object. Files are never regenerated here — the executed PDF is
-// the permanent record copy, produced once at signing time.
+// route resolves the `projectDocuments` record, confirms the VERIFIED caller's
+// active org matches the document's org (same trust model as the dashboard's
+// server actions), then streams the object. Files are never regenerated here —
+// the executed PDF is the permanent record copy, produced once at signing time.
 
 import type { NextRequest } from "next/server";
 
-import { cookies } from "next/headers";
-
-import { ACTIVE_ORG_COOKIE } from "@/lib/org-cookie";
 import type { ProjectDocument } from "@/lib/types";
+import { getActiveOrgId } from "@/server/auth";
 import { getAdminBucket, getAdminDb } from "@/server/firebase-admin";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +22,7 @@ export async function GET(
   // default forces a download (the Files tab's "Download" action).
   const inline = req.nextUrl.searchParams.get("inline") === "1";
 
-  const activeOrgId = (await cookies()).get(ACTIVE_ORG_COOKIE)?.value;
+  const activeOrgId = await getActiveOrgId();
   if (!activeOrgId) return new Response("Unauthorized", { status: 401 });
 
   const snap = await getAdminDb()

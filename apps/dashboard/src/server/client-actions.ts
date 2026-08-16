@@ -1,17 +1,10 @@
 "use server";
 
-import { cookies } from "next/headers";
-
-import { ACTIVE_ORG_COOKIE } from "@/lib/org-cookie";
 import type { Client } from "@/lib/types";
 
+import { getActiveOrgId } from "./auth";
 import { getAdminDb } from "./firebase-admin";
 import { allocateReferenceCode } from "./reference-codes";
-
-async function getActiveOrgId(): Promise<string | null> {
-  const cookieStore = await cookies();
-  return cookieStore.get(ACTIVE_ORG_COOKIE)?.value ?? null;
-}
 
 type CreateClientInput = Omit<
   Client,

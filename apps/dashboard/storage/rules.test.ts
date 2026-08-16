@@ -41,14 +41,18 @@ function anonStorage() {
   return testEnv.unauthenticatedContext().storage();
 }
 
-async function seedUser(uid: string, organizationId: string) {
+async function seedUser(
+  uid: string,
+  organizationId: string,
+  role: "SuperAdmin" | "Admin" | "Contributor" = "Contributor",
+) {
   if (!testEnv) throw new Error("Rules test environment is not initialized.");
   await testEnv.withSecurityRulesDisabled(async (context) => {
     await setDoc(doc(context.firestore(), `users/${uid}`), {
       email: `${uid}@example.com`,
       fullName: uid,
       organizationId,
-      role: "Contributor",
+      role,
       status: "Active",
     });
   });
@@ -140,6 +144,27 @@ describe("storage rules", () => {
         ref(storage, "vendors/org-b/vendor-1/logo.png"),
         SMALL_IMAGE,
         PNG,
+      ),
+    );
+  });
+
+  it("lets SuperAdmins write into any org's paths", async () => {
+    await seedUser("super-a", "org-a", "SuperAdmin");
+    const storage = storageFor("super-a");
+
+    await assertSucceeds(
+      uploadBytes(
+        ref(storage, "library/org-b/item-1/images/img-1.png"),
+        SMALL_IMAGE,
+        PNG,
+      ),
+    );
+    // Upload constraints still apply cross-org.
+    await assertFails(
+      uploadBytes(
+        ref(storage, "library/org-b/item-1/images/file.pdf"),
+        SMALL_IMAGE,
+        { contentType: "application/pdf" },
       ),
     );
   });

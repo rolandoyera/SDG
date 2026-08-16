@@ -73,7 +73,13 @@ function preventPaginationNavigation(event: MouseEvent<HTMLAnchorElement>) {
 }
 
 export default function TenantsPage() {
-  const { uid, role, loading: authLoading } = useAuth();
+  const {
+    uid,
+    role,
+    organizationId: activeOrgId,
+    setActiveOrganization,
+    loading: authLoading,
+  } = useAuth();
   const router = useRouter();
 
   const [orgs, setOrgs] = useState<Organization[]>([]);
@@ -259,14 +265,14 @@ export default function TenantsPage() {
 
         {/* Data Views */}
         {loading ? (
-          <div className="flex min-h-[300px] flex-col items-center justify-center gap-3">
+          <div className="flex min-h-75 flex-col items-center justify-center gap-3">
             <Loader2 className="size-8 animate-spin text-primary" />
             <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
               Loading SaaS Organizations
             </p>
           </div>
         ) : orgs.length === 0 ? (
-          <Card className="flex min-h-[300px] flex-col items-center justify-center border-dashed bg-background/30 p-8 text-center">
+          <Card className="flex min-h-75 flex-col items-center justify-center border-dashed bg-background/30 p-8 text-center">
             <Building2 className="mb-3 size-12 text-muted-foreground/40" />
             <h3 className="font-semibold text-lg">No tenants found</h3>
             <p className="mt-1 max-w-sm text-muted-foreground text-sm">
@@ -274,8 +280,7 @@ export default function TenantsPage() {
             </p>
             <Button
               onClick={() => setIsDialogOpen(true)}
-              className="mt-4 flex items-center gap-2"
-            >
+              className="mt-4 flex items-center gap-2">
               <Plus className="size-4" />
               Create New Tenant
             </Button>
@@ -303,8 +308,7 @@ export default function TenantsPage() {
                   </div>
                   <Button
                     onClick={() => setIsDialogOpen(true)}
-                    className="flex items-center gap-1.5 text-primary-foreground hover:bg-primary/95"
-                  >
+                    className="flex items-center gap-1.5 text-primary-foreground hover:bg-primary/95">
                     <Plus className="size-3.5" />
                     Create Tenant
                   </Button>
@@ -332,8 +336,7 @@ export default function TenantsPage() {
                           <TableCell className="font-semibold text-foreground">
                             <Link
                               href={`/dashboard/tenants/${org.organizationId}`}
-                              className="transition-colors hover:text-primary hover:underline"
-                            >
+                              className="transition-colors hover:text-primary hover:underline">
                               {org.name}
                             </Link>
                           </TableCell>
@@ -350,8 +353,7 @@ export default function TenantsPage() {
                                   : org.plan === "Pro"
                                     ? "info"
                                     : "outline"
-                              }
-                            >
+                              }>
                               {org.plan}
                             </Badge>
                           </TableCell>
@@ -361,8 +363,7 @@ export default function TenantsPage() {
                                 org.status === "Active"
                                   ? "success"
                                   : "destructive"
-                              }
-                            >
+                              }>
                               {org.status}
                             </Badge>
                           </TableCell>
@@ -372,8 +373,7 @@ export default function TenantsPage() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="h-8 w-8 p-0"
-                                >
+                                  className="h-8 w-8 p-0">
                                   <span className="sr-only">Open menu</span>
                                   <ArrowUpDown className="h-4.5 w-4.5 rotate-90 opacity-60" />
                                 </Button>
@@ -384,6 +384,27 @@ export default function TenantsPage() {
                                 </DropdownMenuLabel>
                                 <DropdownMenuSeparator />
 
+                                {/* Switch the session's active org to this tenant */}
+                                <DropdownMenuItem
+                                  disabled={org.organizationId === activeOrgId}
+                                  onClick={() => {
+                                    setActiveOrganization(org.organizationId);
+                                    toast.success(
+                                      `Now working in '${org.name}'.`,
+                                    );
+                                    router.push("/dashboard/home");
+                                  }}
+                                  className="flex cursor-pointer items-center gap-2">
+                                  <Building2 className="size-4 opacity-70" />
+                                  <span>
+                                    {org.organizationId === activeOrgId
+                                      ? "Currently active tenant"
+                                      : "Work in this tenant"}
+                                  </span>
+                                </DropdownMenuItem>
+
+                                <DropdownMenuSeparator />
+
                                 {/* Toggle Status Action */}
                                 <DropdownMenuItem
                                   onClick={() =>
@@ -392,8 +413,7 @@ export default function TenantsPage() {
                                       org.status,
                                     )
                                   }
-                                  className="flex cursor-pointer items-center gap-2"
-                                >
+                                  className="flex cursor-pointer items-center gap-2">
                                   {org.status === "Active" ? (
                                     <>
                                       <UserX className="size-4 text-rose-500 opacity-80" />
@@ -425,8 +445,7 @@ export default function TenantsPage() {
                                       "Starter",
                                     )
                                   }
-                                  className="flex cursor-pointer items-center gap-2"
-                                >
+                                  className="flex cursor-pointer items-center gap-2">
                                   <CreditCard className="size-4 opacity-70" />
                                   <span>Switch to Starter Plan</span>
                                 </DropdownMenuItem>
@@ -435,8 +454,7 @@ export default function TenantsPage() {
                                   onClick={() =>
                                     handleUpdatePlan(org.organizationId, "Pro")
                                   }
-                                  className="flex cursor-pointer items-center gap-2"
-                                >
+                                  className="flex cursor-pointer items-center gap-2">
                                   <CreditCard className="size-4 opacity-70" />
                                   <span>Switch to Pro Plan</span>
                                 </DropdownMenuItem>
@@ -448,8 +466,7 @@ export default function TenantsPage() {
                                       "Enterprise",
                                     )
                                   }
-                                  className="flex cursor-pointer items-center gap-2"
-                                >
+                                  className="flex cursor-pointer items-center gap-2">
                                   <CreditCard className="size-4 opacity-70" />
                                   <span>Switch to Enterprise Plan</span>
                                 </DropdownMenuItem>
@@ -504,8 +521,7 @@ export default function TenantsPage() {
                           onClick={(event) => {
                             preventPaginationNavigation(event);
                             setCurrentPage(pageNumber);
-                          }}
-                        >
+                          }}>
                           {pageNumber}
                         </PaginationLink>
                       </PaginationItem>

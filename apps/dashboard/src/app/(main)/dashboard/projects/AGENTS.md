@@ -136,11 +136,13 @@ Org-wide Dropbox OAuth, following the **Meta integration** pattern exactly (`ser
 
 OAuth flow (`src/app/api/integrations/dropbox/`):
 
-- `login/route.ts` — org from `ACTIVE_ORG_COOKIE`; a `?returnTo=` query (guarded to `/dashboard/...`)
+- `login/route.ts` — org from the verified caller (`getActiveOrgId()` in `src/server/auth.ts`); a
+  `?returnTo=` query (guarded to `/dashboard/...`)
   rides in `state` (base64url `{organizationId, nonce, returnTo}`) so the user lands back on the same
   project's Settings tab. Sets an httpOnly `dropbox_oauth_state` nonce cookie (CSRF), redirects to
   `https://www.dropbox.com/oauth2/authorize` with `token_access_type=offline`.
-- `callback/route.ts` — verifies nonce vs cookie, exchanges the code at
+- `callback/route.ts` — verifies nonce vs cookie AND that the state org matches the verified
+  caller's active org, exchanges the code at
   `https://api.dropboxapi.com/oauth2/token`, fetches the account, stores the connection, and redirects
   to `returnTo` with a `?dropbox=<status>` result param. `project-settings.tsx` toasts that status and
   scrubs the param via `replaceState`.

@@ -1,13 +1,12 @@
 "use server";
 
 import { revalidatePath, unstable_cache } from "next/cache";
-import { cookies } from "next/headers";
 
 import { FieldValue } from "firebase-admin/firestore";
 
-import { ACTIVE_ORG_COOKIE } from "@/lib/org-cookie";
 import type { MetaIntegrationConfig, MetaPendingPage } from "@/types/meta";
 
+import { getActiveOrgId } from "./auth";
 import { getAdminDb } from "./firebase-admin";
 import { getLatestSnapshot, getSnapshotRange } from "./meta-snapshots";
 import {
@@ -102,11 +101,6 @@ function compareMetric(current: number, previous: number): KpiMetric {
     change: `${Math.abs(pct).toFixed(1)}%`,
     isPositive: pct >= 0,
   };
-}
-
-async function getActiveOrgId(): Promise<string | null> {
-  const cookieStore = await cookies();
-  return cookieStore.get(ACTIVE_ORG_COOKIE)?.value ?? null;
 }
 
 async function getActiveInstagramContext(): Promise<

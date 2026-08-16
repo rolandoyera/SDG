@@ -1,28 +1,44 @@
 "use client";
 "use no memo";
 
-import { useState, useTransition } from "react";
+import type * as React from "react";
+import { useMemo, useState, useTransition } from "react";
 
-import type { ColumnDef } from "@tanstack/react-table";
+import type {
+  ColumnDef,
+  ColumnFiltersState,
+  FilterFn,
+} from "@tanstack/react-table";
 import {
   getCoreRowModel,
+  getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { Ban, MoreVertical } from "lucide-react";
+import { Ban, ChevronDownIcon, ListFilter, MoreVertical } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger,
   TooltipDropdownMenu,
 } from "@/components/ui/dropdown-menu";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@/components/ui/input-group";
 import { SortableHeader, TanTable } from "@/components/ui/tan-table";
 import type {
   AdsCampaignRow,
@@ -31,6 +47,8 @@ import type {
   AdsSearchTermRow,
 } from "@/server/google-ads-actions";
 import { excludeSearchTerm } from "@/server/google-ads-actions";
+
+import { TableCard } from "./table-card";
 
 const usd = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -203,20 +221,167 @@ export function AdsCampaignsTable({ data }: { data: AdsCampaignRow[] }) {
 // locally instead, and the server catches up on its own schedule.
 const termKey = (row: AdsSearchTermRow) => `${row.campaignId}~${row.term}`;
 
+/**
+ * Triage state — what you've done about a term, not where it came from. Google's
+ * five-value enum collapses to three: ADDED_EXCLUDED counts as excluded (it's
+ * already negated somewhere), and NONE/UNKNOWN are the ones still to look at.
+ */
+type SearchTermState = "review" | "added" | "excluded";
+
+/** Sort rank, so "Status" groups by triage order instead of alphabetically. */
+const STATE_RANK: Record<SearchTermState, number> = {
+  review: 0,
+  added: 1,
+  excluded: 2,
+};
+
+const STATE_BADGE: Record<
+  SearchTermState,
+  { label: string; variant: React.ComponentProps<typeof Badge>["variant"] }
+> = {
+  review: { label: "Review", variant: "ghost" },
+  added: { label: "Added", variant: "success" },
+  excluded: { label: "Excluded", variant: "destructive" },
+};
+
+/** The row plus its derived triage state, which the Status column sorts on. */
+type SearchTermTriageRow = AdsSearchTermRow & { state: SearchTermState };
+
+/** Which text fields the header search box looks at. */
+type SearchScope = "all" | "term" | "keyword";
+
+const SCOPE_LABELS: Record<SearchScope, string> = {
+  all: "All fields",
+  term: "Search term",
+  keyword: "Matched keyword",
+};
+
+interface SearchValue {
+  query: string;
+  scope: SearchScope;
+}
+
+/**
+ * Scoped text search, hung off the term column. A column filter runs once per
+ * row, where the global filter would re-run for every filterable column and
+ * still need per-column opt-outs to keep the numeric columns out of the match.
+ */
+const searchFilter: FilterFn<SearchTermTriageRow> = (row, _columnId, value) => {
+  const { query, scope } = value as SearchValue;
+  const needle = query.trim().toLowerCase();
+  if (!needle) return true;
+
+  const fields =
+    scope === "term"
+      ? [row.original.term]
+      : scope === "keyword"
+        ? [row.original.keyword]
+        : [row.original.term, row.original.keyword];
+
+  return fields.some((field) => field.toLowerCase().includes(needle));
+};
+
+/** Triage states in rank order — the filter's checkbox list and its "all" count. */
+const SEARCH_TERM_STATES = Object.keys(STATE_RANK) as SearchTermState[];
+
+/** Keeps the checked statuses; the filter value is this set, spread to an array. */
+const statusFilter: FilterFn<SearchTermTriageRow> = (row, _columnId, value) =>
+  (value as SearchTermState[]).includes(row.original.state);
+
+function statusButtonLabel(statuses: Set<SearchTermState>) {
+  if (statuses.size === SEARCH_TERM_STATES.length) return "Status";
+  if (statuses.size === 0) return "No statuses";
+  return SEARCH_TERM_STATES.filter((state) => statuses.has(state))
+    .map((state) => STATE_BADGE[state].label)
+    .join(", ");
+}
+
+function SearchTermsToolbar({
+  query,
+  scope,
+  statuses,
+  onQueryChange,
+  onScopeChange,
+  onStatusToggle,
+}: {
+  query: string;
+  scope: SearchScope;
+  statuses: Set<SearchTermState>;
+  onQueryChange: (query: string) => void;
+  onScopeChange: (scope: SearchScope) => void;
+  onStatusToggle: (state: SearchTermState, checked: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <InputGroup className="min-w-72 bg-background">
+        <InputGroupInput
+          placeholder="Enter search query"
+          aria-label={`Search ${SCOPE_LABELS[scope]}`}
+          value={query}
+          onChange={(event) => onQueryChange(event.target.value)}
+        />
+        <InputGroupAddon align="inline-end">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <InputGroupButton variant="ghost" className="pr-1.5! text-xs">
+                {SCOPE_LABELS[scope]}
+                <ChevronDownIcon className="size-3" />
+              </InputGroupButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              sideOffset={8}
+              alignOffset={-4}
+              className="w-fit"
+            >
+              <DropdownMenuRadioGroup
+                value={scope}
+                onValueChange={(value) => onScopeChange(value as SearchScope)}
+              >
+                {(Object.keys(SCOPE_LABELS) as SearchScope[]).map((option) => (
+                  <DropdownMenuRadioItem key={option} value={option}>
+                    {SCOPE_LABELS[option]}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </InputGroupAddon>
+      </InputGroup>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline">
+            <ListFilter data-icon="inline-start" />
+            {statusButtonLabel(statuses)}
+            <ChevronDownIcon data-icon="inline-end" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-fit">
+          {SEARCH_TERM_STATES.map((state) => (
+            <DropdownMenuCheckboxItem
+              key={state}
+              checked={statuses.has(state)}
+              onCheckedChange={(checked) => onStatusToggle(state, !!checked)}
+              // Multi-select: without this the menu closes on every toggle.
+              onSelect={(event) => event.preventDefault()}
+            >
+              {STATE_BADGE[state].label}
+            </DropdownMenuCheckboxItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
 interface SearchTermsMeta {
-  isExcluded: (row: AdsSearchTermRow) => boolean;
   markExcluded: (row: AdsSearchTermRow) => void;
 }
 
 const searchTermsMeta = (table: {
   options: { meta?: unknown };
 }): SearchTermsMeta => table.options.meta as SearchTermsMeta;
-
-function searchTermStatusBadge(status: string, excluded: boolean) {
-  if (excluded) return <Badge variant="destructive">Excluded</Badge>;
-  if (status === "ADDED") return <Badge variant="success">Added</Badge>;
-  return null;
-}
 
 function SearchTermActions({
   row,
@@ -271,23 +436,33 @@ function SearchTermActions({
   );
 }
 
-const searchTermColumns: ColumnDef<AdsSearchTermRow>[] = [
+const searchTermColumns: ColumnDef<SearchTermTriageRow>[] = [
   {
     accessorKey: "term",
     header: ({ column }) => (
       <SortableHeader column={column}>Search term</SortableHeader>
     ),
-    cell: ({ row, table }) => (
-      <div className="flex items-center gap-2">
-        <span className="font-medium wrap-break-word whitespace-normal">
-          {row.original.term}
-        </span>
-        {searchTermStatusBadge(
-          row.original.status,
-          searchTermsMeta(table).isExcluded(row.original),
-        )}
-      </div>
+    filterFn: searchFilter,
+    cell: ({ row }) => (
+      <span className="font-medium wrap-break-word whitespace-normal">
+        {row.original.term}
+      </span>
     ),
+  },
+  {
+    accessorKey: "state",
+    header: ({ column }) => (
+      <SortableHeader column={column}>Status</SortableHeader>
+    ),
+    // Rank order, not the label's alphabetical order — sorting the column is
+    // the point of it, and "Review" first is the useful direction.
+    sortingFn: (a, b) =>
+      STATE_RANK[a.original.state] - STATE_RANK[b.original.state],
+    filterFn: statusFilter,
+    cell: ({ row }) => {
+      const { label, variant } = STATE_BADGE[row.original.state];
+      return <Badge variant={variant}>{label}</Badge>;
+    },
   },
   {
     accessorKey: "keyword",
@@ -347,7 +522,7 @@ const searchTermColumns: ColumnDef<AdsSearchTermRow>[] = [
       <div className="text-right">
         <SearchTermActions
           row={row.original}
-          excluded={searchTermsMeta(table).isExcluded(row.original)}
+          excluded={row.original.state === "excluded"}
           onExcluded={() => searchTermsMeta(table).markExcluded(row.original)}
         />
       </div>
@@ -357,31 +532,97 @@ const searchTermColumns: ColumnDef<AdsSearchTermRow>[] = [
 
 export function AdsSearchTermsTable({ data }: { data: AdsSearchTermRow[] }) {
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
+  const [query, setQuery] = useState("");
+  const [scope, setScope] = useState<SearchScope>("all");
+  const [statuses, setStatuses] = useState<Set<SearchTermState>>(
+    () => new Set(SEARCH_TERM_STATES),
+  );
+
+  // Derived onto the row so the badge and the Status sort agree — an optimistic
+  // exclusion has to be able to move the row, not just recolor it.
+  const rows = useMemo<SearchTermTriageRow[]>(
+    () =>
+      data.map((row) => ({
+        ...row,
+        state:
+          excluded.has(termKey(row)) ||
+          row.status === "EXCLUDED" ||
+          row.status === "ADDED_EXCLUDED"
+            ? "excluded"
+            : row.status === "ADDED"
+              ? "added"
+              : "review",
+      })),
+    [data, excluded],
+  );
+
+  // The toolbar owns the filters; the table just reads them. Nothing inside the
+  // table sets a column filter, so there's no state to hand back.
+  const columnFilters = useMemo<ColumnFiltersState>(() => {
+    const filters: ColumnFiltersState = [];
+    if (query.trim()) filters.push({ id: "term", value: { query, scope } });
+    // Only when something is unchecked — and an empty set really does mean
+    // "show nothing", which is the honest read of unchecking every status.
+    if (statuses.size < SEARCH_TERM_STATES.length)
+      filters.push({ id: "state", value: [...statuses] });
+    return filters;
+  }, [query, scope, statuses]);
 
   const table = useReactTable({
-    data,
+    data: rows,
     columns: searchTermColumns,
+    state: { columnFilters },
     getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     initialState: { pagination: { pageSize: 10 } },
     meta: {
-      isExcluded: (row: AdsSearchTermRow) =>
-        excluded.has(termKey(row)) ||
-        row.status === "EXCLUDED" ||
-        row.status === "ADDED_EXCLUDED",
       markExcluded: (row: AdsSearchTermRow) =>
         setExcluded((prev) => new Set(prev).add(termKey(row))),
     } satisfies SearchTermsMeta,
   });
 
   return (
-    <TanTable
-      table={table}
-      borderTop={false}
-      pagination
-      emptyMessage="No search term data available for this range."
-    />
+    <TableCard
+      title="Search Terms"
+      action={
+        <SearchTermsToolbar
+          query={query}
+          scope={scope}
+          statuses={statuses}
+          onQueryChange={(value) => {
+            setQuery(value);
+            table.setPageIndex(0);
+          }}
+          onScopeChange={(value) => {
+            setScope(value);
+            table.setPageIndex(0);
+          }}
+          onStatusToggle={(state, checked) => {
+            setStatuses((prev) => {
+              const next = new Set(prev);
+              if (checked) next.add(state);
+              else next.delete(state);
+              return next;
+            });
+            table.setPageIndex(0);
+          }}
+        />
+      }
+    >
+      <TanTable
+        table={table}
+        borderTop={false}
+        pagination
+        noun="search terms"
+        emptyMessage={
+          columnFilters.length
+            ? "No search terms match these filters."
+            : "No search term data available for this range."
+        }
+      />
+    </TableCard>
   );
 }
 

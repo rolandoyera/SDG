@@ -15,11 +15,10 @@ import { createHash, randomUUID } from "node:crypto";
 
 import { FieldValue } from "firebase-admin/firestore";
 
-import { cookies, headers } from "next/headers";
+import { headers } from "next/headers";
 
 import { contractResendEligibility } from "@/lib/contract-resend";
 import { ELECTRONIC_SIGNATURE_CONSENT_TEXT } from "@/lib/contract-text";
-import { ACTIVE_ORG_COOKIE } from "@/lib/org-cookie";
 import { formatVendorPhone, normalizePhone, vendorPhoneTel } from "@/lib/utils";
 import type {
   Client,
@@ -31,6 +30,7 @@ import type {
   PortalAccess,
 } from "@/lib/types";
 
+import { getVerifiedCaller } from "./auth";
 import { sendContractEmail } from "./brevo";
 import { buildContractEmailHtml } from "./contract-email-template";
 import { buildContractSignedEmailHtml } from "./contract-signed-email-template";
@@ -81,11 +81,6 @@ function hashSnapshot(snapshot: LockedContractSnapshot): string {
 
 // ─── Request context ─────────────────────────────────────────────────────────
 
-async function getActiveOrgId(): Promise<string | null> {
-  const cookieStore = await cookies();
-  return cookieStore.get(ACTIVE_ORG_COOKIE)?.value ?? null;
-}
-
 /** Best-effort client IP + user agent from request headers (audit only). */
 async function getRequestClientInfo(): Promise<{
   ipAddress?: string;
@@ -123,14 +118,15 @@ export type SendContractResult =
  */
 export async function sendContractForSignature(input: {
   contractId: string;
-  userId: string;
   snapshot: ContractSnapshot;
 }): Promise<SendContractResult> {
-  const { contractId, userId, snapshot } = input;
+  const { contractId, snapshot } = input;
   const db = getAdminDb();
 
-  const organizationId = await getActiveOrgId();
-  if (!organizationId) return { ok: false, error: "No active organization." };
+  const caller = await getVerifiedCaller();
+  if (!caller) return { ok: false, error: "No active organization." };
+  // Audit stamps carry the VERIFIED caller identity, never a client-supplied uid.
+  const { organizationId, uid: userId } = caller;
 
   const contractRef = db.collection(CONTRACTS_COLLECTION).doc(contractId);
   const contractSnap = await contractRef.get();
@@ -367,13 +363,14 @@ async function mintAndEmailSigningLink(args: {
  */
 export async function resendContractSigningLink(input: {
   contractId: string;
-  userId: string;
 }): Promise<SendContractResult> {
-  const { contractId, userId } = input;
+  const { contractId } = input;
   const db = getAdminDb();
 
-  const organizationId = await getActiveOrgId();
-  if (!organizationId) return { ok: false, error: "No active organization." };
+  const caller = await getVerifiedCaller();
+  if (!caller) return { ok: false, error: "No active organization." };
+  // Audit stamps carry the VERIFIED caller identity, never a client-supplied uid.
+  const { organizationId, uid: userId } = caller;
 
   const contractRef = db.collection(CONTRACTS_COLLECTION).doc(contractId);
   const contractSnap = await contractRef.get();

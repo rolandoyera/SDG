@@ -1,17 +1,16 @@
 // Authenticated Dropbox thumbnail proxy for the project-imagery gallery. Mirrors
-// the project-document download route's trust model: org from the active-org
-// cookie, scoped to the caller's org, streaming bytes with cache headers — the
+// the project-document download route's trust model: org from the VERIFIED
+// caller, scoped to that org, streaming bytes with cache headers — the
 // Dropbox access token never reaches the client. The requested `path` is guarded
 // to the folder actually linked to this set, so no one can traverse the org's
 // wider Dropbox by hand-editing the query.
 
 import type { NextRequest } from "next/server";
 
-import { cookies } from "next/headers";
 import sharp from "sharp";
 
-import { ACTIVE_ORG_COOKIE } from "@/lib/org-cookie";
 import type { Project } from "@/lib/types";
+import { getActiveOrgId } from "@/server/auth";
 import {
   ALPHA_CAPABLE,
   type DropboxThumbnailSize,
@@ -35,7 +34,7 @@ export async function GET(
 
   if (!path) return new Response("Bad request", { status: 400 });
 
-  const activeOrgId = (await cookies()).get(ACTIVE_ORG_COOKIE)?.value;
+  const activeOrgId = await getActiveOrgId();
   if (!activeOrgId) return new Response("Unauthorized", { status: 401 });
 
   const snap = await getAdminDb().collection("projects").doc(projectId).get();

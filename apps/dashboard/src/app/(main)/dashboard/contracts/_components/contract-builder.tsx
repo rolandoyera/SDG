@@ -701,10 +701,10 @@ export function ContractBuilder({
         resolved,
       });
       // Server freezes the version, authorizes the company signature, mints the
-      // signing link, and emails it. The server determines version/hash/recipient.
+      // signing link, and emails it. The server determines version/hash/recipient
+      // and stamps the verified caller as the sender.
       const result = await sendContractForSignature({
         contractId: id,
-        userId: uid,
         snapshot,
       });
       if (!result.ok) {
@@ -746,10 +746,7 @@ export function ContractBuilder({
     if (!contractId || !uid || resending) return;
     setResending(true);
     try {
-      const result = await resendContractSigningLink({
-        contractId,
-        userId: uid,
-      });
+      const result = await resendContractSigningLink({ contractId });
       if (!result.ok) {
         toast.error(result.error);
         return;

@@ -56,7 +56,7 @@ by `uid`):
 
 **Client creation is a server action**, not a `db.ts` write: `createClient` in
 `src/server/client-actions.ts` mints the `clientCode`/`clientNumber` reference code in a transaction
-and resolves the org from the active-org cookie (never trusted from the client). There is no
+and resolves the org from the verified caller (`src/server/auth.ts` — never trusted from the client). There is no
 `addClient` helper anymore (root AGENTS.md rule #5). Only updates/deletes go through `db.ts`.
 
 `clientCode` is what links a client to its projects' display: `createProject` copies the selected

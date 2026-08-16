@@ -13,7 +13,8 @@ import { resendContractSigningLink } from "@/server/contract-signing";
  * contract currently resending (drives the spinner / disabled item); `resend`
  * fires the server action, which re-reads the client so a corrected email takes
  * effect and resets the contract to a fresh `sent` cycle (the realtime listener
- * reflects it). No-ops without a `userId`.
+ * reflects it). No-ops without a signed-in `userId`; the server stamps the
+ * verified caller identity itself.
  */
 export function useResendSigningLink(userId: string | null | undefined) {
   const [resendingId, setResendingId] = useState<string | null>(null);
@@ -22,7 +23,7 @@ export function useResendSigningLink(userId: string | null | undefined) {
     if (!userId) return;
     setResendingId(contractId);
     try {
-      const result = await resendContractSigningLink({ contractId, userId });
+      const result = await resendContractSigningLink({ contractId });
       if (result.ok) {
         toast.success("Signing link resent.");
       } else {

@@ -59,7 +59,7 @@ action** — leads carry no reference code. The **conversion** is the server act
 `convertLeadToClient(lead, convertedBy, actor)` in `src/server/lead-actions.ts` (`"use server"`) runs
 one transaction that: allocates the **client's** reference code, creates a `Client` carrying
 `sourceLeadId = lead.uid`, and stamps the lead `stage: "won"` + `convertedClientId`/`convertedAt`/
-`convertedBy`. Org comes from the active-org cookie. **The lead is never deleted** — it's kept for
+`convertedBy`. Org comes from the verified caller (`src/server/auth.ts`). **The lead is never deleted** — it's kept for
 records, and the detail page disables the Convert button once `convertedClientId` is set. Keep the
 two writes in the same transaction so a half-converted state can't exist.
 

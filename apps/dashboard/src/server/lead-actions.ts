@@ -1,17 +1,10 @@
 "use server";
 
-import { cookies } from "next/headers";
-
-import { ACTIVE_ORG_COOKIE } from "@/lib/org-cookie";
 import type { ActivityActor, Client, Lead } from "@/lib/types";
 
+import { getActiveOrgId } from "./auth";
 import { getAdminDb } from "./firebase-admin";
 import { allocateReferenceCode } from "./reference-codes";
-
-async function getActiveOrgId(): Promise<string | null> {
-  const cookieStore = await cookies();
-  return cookieStore.get(ACTIVE_ORG_COOKIE)?.value ?? null;
-}
 
 /**
  * Convert a lead into a new client server-side, in one transaction: allocate the

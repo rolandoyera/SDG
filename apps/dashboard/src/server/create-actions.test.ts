@@ -2,13 +2,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ActivityActor, ContractDraftInput, Lead } from "@/lib/types";
 
-const activeOrgCookie = { value: "org-1" };
-
-function mockCookies(value: { value: string } | null = activeOrgCookie) {
-  vi.doMock("next/headers", () => ({
-    cookies: vi.fn(async () => ({
-      get: vi.fn(() => value),
-    })),
+/** Mocks the verified-caller module (the real one verifies a Firebase ID token). */
+function mockActiveOrg(orgId: string | null = "org-1") {
+  vi.doMock("./auth", () => ({
+    getActiveOrgId: vi.fn(async () => orgId),
+    getVerifiedCaller: vi.fn(async () =>
+      orgId
+        ? {
+            uid: "user-1",
+            role: "Admin",
+            homeOrganizationId: orgId,
+            organizationId: orgId,
+          }
+        : null,
+    ),
   }));
 }
 
@@ -53,7 +60,7 @@ describe("create server actions", () => {
   });
 
   it("creates clients in the active org with a server-allocated reference code", async () => {
-    mockCookies();
+    mockActiveOrg();
     const { allocateReferenceCode } = mockReferenceCode("SDG-CLI-0001", 1);
     const { tx } = mockAdminDb();
     vi.spyOn(Math, "random").mockReturnValue(0.123456789);
@@ -87,7 +94,7 @@ describe("create server actions", () => {
   });
 
   it("creates projects with active-org ownership and copied client code", async () => {
-    mockCookies();
+    mockActiveOrg();
     const { allocateReferenceCode } = mockReferenceCode("SDG-PRO-0001", 1);
     const { tx } = mockAdminDb();
     vi.spyOn(Math, "random").mockReturnValue(0.123456789);
@@ -125,7 +132,7 @@ describe("create server actions", () => {
   });
 
   it("creates draft contracts with active-org ownership and server lifecycle fields", async () => {
-    mockCookies();
+    mockActiveOrg();
     const { allocateReferenceCode } = mockReferenceCode("SDG-CN-0001", 1);
     const { tx } = mockAdminDb();
     const draft: ContractDraftInput = {
@@ -167,7 +174,7 @@ describe("create server actions", () => {
   });
 
   it("converts leads into clients and marks the lead won in one transaction", async () => {
-    mockCookies();
+    mockActiveOrg();
     mockReferenceCode("SDG-CLI-0002", 2);
     const { tx } = mockAdminDb();
     vi.spyOn(Math, "random").mockReturnValue(0.123456789);
@@ -213,7 +220,7 @@ describe("create server actions", () => {
   });
 
   it("rejects client creation without an active organization", async () => {
-    mockCookies(null);
+    mockActiveOrg(null);
     mockReferenceCode("SDG-CLI-0001", 1);
     mockAdminDb();
 
@@ -231,7 +238,7 @@ describe("create server actions", () => {
   });
 
   it("rejects project creation without an active organization", async () => {
-    mockCookies(null);
+    mockActiveOrg(null);
     mockReferenceCode("SDG-PRO-0001", 1);
     mockAdminDb();
 
@@ -249,7 +256,7 @@ describe("create server actions", () => {
   });
 
   it("rejects draft contract creation without an active organization", async () => {
-    mockCookies(null);
+    mockActiveOrg(null);
     mockReferenceCode("SDG-CN-0001", 1);
     mockAdminDb();
 
@@ -271,7 +278,7 @@ describe("create server actions", () => {
   });
 
   it("rejects lead conversion without an active organization", async () => {
-    mockCookies(null);
+    mockActiveOrg(null);
     mockReferenceCode("SDG-CLI-0002", 2);
     mockAdminDb();
     const actor: ActivityActor = { type: "user", id: "user-1", name: "User" };

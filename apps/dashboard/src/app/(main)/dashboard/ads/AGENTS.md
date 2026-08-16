@@ -29,10 +29,11 @@ update this file in the same change.** A stale AGENTS.md is worse than none.
 ## Tenant isolation — non-negotiable
 
 Same model as Analytics: the customer ID is resolved **server-side only** from
-the `ACTIVE_ORG_COOKIE` via `getActiveOrgConfig()` → `config.googleAdsCustomerId`
-(set on the Tenants page; dashes allowed, digits are extracted). With an active
-org there is **no env fallback**; `GOOGLE_ADS_CUSTOMER_ID` applies only when no
-org cookie exists. Never accept a customer ID from the client.
+the VERIFIED caller's active org (`getActiveOrgId()` in `src/server/auth.ts`)
+via `getActiveOrgConfig()` → `config.googleAdsCustomerId` (set on the Tenants
+page; dashes allowed, digits are extracted). With an active org there is **no
+env fallback**; `GOOGLE_ADS_CUSTOMER_ID` applies only when the request carries
+no valid session. Never accept a customer ID from the client.
 
 ## Rules that are easy to break
 
@@ -78,13 +79,50 @@ org cookie exists. Never accept a customer ID from the client.
   list — don't reintroduce campaign-level negatives there), falling back to a
   campaign-level negative only when no list is linked. The campaign id comes
   from the row, but the customer is still cookie-resolved server-side, so a
-  spoofed campaign id can't cross tenants. On success the row's badge flips
-  to Excluded **optimistically** (table `meta` state) — deliberately no
-  `router.refresh()`: `search_term_view` lags the mutate by hours, so a
-  refetch shows nothing new AND resets TanStack pagination (losing the user's
-  place on page N). The server data catches up on its own. Payload shape was
-  verified with `validateOnly: true` before shipping; do the same for any new
-  mutate.
+  spoofed campaign id can't cross tenants. On success the row flips to
+  Excluded **optimistically** — deliberately no `router.refresh()`:
+  `search_term_view` lags the mutate by hours, so a refetch shows nothing new
+  AND resets TanStack pagination (losing the user's place on page N). The
+  server data catches up on its own. Payload shape was verified with
+  `validateOnly: true` before shipping; do the same for any new mutate.
+- **Search Terms triage: state is derived onto the row, not read from `meta`.**
+  Google's five-value `search_term_view.status` collapses to three
+  (`SearchTermState`): `ADDED` → Added, `EXCLUDED`/`ADDED_EXCLUDED` → Excluded,
+  `NONE`/`UNKNOWN` → **Review** (the ones you haven't acted on — the actionable
+  bucket, and most of the table). The optimistic-exclusion `Set` feeds a
+  `useMemo` that stamps `state` on each row _before_ the table sees it, because
+  a sortable Status column has to be able to **move** an excluded row, not just
+  recolor it — a `meta` lookup can't reach TanStack's sorting or filtering.
+  Sorting uses `STATE_RANK` (Review first), not the labels' alphabetical order;
+  TanStack's stable sort keeps the server's cost-descending order inside each
+  group, so the expensive Review terms surface first.
+- **Search Terms owns its own card; the other three sections don't.** Its
+  header toolbar needs the table instance, so `AdsSearchTermsTable` renders
+  `TableCard` itself (`table-card.tsx` is a separate file so the server
+  sections and this client component can both import it). The section only
+  wraps the error state.
+- **The Search Terms toolbar drives `columnFilters` one-way.** `query`/`scope`/
+  `status` are plain `useState` in `AdsSearchTermsTable`; a `useMemo` builds the
+  `ColumnFiltersState` the table reads. There is **no `onColumnFiltersChange`**
+  and there shouldn't be one unless something inside the table starts setting
+  filters — and if that happens, the toolbar state has to become the derived
+  side, not both. Because the table never calls `setColumnFilters`, TanStack's
+  `autoResetPageIndex` can't fire, so every toolbar handler calls
+  `table.setPageIndex(0)` itself; drop that and a filter applied on page 12
+  lands you on an empty page.
+  - Scoped search is a **column filter on `term`** that reads two fields — its
+    value carries `{ query, scope }`. A global filter would re-run per
+    filterable column and still need per-column opt-outs to keep the numeric
+    columns out of the match.
+  - The status filter is **multi-select checkboxes**, not a radio — the point
+    is excluding a status (usually hiding Excluded), which single-select can't
+    express. State is a `Set<SearchTermState>`; the filter value is that set
+    spread to an array and matched with a custom `statusFilter` fn. It is
+    pushed **only when something is unchecked**, so the all-checked default
+    costs no filter pass. Unchecking everything empties the table on purpose —
+    that's the literal reading, and the toolbar is right there to undo it.
+  - `DropdownMenuCheckboxItem` needs `onSelect={(e) => e.preventDefault()}` or
+    Radix closes the menu on every toggle (same as `project-items.tsx`).
 
 ## Not built yet (deliberately)
 

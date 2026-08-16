@@ -4,12 +4,14 @@ import { randomBytes } from "node:crypto";
 
 import { type NextRequest, NextResponse } from "next/server";
 
-import { ACTIVE_ORG_COOKIE } from "@/lib/org-cookie";
+import { getActiveOrgId } from "@/server/auth";
 
 export const META_OAUTH_STATE_COOKIE = "meta_oauth_state";
 
 export async function GET(req: NextRequest) {
-  const organizationId = req.cookies.get(ACTIVE_ORG_COOKIE)?.value;
+  // Verified caller's active org — an unauthenticated or forged request never
+  // reaches another tenant's integration slot.
+  const organizationId = await getActiveOrgId();
 
   // The callback writes to organizations/{orgId}; without a tenant we can't
   // know where to store the connection, so bail before leaving the app.

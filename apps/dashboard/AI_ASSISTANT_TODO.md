@@ -11,7 +11,7 @@ as-is.
 
 ## Decision: agent loop, not MCP
 
-MCP is a protocol for letting *external* AI clients (Claude Desktop, claude.ai) reach
+MCP is a protocol for letting _external_ AI clients (Claude Desktop, claude.ai) reach
 our data. For a chat panel inside our own UI we control both ends, so MCP would only
 add latency and an extra auth story. What we need is a **server-side agent loop with
 tool calling**: send message + tool definitions → model requests a tool → execute it →
@@ -26,7 +26,7 @@ to reach the CRM. The two are not mutually exclusive.
 
 - **Chat panel** — client component (drawer/sheet) on client, project, and contract
   pages, seeded with the entity being viewed ("discussing: Project ABC-123").
-- **Streaming route handler** (`src/app/api/...`), *not* a server action — server
+- **Streaming route handler** (`src/app/api/...`), _not_ a server action — server
   actions don't stream. The route runs the agent loop and streams text to the panel.
 - **Tools are plain functions** wrapping firebase-admin queries, following the same
   rules the existing server actions follow: org derived from `ACTIVE_ORG_COOKIE`,
@@ -61,7 +61,7 @@ matching prefix must clear a floor (**4,096 tokens for Gemini 3.x Flash models**
 - **Volatile data via tool results**, which naturally append at the end and leave the
   prefix intact.
 - Conversation history + tool round-trips resend the whole context, so the cached
-  share *grows* as a conversation runs — this is where the discount compounds.
+  share _grows_ as a conversation runs — this is where the discount compounds.
 - Caveat: cache hits are per-model, so the 429/503 fallback model starts cold.
 - The existing scraper prompts do **not** qualify (unique URL + page content sits
   ahead of the static instructions, and the static block is under the 4k floor

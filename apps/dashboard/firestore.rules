@@ -7,7 +7,10 @@ rules_version = '2';
 // Model: every signed-in user has a profile at users/{uid} carrying
 // organizationId and role (SuperAdmin | Admin | Contributor). Data documents
 // carry an organizationId field and are only visible inside that org.
-// The firebase-admin SDK (server actions) bypasses these rules entirely.
+// SuperAdmins are platform operators: they may read/write ANY org's data (the
+// dashboard lets them switch their active org), but may never move a document
+// between orgs. The firebase-admin SDK (server actions) bypasses these rules
+// entirely; server-side the org comes from the verified caller (src/server/auth.ts).
 
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -43,18 +46,24 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/clients/$(clientId)).data.organizationId;
     }
 
-    // Shared shape for org-partitioned data collections.
+    // Shared shape for org-partitioned data collections. SuperAdmins operate
+    // across ALL orgs (platform operators working inside a tenant); everyone
+    // else is confined to their own org.
+    function inOrg(orgId) {
+      return isSignedIn() && (orgId == userOrg() || isSuperAdmin());
+    }
+
     function readsOwnOrg() {
-      return isSignedIn() && resource.data.organizationId == userOrg();
+      return inOrg(resource.data.organizationId);
     }
 
     function createsInOwnOrg() {
-      return isSignedIn() && request.resource.data.organizationId == userOrg();
+      return inOrg(request.resource.data.organizationId);
     }
 
+    // Updates may never move a document between orgs — not even a SuperAdmin's.
     function updatesInOwnOrg() {
-      return isSignedIn()
-        && resource.data.organizationId == userOrg()
+      return inOrg(resource.data.organizationId)
         && request.resource.data.organizationId == resource.data.organizationId;
     }
 
@@ -76,14 +85,12 @@ service cloud.firestore {
     // organizationId), so unfiltered list queries under this path are allowed —
     // a per-doc org check would make Firestore reject the list.
     match /clients/{clientId}/notes/{noteId} {
-      allow read: if isSignedIn() && clientOrg(clientId) == userOrg();
-      allow create: if isSignedIn()
-        && clientOrg(clientId) == userOrg()
-        && request.resource.data.organizationId == userOrg()
+      allow read: if inOrg(clientOrg(clientId));
+      allow create: if inOrg(clientOrg(clientId))
+        && request.resource.data.organizationId == clientOrg(clientId)
         && request.resource.data.createdBy.id == request.auth.uid
         && !('deletedAt' in request.resource.data);
-      allow update: if isSignedIn()
-        && clientOrg(clientId) == userOrg()
+      allow update: if inOrg(clientOrg(clientId))
         && resource.data.createdBy.id == request.auth.uid
         && !('deletedAt' in resource.data)
         && request.resource.data.diff(resource.data).affectedKeys()
@@ -155,18 +162,15 @@ service cloud.firestore {
     // allowed. The author may edit the body (body/updatedAt/updatedBy only) and
     // hard-delete their own note. Org is the parent project's, not the doc's own.
     match /projects/{projectId}/notes/{noteId} {
-      allow read: if isSignedIn() && projectOrg(projectId) == userOrg();
-      allow create: if isSignedIn()
-        && projectOrg(projectId) == userOrg()
-        && request.resource.data.organizationId == userOrg()
+      allow read: if inOrg(projectOrg(projectId));
+      allow create: if inOrg(projectOrg(projectId))
+        && request.resource.data.organizationId == projectOrg(projectId)
         && request.resource.data.createdBy.id == request.auth.uid;
-      allow update: if isSignedIn()
-        && projectOrg(projectId) == userOrg()
+      allow update: if inOrg(projectOrg(projectId))
         && resource.data.createdBy.id == request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['body', 'updatedAt', 'updatedBy']);
-      allow delete: if isSignedIn()
-        && projectOrg(projectId) == userOrg()
+      allow delete: if inOrg(projectOrg(projectId))
         && resource.data.createdBy.id == request.auth.uid;
     }
 
@@ -259,16 +263,15 @@ service cloud.firestore {
     // Rooms have no organizationId field; their org is the parent project's.
     // Queries must filter on projectId (the app always does).
     match /projectRooms/{id} {
-      allow read, update, delete: if isSignedIn() && projectOrg(resource.data.projectId) == userOrg();
-      allow create: if isSignedIn() && projectOrg(request.resource.data.projectId) == userOrg();
+      allow read, update, delete: if inOrg(projectOrg(resource.data.projectId));
+      allow create: if inOrg(projectOrg(request.resource.data.projectId));
     }
 
     // Items are also queried by projectId, so the parent project drives access here too.
     match /projectRoomItems/{id} {
-      allow read, update, delete: if isSignedIn() && projectOrg(resource.data.projectId) == userOrg();
-      allow create: if isSignedIn()
-        && projectOrg(request.resource.data.projectId) == userOrg()
-        && request.resource.data.organizationId == userOrg();
+      allow read, update, delete: if inOrg(projectOrg(resource.data.projectId));
+      allow create: if inOrg(projectOrg(request.resource.data.projectId))
+        && request.resource.data.organizationId == projectOrg(request.resource.data.projectId);
     }
 
     match /users/{userId} {

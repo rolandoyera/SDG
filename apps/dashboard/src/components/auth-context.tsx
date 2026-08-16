@@ -11,12 +11,17 @@ import {
 
 import {
   signOut as firebaseSignOut,
-  onAuthStateChanged,
+  onIdTokenChanged,
   type User,
 } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
 
-import { deleteClientCookie, setClientCookie } from "@/lib/cookie.client";
+import { AUTH_TOKEN_COOKIE } from "@/lib/auth-cookie";
+import {
+  deleteClientCookie,
+  getClientCookie,
+  setClientCookie,
+} from "@/lib/cookie.client";
 import { auth, db } from "@/lib/firebase";
 import { ACTIVE_ORG_COOKIE } from "@/lib/org-cookie";
 import type { UserProfile } from "@/lib/types";
@@ -29,12 +34,21 @@ interface AuthContextType {
    * arrays: unlike the `profile` object (whose identity changes on every profile
    * onSnapshot/lastActive update), these only change when their value changes, so
    * an effect keyed on `organizationId` won't refetch on each heartbeat.
+   *
+   * `organizationId` is the ACTIVE org for this session — the profile's own org
+   * for Admins/Contributors, or the selected org for a SuperAdmin working in
+   * another tenant.
    */
   organizationId: string | null;
   uid: string | null;
   role: UserProfile["role"] | null;
   loading: boolean;
   signOut: () => Promise<void>;
+  /**
+   * SuperAdmin-only: switch the org this session operates on. The server
+   * re-validates the role on every request, so for anyone else this is a no-op.
+   */
+  setActiveOrganization: (organizationId: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -42,12 +56,30 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [activeOrgId, setActiveOrgId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let unsubscribeProfile: (() => void) | null = null;
+    // undefined = "no callback yet", so the first fire (even a signed-out null)
+    // always falls through to the state updates below.
+    let currentUid: string | null | undefined;
 
-    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+    const unsubscribeAuth = onIdTokenChanged(auth, async (firebaseUser) => {
+      // Mirror the ID token into a cookie so server actions and API routes can
+      // verify the caller with firebase-admin. onIdTokenChanged also fires on
+      // the SDK's hourly token refresh, keeping the cookie fresh.
+      if (firebaseUser) {
+        setClientCookie(AUTH_TOKEN_COOKIE, await firebaseUser.getIdToken(), 30);
+      } else {
+        deleteClientCookie(AUTH_TOKEN_COOKIE);
+      }
+
+      // Token refreshes re-fire this callback for the same user; only rebuild
+      // the profile listener when the signed-in uid actually changes.
+      if ((firebaseUser?.uid ?? null) === currentUid) return;
+      currentUid = firebaseUser?.uid ?? null;
+
       setUser(firebaseUser);
 
       // Clean up previous profile listener if any
@@ -64,12 +96,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           (snapshot) => {
             const data = snapshot.data();
             if (snapshot.exists() && data?.organizationId) {
+              const role: UserProfile["role"] = data.role || "Contributor";
               setProfile({
                 uid: firebaseUser.uid,
                 fullName: data.fullName || "User",
                 displayName: data.displayName,
                 email: data.email || firebaseUser.email || "",
-                role: data.role || "Contributor",
+                role,
                 organizationId: data.organizationId,
                 status: data.status || "Active",
                 joinedDate: data.joinedDate || "",
@@ -77,7 +110,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 location: data.location,
                 phone: data.phone,
               });
-              setClientCookie(ACTIVE_ORG_COOKIE, data.organizationId, 30);
+              // SuperAdmins may keep a previously selected org across reloads;
+              // everyone else is pinned to their profile org. The server
+              // re-validates the role either way, so a tampered cookie can't
+              // grant a non-SuperAdmin another tenant.
+              const rawOverride =
+                role === "SuperAdmin"
+                  ? getClientCookie(ACTIVE_ORG_COOKIE)
+                  : null;
+              const nextActiveOrg = rawOverride
+                ? rawOverride
+                : data.organizationId;
+              setActiveOrgId(nextActiveOrg);
+              setClientCookie(ACTIVE_ORG_COOKIE, nextActiveOrg, 30);
               setLoading(false);
               return;
             }
@@ -97,6 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               );
             }
             setProfile(null);
+            setActiveOrgId(null);
             deleteClientCookie(ACTIVE_ORG_COOKIE);
             setLoading(false);
           },
@@ -111,6 +157,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         );
       } else {
         setProfile(null);
+        setActiveOrgId(null);
         deleteClientCookie(ACTIVE_ORG_COOKIE);
         setLoading(false);
       }
@@ -133,16 +180,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const isSuperAdmin = profile?.role === "SuperAdmin";
+  const setActiveOrganization = useCallback(
+    (organizationId: string) => {
+      if (!isSuperAdmin || !organizationId) return;
+      setClientCookie(ACTIVE_ORG_COOKIE, organizationId, 30);
+      setActiveOrgId(organizationId);
+    },
+    [isSuperAdmin],
+  );
+
   return (
     <AuthContext.Provider
       value={{
         user,
         profile,
-        organizationId: profile?.organizationId ?? null,
+        organizationId: activeOrgId ?? profile?.organizationId ?? null,
         uid: profile?.uid ?? null,
         role: profile?.role ?? null,
         loading,
         signOut: handleSignOut,
+        setActiveOrganization,
       }}
     >
       {children}

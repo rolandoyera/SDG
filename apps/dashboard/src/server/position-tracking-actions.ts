@@ -1,9 +1,6 @@
 "use server";
 
-import { cookies } from "next/headers";
-
-import { ACTIVE_ORG_COOKIE } from "@/lib/org-cookie";
-
+import { getActiveOrgId } from "./auth";
 import { getAdminDb } from "./firebase-admin";
 import { getActiveOrgCompanyAddress, getActiveOrgWebsite } from "./org-config";
 import {
@@ -46,11 +43,6 @@ interface TrackingResult<T> {
 
 function getErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback;
-}
-
-async function getActiveOrgId(): Promise<string | null> {
-  const cookieStore = await cookies();
-  return cookieStore.get(ACTIVE_ORG_COOKIE)?.value ?? null;
 }
 
 async function readTrackedKeywords(

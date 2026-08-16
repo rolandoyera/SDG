@@ -58,10 +58,18 @@ export const APP_CONFIG = {
     "studio.sarviandg.com": sarvianBrand,
     "app.sarviandg.local": sarvianBrand,
   },
+  // White-label domains are tenant-exclusive: only members of the mapped org
+  // (and SuperAdmins) may sign in there. Hosts not listed (the default Lenis
+  // domain, localhost) accept members of any org.
+  hostOrgs: {
+    "studio.sarviandg.com": "org-sarvian",
+    "app.sarviandg.local": "org-sarvian",
+  },
 } satisfies {
   version: string;
   brand: AppBrand;
   hostBrands: Record<string, AppBrand>;
+  hostOrgs: Record<string, string>;
 };
 
 export function resolveAppBrand(host?: string | null): AppBrand {
@@ -73,4 +81,11 @@ export function resolveAppBrand(host?: string | null): AppBrand {
   }
 
   return APP_CONFIG.brand;
+}
+
+/** The org a white-label host is reserved for, or null when the host is open. */
+export function resolveHostOrg(host?: string | null): string | null {
+  const normalizedHost = host?.split(":")[0]?.toLowerCase();
+  const hostOrgs: Record<string, string> = APP_CONFIG.hostOrgs;
+  return (normalizedHost && hostOrgs[normalizedHost]) || null;
 }

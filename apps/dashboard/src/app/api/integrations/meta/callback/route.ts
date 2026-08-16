@@ -2,6 +2,7 @@
 
 import { type NextRequest, NextResponse } from "next/server";
 
+import { getActiveOrgId } from "@/server/auth";
 import { getAdminDb } from "@/server/firebase-admin";
 import {
   exchangeForLongLivedToken,
@@ -52,6 +53,13 @@ export async function GET(req: NextRequest) {
   }
 
   const { organizationId } = state;
+
+  // The nonce only proves the same browser started the flow — it says nothing
+  // about which tenant this caller may write to. Re-verify the caller and
+  // require the state's org to be their active org.
+  if ((await getActiveOrgId()) !== organizationId) {
+    return redirect(req, "/dashboard/instagram?meta=state_error");
+  }
 
   // Exchange the code for a short-lived user token.
   const tokenRes = await fetch(

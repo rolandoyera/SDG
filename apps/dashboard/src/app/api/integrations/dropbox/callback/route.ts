@@ -2,6 +2,7 @@
 
 import { type NextRequest, NextResponse } from "next/server";
 
+import { getActiveOrgId } from "@/server/auth";
 import { fetchDropboxAccount, storeDropboxConnection } from "@/server/dropbox";
 
 import { DROPBOX_OAUTH_STATE_COOKIE } from "../login/route";
@@ -66,6 +67,13 @@ export async function GET(req: NextRequest) {
   }
 
   const { organizationId } = state;
+
+  // The nonce only proves the same browser started the flow — it says nothing
+  // about which tenant this caller may write to. Re-verify the caller and
+  // require the state's org to be their active org.
+  if ((await getActiveOrgId()) !== organizationId) {
+    return redirect(req, returnTo, "state_error");
+  }
 
   // Exchange the authorization code for access + refresh tokens.
   const tokenRes = await fetch("https://api.dropboxapi.com/oauth2/token", {

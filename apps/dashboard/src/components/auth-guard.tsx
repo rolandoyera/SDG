@@ -8,12 +8,13 @@ import { format } from "date-fns";
 import { deleteDoc, doc, getDoc, setDoc } from "firebase/firestore";
 import { toast } from "sonner";
 
+import { resolveHostOrg } from "@/config/app-config";
 import { db } from "@/lib/firebase";
 
 import { useAuth } from "./auth-context";
 
 export function AuthGuard({ children }: { children: ReactNode }) {
-  const { user, loading, signOut } = useAuth();
+  const { user, profile, role, loading, signOut } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -38,6 +39,20 @@ export function AuthGuard({ children }: { children: ReactNode }) {
       router.push("/dashboard");
     }
   }, [user, loading, isAuthRoute, isInviteRoute, router]);
+
+  // White-label domains are tenant-exclusive: members of other orgs get signed
+  // out (SuperAdmins may enter any tenant). This is a UX gate — real isolation
+  // lives in the server's verified-caller org resolution and Firestore rules,
+  // which never depend on the domain.
+  const profileOrgId = profile?.organizationId ?? null;
+  useEffect(() => {
+    if (loading || !profileOrgId || role === "SuperAdmin") return;
+    const hostOrg = resolveHostOrg(window.location.host);
+    if (hostOrg && hostOrg !== profileOrgId) {
+      toast.error("Your account doesn't have access to this workspace.");
+      void signOut();
+    }
+  }, [loading, profileOrgId, role, signOut]);
 
   // Convert invites and create profiles if they do not exist yet
   useEffect(() => {

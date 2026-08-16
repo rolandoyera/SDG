@@ -1,11 +1,8 @@
 "use server";
 
-import { cookies } from "next/headers";
-
 import * as cheerio from "cheerio";
 
-import { ACTIVE_ORG_COOKIE } from "@/lib/org-cookie";
-
+import { getActiveOrgId } from "./auth";
 import { getAdminDb } from "./firebase-admin";
 import {
   getActiveOrgCompanyName,
@@ -1105,8 +1102,7 @@ export async function fetchCompetitors(): Promise<SeoResult<SeoCompetitor[]>> {
 export async function saveCompetitors(
   competitors: SeoCompetitor[],
 ): Promise<SeoResult<SeoCompetitor[]>> {
-  const cookieStore = await cookies();
-  const organizationId = cookieStore.get(ACTIVE_ORG_COOKIE)?.value;
+  const organizationId = await getActiveOrgId();
   if (!organizationId) {
     return { success: false, error: "No active organization." };
   }

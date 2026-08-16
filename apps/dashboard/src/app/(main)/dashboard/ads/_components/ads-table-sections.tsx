@@ -1,13 +1,3 @@
-import { Ellipsis } from "lucide-react";
-import type { ReactNode } from "react";
-
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   fetchAdsCampaigns,
   fetchAdsKeywords,
@@ -22,28 +12,7 @@ import {
   AdsLocationsTable,
   AdsSearchTermsTable,
 } from "./ads-tables";
-
-function TableCard({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <Card className="gap-2 pt-0 pb-0">
-      <CardHeader className="bg-muted/50 py-3">
-        <CardTitle>{title}</CardTitle>
-        <CardAction>
-          <Ellipsis className="size-4" />
-        </CardAction>
-      </CardHeader>
-      <CardContent className="flex flex-1 flex-col px-0 pt-0">
-        {children}
-      </CardContent>
-    </Card>
-  );
-}
+import { TableCard } from "./table-card";
 
 export async function AdsCampaignsSection({ range }: { range?: string }) {
   const result = await fetchAdsCampaigns(range);
@@ -64,19 +33,21 @@ export async function AdsCampaignsSection({ range }: { range?: string }) {
 
 export async function AdsSearchTermsSection({ range }: { range?: string }) {
   const result = await fetchAdsSearchTerms(range);
-  return (
-    <TableCard title="Search Terms">
-      {!result.success ? (
+
+  // The only section that doesn't own its card: the header search box needs the
+  // table instance, so the table component renders the whole card itself.
+  if (!result.success)
+    return (
+      <TableCard title="Search Terms">
         <AnalyticsSetupRequired
           error={result.error}
           title="Search Terms Error"
           className="min-h-32"
         />
-      ) : (
-        <AdsSearchTermsTable data={result.data} />
-      )}
-    </TableCard>
-  );
+      </TableCard>
+    );
+
+  return <AdsSearchTermsTable data={result.data} />;
 }
 
 export async function AdsKeywordsSection({ range }: { range?: string }) {

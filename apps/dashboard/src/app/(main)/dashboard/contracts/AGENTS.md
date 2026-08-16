@@ -158,8 +158,8 @@ Hard rules that bit us / are easy to break:
   `src/server/contract-actions.ts` (`"use server"`, admin SDK) mints the id, allocates a
   `contractCode`/`contractNumber` from the `organizations/{orgId}/counters/contractCodes` sequence in
   a transaction, and writes the draft once. The old client-side `addContract` in `db.ts` is gone. Org
-  comes from the active-org cookie; `userId` is passed by the builder. Reference codes are internal
-  labels — they never replace `contractId`.
+  comes from the verified caller (`src/server/auth.ts`); `userId` is passed by the builder. Reference
+  codes are internal labels — they never replace `contractId`.
 - **`getContracts` sorts in memory** by `updatedAt` desc — no Firestore `orderBy` (avoids a
   composite index), matching clients/projects.
 - **Sending now runs server-side**, not via the client `db.ts`. The builder's Send button opens a
@@ -224,8 +224,9 @@ the contract mirror the **current** link so the list and resend don't have to re
 - **Resend eligibility is single-sourced.** `contractResendEligibility` / `canResendContract` in
   `@/lib/contract-resend` is the one definition of "can this contract's link be resent?" — imported by
   the server guard below (for its reject message) **and** every UI affordance, so they can't drift.
-  Org ownership stays a server-only check (needs the active-org cookie).
-- **Resend:** `resendContractSigningLink({ contractId, userId })` (server action, admin SDK). Allowed
+  Org ownership stays a server-only check (verified caller's active org).
+- **Resend:** `resendContractSigningLink({ contractId })` (server action, admin SDK; the acting user
+  is the verified caller — never passed from the client). Allowed
   only for a locked, **unsigned, non-voided** contract — gated by `contractResendEligibility`. It revokes the
   old `portalAccess` (`status:"revoked"`, `revokedAt`, `revokedReason:"replaced_by_resend"` + a
   `portal_access_revoked` audit event), mints + emails a fresh link via the shared
@@ -405,7 +406,7 @@ company's signature authorization — there is no separate approval step. Server
     **token-gated** `portal/[accessToken]/contract/[contractId]/download` (re-validates access; reads
     `executedFilePath ?? finalPdfPath`; regenerates on demand only if missing — for legacy contracts),
     and the dashboard's **org-gated** `api/project-documents/[documentId]/download` (resolves the
-    `projectDocuments` record, checks the `ACTIVE_ORG_COOKIE` org matches, streams; **never**
+    `projectDocuments` record, checks the verified caller's active org matches, streams; **never**
     regenerates). That route defaults to `Content-Disposition: attachment` (the Files tab "Download");
     pass **`?inline=1`** to stream it inline instead — the contracts list's "View signed PDF" action
     opens executed contracts that way in a new tab.

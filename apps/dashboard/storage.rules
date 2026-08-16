@@ -30,6 +30,16 @@ service firebase.storage {
       return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.organizationId;
     }
 
+    // SuperAdmins are platform operators and may write into any org's paths
+    // (mirrors the cross-org access in firestore.rules).
+    function isSuperAdmin() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'SuperAdmin';
+    }
+
+    function inOrg(orgId) {
+      return orgId == userOrg() || isSuperAdmin();
+    }
+
     // request.resource is null on delete (always allowed for signed-in users);
     // on create/update it must be an image under the size cap.
     function validUpload() {
@@ -42,19 +52,19 @@ service firebase.storage {
     // Company page. The orgId in the path must match the uploader's own org.
     match /organizations/{orgId}/branding/{allPaths=**} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn() && orgId == userOrg() && validUpload();
+      allow write: if isSignedIn() && inOrg(orgId) && validUpload();
     }
 
     // Org-scoped library/vendor image paths. The orgId in the path must match the
     // uploader's own org.
     match /library/{orgId}/{allPaths=**} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn() && orgId == userOrg() && validUpload();
+      allow write: if isSignedIn() && inOrg(orgId) && validUpload();
     }
 
     match /vendors/{orgId}/{allPaths=**} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn() && orgId == userOrg() && validUpload();
+      allow write: if isSignedIn() && inOrg(orgId) && validUpload();
     }
 
     // Everything else: denied by default.

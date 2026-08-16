@@ -1,9 +1,6 @@
 import { cache } from "react";
 
-import { cookies } from "next/headers";
-
-import { ACTIVE_ORG_COOKIE } from "@/lib/org-cookie";
-
+import { getActiveOrgId } from "./auth";
 import { getAdminDb } from "./firebase-admin";
 
 interface OrgConfig {
@@ -14,10 +11,10 @@ interface OrgConfig {
 
 /**
  * Reads the active tenant's organizations/{orgId} document once per server
- * request (React.cache), cookie-scoped — callers never pass an org id, so
- * tenant isolation is unchanged.
+ * request (React.cache), resolved from the VERIFIED caller — callers never pass
+ * an org id, so tenant isolation is enforced server-side.
  *
- * `hasOrg: false` means there is no active-organization cookie; `data: null`
+ * `hasOrg: false` means the request carries no valid session; `data: null`
  * with `hasOrg: true` means the read failed or the doc is missing.
  */
 const readActiveOrg = cache(
@@ -25,8 +22,7 @@ const readActiveOrg = cache(
     hasOrg: boolean;
     data: Record<string, unknown> | null;
   }> => {
-    const cookieStore = await cookies();
-    const organizationId = cookieStore.get(ACTIVE_ORG_COOKIE)?.value;
+    const organizationId = await getActiveOrgId();
     if (!organizationId) return { hasOrg: false, data: null };
 
     try {

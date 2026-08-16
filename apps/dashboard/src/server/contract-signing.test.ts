@@ -27,10 +27,22 @@ function hashSnapshot(snapshot: Contract["lockedSnapshot"]): string {
 function mockRequestContext(
   orgCookie: { value: string } | null = activeOrgCookie,
 ) {
+  // The verified-caller module replaces the old raw org-cookie read; the org
+  // still comes from `orgCookie` so existing cases keep their shape.
+  vi.doMock("./auth", () => ({
+    getActiveOrgId: vi.fn(async () => orgCookie?.value ?? null),
+    getVerifiedCaller: vi.fn(async () =>
+      orgCookie
+        ? {
+            uid: "user-1",
+            role: "Admin",
+            homeOrganizationId: orgCookie.value,
+            organizationId: orgCookie.value,
+          }
+        : null,
+    ),
+  }));
   vi.doMock("next/headers", () => ({
-    cookies: vi.fn(async () => ({
-      get: vi.fn(() => orgCookie),
-    })),
     headers: vi.fn(async () => ({
       get: vi.fn((name: string) => {
         const values: Record<string, string> = {
@@ -262,7 +274,6 @@ describe("contract signing server actions", () => {
     const { sendContractForSignature } = await import("./contract-signing");
     const result = await sendContractForSignature({
       contractId: "contract-1",
-      userId: "user-1",
       snapshot: snapshot(),
     });
 
@@ -330,7 +341,6 @@ describe("contract signing server actions", () => {
     await expect(
       sendContractForSignature({
         contractId: "contract-1",
-        userId: "user-1",
         snapshot: snapshot(),
       }),
     ).resolves.toEqual({
@@ -356,7 +366,6 @@ describe("contract signing server actions", () => {
     await expect(
       sendContractForSignature({
         contractId: "contract-1",
-        userId: "user-1",
         snapshot: snapshot(),
       }),
     ).resolves.toEqual({
@@ -559,7 +568,6 @@ describe("contract signing server actions", () => {
     const { resendContractSigningLink } = await import("./contract-signing");
     const result = await resendContractSigningLink({
       contractId: "contract-1",
-      userId: "user-1",
     });
 
     expect(result).toEqual({
@@ -620,7 +628,6 @@ describe("contract signing server actions", () => {
     const { resendContractSigningLink } = await import("./contract-signing");
     const result = await resendContractSigningLink({
       contractId: "contract-1",
-      userId: "user-1",
     });
 
     expect(result.ok).toBe(false);

@@ -26,8 +26,7 @@ export function VendorItems({ items, onAddItem }: VendorItemsProps) {
   return (
     <Card
       variant="panel"
-      className="flex h-full max-h-[80vh] flex-col bg-card/60 md:max-h-none"
-    >
+      className="flex h-full max-h-[80vh] flex-col md:max-h-none">
       <CardHeader>
         <CardTitle>
           <span className="flex items-center gap-2">
@@ -44,8 +43,7 @@ export function VendorItems({ items, onAddItem }: VendorItemsProps) {
                 variant="outline"
                 size="icon"
                 onClick={onAddItem}
-                className="size-8 shrink-0 rounded-full"
-              >
+                className="size-8 shrink-0 rounded-full">
                 <Plus className="size-4" />
                 <span className="sr-only">Add Items</span>
               </Button>
@@ -61,7 +59,7 @@ export function VendorItems({ items, onAddItem }: VendorItemsProps) {
             <p className="font-medium text-muted-foreground text-sm">
               No linked products
             </p>
-            <p className="mt-1 max-w-[240px] text-muted-foreground/60 text-xs">
+            <p className="mt-1 max-w-60 text-muted-foreground/60 text-xs">
               Items from the product library will appear here when added to this
               vendor.
             </p>
@@ -88,8 +86,7 @@ export function VendorItems({ items, onAddItem }: VendorItemsProps) {
                 <div className="min-w-0 flex-1">
                   <Link
                     href={`/dashboard/library/${item.itemId}`}
-                    className="line-clamp-1 font-heading font-semibold text-sm transition-colors hover:text-primary hover:underline"
-                  >
+                    className="line-clamp-1 font-heading font-semibold text-sm transition-colors hover:text-primary hover:underline">
                     {item.name}
                   </Link>
                   <div className="mt-0.5 flex items-center gap-2">

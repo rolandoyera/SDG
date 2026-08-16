@@ -6,9 +6,10 @@ import { CompareTab } from "./_components/compare-tab";
 import { CrawlTab } from "./_components/crawl-tab";
 
 // Run Crawl fetches and analyzes up to MAX_CRAWL_PAGES pages in one action (8
-// at a time) and returns nothing at all if it overruns — allow up to a minute.
-// 60 is the ceiling on every Vercel plan, so this is safe to keep.
-export const maxDuration = 60;
+// at a time) and returns nothing at all if it overruns — allow two minutes.
+// Needs Fluid Compute (the default; Hobby classic caps at 60), where waiting
+// on external fetches is billed as idle time.
+export const maxDuration = 120;
 
 export default function Page() {
   return (

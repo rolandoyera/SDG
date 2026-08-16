@@ -30,6 +30,7 @@ import {
   type PagespeedAuditRow,
   type PagespeedReport,
   type PagespeedStrategy,
+  runPagespeed,
   runPagespeedBoth,
 } from "@/server/pagespeed-actions";
 import {
@@ -395,7 +396,9 @@ export function PageVitalsClient() {
   // bundled into single invocations that fan out server-side: the CrUX pair
   // is dispatched first (sub-second — it must not queue behind the ~30s
   // Lighthouse invocation), then one action runs both audits concurrently.
-  const onSubmit = (data: FormData) => {
+  // A strategy whose run times out (PSI under load) is retried once — as a
+  // fresh invocation, since the first one spent its `maxDuration` waiting.
+  const onSubmit = async (data: FormData) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     setLoading(true);
     setErrors({ mobile: "", desktop: "" });
@@ -411,30 +414,49 @@ export function PageVitalsClient() {
       .catch(() => {
         // Supplemental — the PSI report's embedded field data covers it.
       });
-    runPagespeedBoth(data)
-      .then((result) => {
-        for (const strategy of STRATEGIES) {
-          const run = result[strategy];
-          if (run.success && run.data) {
-            const report = run.data;
-            setReports((prev) => ({ ...prev, [strategy]: report }));
-          } else {
-            setErrors((prev) => ({
-              ...prev,
-              [strategy]: run.error ?? "The Lighthouse run failed.",
-            }));
-          }
+    try {
+      const result = await runPagespeedBoth(data);
+      const timedOut: PagespeedStrategy[] = [];
+      for (const strategy of STRATEGIES) {
+        const run = result[strategy];
+        if (run.success && run.data) {
+          const report = run.data;
+          setReports((prev) => ({ ...prev, [strategy]: report }));
+        } else if (run.timedOut) {
+          timedOut.push(strategy);
+        } else {
+          setErrors((prev) => ({
+            ...prev,
+            [strategy]: run.error ?? "The Lighthouse run failed.",
+          }));
         }
-      })
-      .catch(() => {
-        setErrors({
-          mobile: "The Lighthouse run failed.",
-          desktop: "The Lighthouse run failed.",
-        });
-      })
-      .finally(() => {
-        setLoading(false);
+      }
+      // Retry timed-out strategies together when both failed (one invocation,
+      // concurrent server-side) or singly otherwise.
+      const retried =
+        timedOut.length === 2 ? await runPagespeedBoth(data) : null;
+      for (const strategy of timedOut) {
+        const run =
+          retried?.[strategy] ??
+          (await runPagespeed({ ...data, strategy }));
+        if (run.success && run.data) {
+          const report = run.data;
+          setReports((prev) => ({ ...prev, [strategy]: report }));
+        } else {
+          setErrors((prev) => ({
+            ...prev,
+            [strategy]: run.error ?? "The Lighthouse run failed.",
+          }));
+        }
+      }
+    } catch {
+      setErrors({
+        mobile: "The Lighthouse run failed.",
+        desktop: "The Lighthouse run failed.",
       });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const sitemap = sitemaps[source];

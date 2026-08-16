@@ -118,7 +118,7 @@ server-side only).
   the full 80. A shallow check that misses is never recorded — it re-posts
   at 80 so a big drop shows its real position instead of an unplaced dash.
   Only "Add & Check" still uses the **live** endpoint (flat depth 50,
-  ~6s/call — why the page exports `maxDuration = 60`), so new keywords show
+  ~6s/call — why the page exports `maxDuration = 120`), so new keywords show
   data instantly.
 - Collection is server-side and browser-independent. Queued task ids live
   on the org doc at `seo.pendingChecks`, updated transactionally with the
@@ -167,8 +167,12 @@ tracking later.
   `*Both` wrappers bundle each phase into ONE invocation that fans out with
   `Promise.all` server-side: `fetchCruxBoth` is dispatched first (sub-second;
   must not queue behind Lighthouse), then `runPagespeedBoth` runs both audits
-  concurrently and lands together in the slower run's ~15–30s (fits the
-  page's `maxDuration = 60`). A Mobile/Desktop tab bar under the Target card
+  concurrently and lands together in the slower run's ~15–30s. Each audit
+  aborts at 90s (`PSI_TIMEOUT_MS`, inside the page's `maxDuration = 120` —
+  Fluid Compute; Hobby classic caps at 60) and returns `timedOut: true`; the
+  client retries a timed-out strategy ONCE as a fresh invocation (the first
+  one spent its window waiting — a server-side retry could never fit).
+  A Mobile/Desktop tab bar under the Target card
   swaps which report is shown (mobile default, plain state — no strategy
   field in the form anymore). Reports cached in-memory per instance for 30
   min keyed by `strategy|url`, section convention: mount restores via
@@ -271,7 +275,7 @@ competitor analysis will grow later.
   dropped. Paths are ordered shallowest-first before the cap applies, so a
   truncated crawl keeps the shape of the site — the sitemap's own alphabetical
   order would spend the whole budget inside `/blog` and never fetch `/`. The
-  cap is 250 with `maxDuration = 60` on the page; going much past that wants a
+  cap is 250 with `maxDuration = 120` on the page; going much past that wants a
   different shape, not a bigger number, since the action returns nothing at all
   if it overruns and the whole `PageAnalysis` of every page is serialized back
   to the browser.

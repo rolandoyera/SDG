@@ -3,9 +3,11 @@ import { PageTitle } from "@/components/page-title-updater";
 
 import { PageVitalsClient } from "./_components/page-vitals-client";
 
-// A PSI run is a full Lighthouse audit on Google's side (~15–30s) — allow up
-// to a minute. 60 is the ceiling on every Vercel plan, so this is safe.
-export const maxDuration = 60;
+// A PSI run is a full Lighthouse audit on Google's side (~15–30s, sometimes
+// far longer under load) — allow two minutes so a slow run can finish instead
+// of aborting. Needs Fluid Compute (the default; Hobby classic caps at 60),
+// where waiting on Google's API is idle time and billed as such.
+export const maxDuration = 120;
 
 export default function Page() {
   return (

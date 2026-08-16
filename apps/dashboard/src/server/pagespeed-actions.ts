@@ -14,8 +14,9 @@ import type { SeoResult } from "./seo-actions";
 
 const PSI_ENDPOINT =
   "https://www.googleapis.com/pagespeedonline/v5/runPagespeed";
-// The page exports maxDuration = 60; leave headroom to report a timeout.
-const PSI_TIMEOUT_MS = 50_000;
+// The page exports maxDuration = 120; leave headroom to report the timeout so
+// the client can retry with a fresh invocation (and its own window).
+const PSI_TIMEOUT_MS = 90_000;
 // A run is slow and scores only move when the page changes, so cached reports
 // serve leave-and-return restores (section convention: in-memory, no
 // Firestore). Explicit Analyze always reruns.
@@ -469,9 +470,16 @@ export async function runPagespeed(
     return { success: true, data: report };
   } catch (error) {
     console.error("runPagespeed failed:", error);
+    // AbortSignal.timeout rejects with a TimeoutError DOMException (AbortError
+    // on older runtimes) — flag it so the client can retry the run.
+    const name = error instanceof Object ? (error as Error).name : undefined;
+    const timedOut = name === "TimeoutError" || name === "AbortError";
     return {
       success: false,
-      error: getErrorMessage(error, "The Lighthouse run failed."),
+      timedOut,
+      error: timedOut
+        ? "The Lighthouse run timed out."
+        : getErrorMessage(error, "The Lighthouse run failed."),
     };
   }
 }

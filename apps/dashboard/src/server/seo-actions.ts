@@ -82,6 +82,8 @@ export interface SeoResult<T> {
   success: boolean;
   data?: T;
   error?: string;
+  /** True when the failure was a timeout, so callers may retry the run. */
+  timedOut?: boolean;
 }
 
 export interface PhraseRow {

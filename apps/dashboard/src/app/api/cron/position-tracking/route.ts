@@ -3,8 +3,9 @@ import { NextResponse } from "next/server";
 import { runPositionChecksForAllOrgs } from "@/server/position-tracking";
 
 // Live SERP checks run ~6s each (5 in parallel); opt out of caching/static.
+// Two minutes needs Fluid Compute (the default; Hobby classic caps at 60).
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 /**
  * Daily keyword position check. Triggered by Vercel Cron, which sends

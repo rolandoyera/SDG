@@ -119,6 +119,19 @@ choice. The logo is always the model's own pick (identifiable from URL/context);
 picker. A "Choose Cover Image" button under the hero field reopens the picker after skipping.
 Enrichment only fills form state — nothing is saved until the user submits.
 
+- **Blocked-site fallback (url_context).** Jina's "Access Denied" scrape output is detected and
+  treated as no content; when neither Jina markdown nor the direct HTML fetch got through (WAF'd
+  sites like fergusonhome.com), the action falls back to one Gemini call with the `urlContext`
+  tool (`SCRAPER_CONFIG.urlContextModel` — must stay Gemini 3.x, and the REST field must be
+  camelCase `urlContext`; see the library AGENTS.md for the discovery history). The call also
+  attaches the `googleSearch` tool: homepage digests rarely carry contact info, so search
+  backfills HQ address/phone/socials from Google's index (prompt-guarded to this exact company,
+  empty-when-uncertain — search-sourced socials are the least verifiable fields, so eyeball them
+  in the form). Other text fields fill from the page digest; images can't (the digest strips
+  markup), so `logoUrl` falls back to
+  Google's favicon cache (`t3.gstatic.com/faviconV2`, confidence 0.4 — user-replaceable, and the
+  mirror step self-hosts it on save) and `heroImageUrl` stays empty with no picker.
+
 ## Conventions easy to break
 
 - **Form changes are three-touch.** A new vendor field means updating `vendorSchema`,

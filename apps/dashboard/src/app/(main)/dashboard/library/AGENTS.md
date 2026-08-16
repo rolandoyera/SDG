@@ -102,6 +102,25 @@ progress toast. It fills scalar specs (name, sku, category, finish, materials, d
 plus image URLs and writes `aiMetadata` (source url, model, confidence). It only mutates **form
 state** — nothing is saved until the user submits, and the mirror step (above) runs at save time.
 
+- **Blocked-site fallback (url_context).** The scraper is Jina Reader; when the target site's WAF
+  rejects it (e.g. Akamai/Cloudflare 403 — common on big vendors like fergusonhome.com), the action
+  falls back to one Gemini call with the `urlContext` tool (`SCRAPER_CONFIG.urlContextModel`), which
+  fetches the page through Google's infrastructure that most WAFs allow. Specs still fill; **image
+  results are usually thin on these sites** (no HTML/markdown to harvest URLs from — the model only
+  sees what url_context returns). When the fallback extracts a SKU but no images, it tries a
+  **SERP image rescue**: a DataForSEO Google Images query (~$0.002/call, reusing the
+  position-tracking `DATAFORSEO_LOGIN`/`DATAFORSEO_PASSWORD`; silently skipped when unset) that
+  only accepts results provably of this product — indexed from the same product page, SKU baked
+  into the image URL, or manufacturer domain + SKU match. Titles lie (a "PNLHP" title can front
+  a chrome-finish image), so the SKU check trusts only the image URL; lookalikes/wrong finishes
+  are dropped, not guessed, and accepted img-b.com (Ferguson) URLs get their Cloudinary
+  transform upsized. (Google's Custom Search JSON API was the original plan — closed to new
+  customers, discontinued Jan 2027; don't resurrect it.) If images are still empty,
+  `use-library-item-form.ts` shows a warning toast ("filled the specs but couldn't retrieve
+  images") instead of the success toast — that's deliberate; never attach unverified images.
+  Two hard constraints: the REST field must be camelCase `urlContext` (snake_case silently
+  no-ops), and the model must stay Gemini 3.x (2.5-era models 400 on tools + JSON response mode).
+
 - **AI re-scrape preserves manual uploads.** `manualImageUrls` tracks user-uploaded images (always
   Firebase-hosted). A re-scrape **replaces only the AI portion** of `imageUrls` and keeps the manual
   anchors — it does **not** append. Appending piled up duplicates, because a saved item's AI images

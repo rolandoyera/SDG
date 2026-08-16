@@ -21,6 +21,10 @@ export const AI_TOKEN_PRICING = {
 /** The `usageMetadata` object on every generateContent response. */
 interface GeminiUsageMetadata {
   promptTokenCount?: number;
+  /** Content injected by tools (url_context page digests, grounding) — billed as INPUT. */
+  toolUsePromptTokenCount?: number;
+  /** Thinking tokens — billed as OUTPUT but not part of candidatesTokenCount. */
+  thoughtsTokenCount?: number;
   candidatesTokenCount?: number;
   totalTokenCount?: number;
 }
@@ -34,11 +38,15 @@ export async function recordAiUsage(
 ): Promise<void> {
   try {
     if (!usage) return;
-    const input = usage.promptTokenCount ?? 0;
-    // Thinking tokens bill as output but aren't in candidatesTokenCount, so
-    // derive output from the total when present.
+    // Tool-injected content (url_context digests, grounding) bills as input —
+    // deriving output as `total - prompt` would misclassify it as output.
+    const input =
+      (usage.promptTokenCount ?? 0) + (usage.toolUsePromptTokenCount ?? 0);
+    // Thinking tokens bill as output but aren't in candidatesTokenCount.
+    // Prefer the explicit counts; fall back to the total-derived value for
+    // responses that omit thoughtsTokenCount.
     const output = Math.max(
-      usage.candidatesTokenCount ?? 0,
+      (usage.candidatesTokenCount ?? 0) + (usage.thoughtsTokenCount ?? 0),
       (usage.totalTokenCount ?? 0) - input,
     );
     if (input === 0 && output === 0) return;

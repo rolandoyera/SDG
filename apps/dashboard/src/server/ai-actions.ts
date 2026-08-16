@@ -305,6 +305,413 @@ function extractProductImagesFromHtml(html: string, base: string): string[] {
   return ordered;
 }
 
+/** Image URLs that are never product photos (nav chrome, payment badges, trackers, …). */
+const JUNK_IMAGE_PATTERNS =
+  /logo|icon|avatar|sprite|banner|pixel|social|facebook|instagram|pinterest|twitter|linkedin|tracker|nav|footer|header|loading|\.svg|\.gif|analytics|checkout|cart|adroll|doubleclick|yotpo|trust|badge|payment|paypal|visa|mastercard|amex|applepay|googlepay|shipping|delivery|guarante|refund|secur|padlock|warranty|search-menu|placeholder/i;
+
+const JSON_OUTPUT_RULES = `CRITICAL: You MUST return 100% valid JSON. Do not include raw unescaped newlines or raw unescaped double quotes inside your string properties. All double quotes inside text properties must be escaped as \\" and all literal linebreaks must be escaped as \\n. Do not include any inner monologues, reasoning, debates, or explanations within the JSON property values. Every property value must contain ONLY the final extracted data value (or an empty string if not found).`;
+
+/**
+ * The per-field extraction instructions shared by the Jina-markdown prompt and the
+ * url_context fallback prompt. Only the imageUrls guidance differs between the two
+ * (the fallback has no pre-ranked candidate array).
+ */
+function productFieldInstructions(imageUrlsInstruction: string): string {
+  return `- name: The clean, brief product name/title (e.g. "Carey Accent Table").
+- category: Match the product to one of these exact categories: ${CATEGORIES.map((c) => `"${c}"`).join(", ")}. Choose the single closest match.
+- subcategory: Match the product to one of the exact subcategories corresponding to the chosen category. The valid subcategories for each category are:
+${Object.entries(SUBCATEGORIES)
+  .map(([cat, subs]) => `  - "${cat}": ${subs.map((s) => `"${s}"`).join(", ")}`)
+  .join("\n")}
+  Choose the single closest match. If the category does not have a matching specific subcategory, use "Other".
+- description: A clean public description of the product.
+- finishColor: The finish, color, or upholstery (e.g. "Honed Natural", "Boucle Cream").
+- manufacturer: The brand or manufacturer (e.g. "Crate & Barrel").
+- materials: The material composition (e.g. "Solid Oak, Boucle Fabric").
+- dimensions: The dimensions of the product. Format the value consistently using abbreviated dimensions with double quotes for inches and capital letters for directions, separated by " x " (e.g., "25.5" W x 25.5" D x 32.25" H"). Never write out the full words (e.g., do not write "Width", "Depth", "Height", "inches", or "in"). If only some dimensions are present, format similarly (e.g., "18" W x 24" H").
+- msrp: The retail price/selling price listed on the page. Parse as a clean float number (e.g. 1299.00). Do not include currency symbols.
+- sku: The model number, article number, model name, or inventory SKU of the product if listed (e.g. "42801140").
+- imageUrls: ${imageUrlsInstruction}
+- confidence: An object with keys matching each of the parsed text/numeric fields above (name, sku, category, subcategory, description, finishColor, manufacturer, materials, dimensions, msrp, imageUrls). For each field, return a float confidence value between 0.0 (completely uncertain) and 1.0 (absolutely certain) based on how clearly and unambiguously the information was stated in the page content.`;
+}
+
+const PRODUCT_RESPONSE_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    name: { type: "STRING" },
+    sku: { type: "STRING" },
+    category: { type: "STRING" },
+    subcategory: { type: "STRING" },
+    description: { type: "STRING" },
+    finishColor: { type: "STRING" },
+    manufacturer: { type: "STRING" },
+    materials: { type: "STRING" },
+    dimensions: { type: "STRING" },
+    msrp: { type: "NUMBER" },
+    imageUrls: {
+      type: "ARRAY",
+      items: { type: "STRING" },
+    },
+    confidence: {
+      type: "OBJECT",
+      properties: {
+        name: { type: "NUMBER" },
+        sku: { type: "NUMBER" },
+        category: { type: "NUMBER" },
+        subcategory: { type: "NUMBER" },
+        description: { type: "NUMBER" },
+        finishColor: { type: "NUMBER" },
+        manufacturer: { type: "NUMBER" },
+        materials: { type: "NUMBER" },
+        dimensions: { type: "NUMBER" },
+        msrp: { type: "NUMBER" },
+        imageUrls: { type: "NUMBER" },
+      },
+      required: [
+        "name",
+        "sku",
+        "category",
+        "subcategory",
+        "description",
+        "finishColor",
+        "manufacturer",
+        "materials",
+        "dimensions",
+        "msrp",
+        "imageUrls",
+      ],
+    },
+  },
+  required: [
+    "name",
+    "sku",
+    "category",
+    "subcategory",
+    "description",
+    "finishColor",
+    "manufacturer",
+    "materials",
+    "dimensions",
+    "imageUrls",
+    "confidence",
+  ],
+};
+
+/**
+ * Ferguson/Build.com serve images through a Cloudinary-style CDN (s3.img-b.com)
+ * whose transform segment is caller-controlled — rewrite the small thumbnail
+ * params the search index returns into a large square so we mirror high-res bytes.
+ */
+function upgradeKnownCdnTransforms(url: string): string {
+  try {
+    if (new URL(url).hostname.endsWith("img-b.com")) {
+      return url
+        .replace(/\bw_\d+/g, "w_1500")
+        .replace(/\bh_\d+/g, "h_1500")
+        .replace(/\bdpr_(?:auto|[\d.]+)/g, "dpr_1");
+    }
+  } catch {
+    /* leave untouched */
+  }
+  return url;
+}
+
+/** One `images_search` item from DataForSEO's Google Images SERP endpoint. */
+interface DfsImageItem {
+  type?: string;
+  title?: string;
+  alt?: string;
+  /** Source PAGE the image was indexed from (contextLink equivalent). */
+  url?: string;
+  /** Direct image URL. */
+  source_url?: string;
+}
+
+/**
+ * Image rescue for blocked sites: queries Google Images via DataForSEO's SERP
+ * API (reusing the position-tracking credentials; Googlebot crawls through the
+ * WAFs that block scrapers) for images of the exact product, then accepts only
+ * results that provably belong to it:
+ *   1. the source page is the same product page (shares a long numeric id token), or
+ *   2. the normalized SKU appears in the image URL itself, or
+ *   3. the result comes from the manufacturer's own domain and mentions the SKU.
+ * Anything else is dropped — returning [] (and the client's warning toast)
+ * beats attaching a lookalike product or wrong finish. Titles lie (a "PNLHP"
+ * title can front a chrome-finish image), so tier 2 trusts only the image URL.
+ * No-op when the DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD env vars are absent.
+ * Cost: one live Google Images SERP ≈ $0.002, only on blocked-site fills.
+ */
+async function searchProductImagesViaSerp(
+  originalUrl: string,
+  manufacturer: string,
+  sku: string,
+): Promise<string[]> {
+  const login = process.env.DATAFORSEO_LOGIN;
+  const password = process.env.DATAFORSEO_PASSWORD;
+  if (!login || !password || !sku) return [];
+
+  let originalHost = "";
+  let numericIdTokens: string[] = [];
+  try {
+    const parsed = new URL(originalUrl);
+    originalHost = parsed.hostname.replace(/^www\./, "");
+    numericIdTokens = parsed.pathname.match(/\d{5,}/g) ?? [];
+  } catch {
+    return [];
+  }
+
+  let items: DfsImageItem[];
+  try {
+    const res = await fetch(
+      "https://api.dataforseo.com/v3/serp/google/images/live/advanced",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${Buffer.from(`${login}:${password}`).toString("base64")}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify([
+          {
+            keyword: `${manufacturer} ${sku}`.trim(),
+            location_code: 2840, // United States
+            language_code: "en",
+            depth: 20,
+          },
+        ]),
+        cache: "no-store",
+        signal: AbortSignal.timeout(25000),
+      },
+    );
+    if (!res.ok) {
+      console.warn(`[AI Autofill] DataForSEO image search HTTP ${res.status}`);
+      return [];
+    }
+    const json = (await res.json()) as {
+      tasks?: { status_code?: number; result?: { items?: DfsImageItem[] }[] }[];
+    };
+    const task = json.tasks?.[0];
+    if (task?.status_code !== 20000) {
+      console.warn(
+        `[AI Autofill] DataForSEO task status ${task?.status_code ?? "missing"}`,
+      );
+      return [];
+    }
+    items = (task.result?.[0]?.items ?? []).filter(
+      (i) => i.type === "images_search",
+    );
+  } catch (err) {
+    console.warn("[AI Autofill] DataForSEO image search failed:", err);
+    return [];
+  }
+
+  const skuLower = sku.toLowerCase();
+  const skuCompact = skuLower.replace(/[^a-z0-9]/g, "");
+  const manufacturerSlug = manufacturer.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+  const matchesSku = (value: string | undefined): boolean => {
+    if (!value) return false;
+    const lower = value.toLowerCase();
+    return (
+      lower.includes(skuLower) ||
+      lower.replace(/[^a-z0-9]/g, "").includes(skuCompact)
+    );
+  };
+
+  const scoreItem = (item: DfsImageItem): number => {
+    const link = item.source_url ?? "";
+    const contextLink = item.url ?? "";
+    if (!link.startsWith("http") || JUNK_IMAGE_PATTERNS.test(link)) return 0;
+    // Google's proxied thumbnails are tiny and expire — never use them.
+    if (/\bgstatic\.com|\bggpht\.com/.test(link)) return 0;
+    let contextHost = "";
+    try {
+      contextHost = new URL(contextLink).hostname.replace(/^www\./, "");
+    } catch {
+      /* no context host */
+    }
+    // Tier 1: indexed from the exact product page we were asked about.
+    if (
+      contextHost === originalHost &&
+      numericIdTokens.some((t) => contextLink.includes(t))
+    ) {
+      return 3;
+    }
+    // Tier 2: the finish SKU is baked into the image URL itself.
+    if (matchesSku(link)) return 2;
+    // Tier 3: manufacturer's own domain, SKU mentioned in the result.
+    if (
+      manufacturerSlug &&
+      contextHost.includes(manufacturerSlug) &&
+      (matchesSku(contextLink) ||
+        matchesSku(item.title) ||
+        matchesSku(item.alt))
+    ) {
+      return 1;
+    }
+    return 0;
+  };
+
+  const scored = items
+    .map((item) => ({ item, score: scoreItem(item) }))
+    .filter((s) => s.score > 0)
+    .sort((a, b) => b.score - a.score);
+
+  const urls: string[] = [];
+  const seen = new Set<string>();
+  for (const { item } of scored) {
+    const url = upgradeKnownCdnTransforms(
+      cleanImageUrlSize(item.source_url ?? ""),
+    );
+    const key = imageDedupKey(url);
+    if (!url.startsWith("http") || seen.has(key)) continue;
+    seen.add(key);
+    urls.push(url);
+    if (urls.length >= MAX_IMAGES) break;
+  }
+
+  console.log(`[AI Autofill] SERP image rescue found ${urls.length} image(s)`);
+  return urls;
+}
+
+/**
+ * Fallback extractor for sites that block the scraper (e.g. Akamai/Cloudflare 403s):
+ * a single Gemini call with the `url_context` tool, which fetches the page through
+ * Google's own infrastructure — allowed through by many WAFs that reject scrapers.
+ * Returns null on any failure so the caller can surface its original error message.
+ *
+ * Runs on `SCRAPER_CONFIG.urlContextModel` (must stay a Gemini 3.x model — 2.5-era
+ * models reject tools combined with JSON response mode). Note the REST field is
+ * camelCase `urlContext`; the snake_case `url_context` silently fails to trigger.
+ */
+async function extractProductViaUrlContext(
+  apiKey: string,
+  normalizedUrl: string,
+  imageCandidates: string[],
+): Promise<AutofillResult | null> {
+  const model = SCRAPER_CONFIG.urlContextModel;
+  console.log(
+    `[AI Autofill] Scraper blocked — attempting url_context fallback via ${model}`,
+  );
+
+  const imageInstruction =
+    imageCandidates.length > 0
+      ? `Select the top 1 to ${MAX_IMAGES} direct product image URLs from the 'Candidate Images' array (pre-ranked best-first), and add any additional absolute product image URLs found in the retrieved page content up to ${MAX_IMAGES} total. CRITICAL: You must NEVER return base64-encoded data: URLs. Only return absolute HTTP or HTTPS URLs.`
+      : `Extract up to ${MAX_IMAGES} absolute product image URLs (best/primary first) if any appear in the retrieved page content; otherwise return an empty array. CRITICAL: You must NEVER return base64-encoded data: URLs. Only return absolute HTTP or HTTPS URLs.`;
+
+  const prompt = `You are an expert product data extractor. Use the url_context tool to retrieve the product page at the URL below, then extract the exact product specifications to populate a library item form.
+
+URL: ${normalizedUrl}
+${
+  imageCandidates.length > 0
+    ? `\nCandidate Images found on the page:\n${JSON.stringify(imageCandidates)}\n`
+    : ""
+}
+Extract the following specifications and return them in the requested JSON structure. If a field cannot be found, use an empty string or omit it.
+Specifically:
+${productFieldInstructions(imageInstruction)}
+
+${JSON_OUTPUT_RULES}`;
+
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          tools: [{ urlContext: {} }],
+          generationConfig: {
+            responseMimeType: "application/json",
+            responseSchema: PRODUCT_RESPONSE_SCHEMA,
+          },
+        }),
+        signal: AbortSignal.timeout(60000),
+      },
+    );
+
+    if (!res.ok) {
+      console.error(
+        `[AI Autofill] url_context fallback failed with HTTP ${res.status}`,
+      );
+      return null;
+    }
+
+    const geminiJson = await res.json();
+    void recordAiUsage(geminiJson?.usageMetadata);
+
+    const candidate = geminiJson.candidates?.[0];
+    const retrievalStatus =
+      candidate?.urlContextMetadata?.urlMetadata?.[0]?.urlRetrievalStatus;
+    if (retrievalStatus !== "URL_RETRIEVAL_STATUS_SUCCESS") {
+      console.warn(
+        `[AI Autofill] url_context could not retrieve the page: ${retrievalStatus ?? "no retrieval metadata"}`,
+      );
+      return null;
+    }
+
+    // Gemini 3.x may prepend thought-signature parts; take the first text part.
+    const parts = candidate?.content?.parts as { text?: string }[] | undefined;
+    const parsedText = parts?.find((p) => typeof p.text === "string")?.text;
+    if (!parsedText) {
+      console.warn("[AI Autofill] url_context fallback returned no text part");
+      return null;
+    }
+
+    let sanitizedData = sanitizeProductData(parseGeminiJson(parsedText));
+    console.log(
+      `[AI Autofill] url_context fallback succeeded. Data:`,
+      sanitizedData,
+    );
+
+    // url_context strips markup, so imageUrls is usually empty here. When a SKU
+    // was extracted, try recovering images from Google's search index instead.
+    const hasImages = (sanitizedData.imageUrls ?? []).some(
+      (u) => typeof u === "string" && u.trim(),
+    );
+    let rescueNote = "not needed (model returned images)";
+    if (!hasImages) {
+      if (sanitizedData.sku) {
+        const rescued = await searchProductImagesViaSerp(
+          normalizedUrl,
+          sanitizedData.manufacturer ?? "",
+          sanitizedData.sku,
+        );
+        if (rescued.length > 0) {
+          sanitizedData = { ...sanitizedData, imageUrls: rescued };
+        }
+        rescueNote = `ran — ${rescued.length} validated image(s) attached`;
+      } else {
+        rescueNote = "skipped (no SKU extracted to search by)";
+      }
+    }
+
+    void saveDiagnosticRun({
+      type: "product",
+      url: normalizedUrl,
+      scrapedMarkdown: [
+        "Scraper blocked — page retrieved via Gemini url_context. Google injects a condensed text digest server-side; the raw page content is never returned, so there is no markdown to show.",
+        "",
+        `Retrieved URL: ${candidate?.urlContextMetadata?.urlMetadata?.[0]?.retrievedUrl ?? normalizedUrl}`,
+        `Page digest size: ~${geminiJson?.usageMetadata?.toolUsePromptTokenCount ?? "unknown"} tokens (billed as input)`,
+        `SERP image rescue (DataForSEO): ${rescueNote}`,
+      ].join("\n"),
+      prompt,
+      rawResponse: parsedText,
+      parsedData: sanitizedData,
+    });
+
+    return {
+      success: true,
+      modelUsed: `${model} (url_context)`,
+      data: sanitizedData,
+    };
+  } catch (error) {
+    console.error("[AI Autofill] url_context fallback error:", error);
+    return null;
+  }
+}
+
 /**
  * Server Action: Scrapes a product webpage via Jina Reader and passes the cleaned
  * markdown to Gemini. Returns structured, verified JSON content
@@ -356,6 +763,17 @@ export async function autofillProductFromUrl(
       .then((r) => (r.ok ? r.text() : ""))
       .catch(() => "");
 
+    // Image candidates for the url_context fallback: best-effort from the direct
+    // HTML fetch only (when the scraper is blocked there is no Jina markdown, and
+    // a site that blocks Jina usually blocks this fetch too — empty is fine).
+    const htmlImageCandidates = async (): Promise<string[]> => {
+      const rawHtml = await rawHtmlPromise;
+      if (!rawHtml) return [];
+      return extractProductImagesFromHtml(rawHtml, normalizedUrl)
+        .filter((src) => !JUNK_IMAGE_PATTERNS.test(src))
+        .slice(0, SCRAPER_CONFIG.maxImageCandidates);
+    };
+
     const jinaRes = await fetch(
       `${SCRAPER_CONFIG.jinaReaderUrl}${normalizedUrl}`,
       {
@@ -369,6 +787,12 @@ export async function autofillProductFromUrl(
       console.error(
         `[AI Autofill] Jina Reader failed with status ${jinaRes.status}`,
       );
+      const fallback = await extractProductViaUrlContext(
+        apiKey,
+        normalizedUrl,
+        await htmlImageCandidates(),
+      );
+      if (fallback) return fallback;
       return {
         success: false,
         error: `Could not reach the website via AI Scraper (Jina Reader status: ${jinaRes.status}).`,
@@ -406,20 +830,36 @@ export async function autofillProductFromUrl(
         `[AI Autofill] Jina Reader scraped a target site error: ${errorLine}`,
       );
 
-      let friendlyError =
-        "Fetching data was blocked or could not read this website. Please input specs manually.";
-      if (errorLine.includes("403")) {
-        friendlyError =
-          "This website is protected against AI. Please input specifications manually.";
-      } else if (errorLine.includes("404")) {
-        friendlyError =
-          "This product page was not found. Please verify the link.";
-      } else if (errorLine.includes("503") || errorLine.includes("502")) {
-        friendlyError =
-          "The website is temporarily unavailable. Please try again later or type details manually.";
+      if (errorLine.includes("404")) {
+        return {
+          success: false,
+          error: "This product page was not found. Please verify the link.",
+        };
+      }
+      if (errorLine.includes("503") || errorLine.includes("502")) {
+        return {
+          success: false,
+          error:
+            "The website is temporarily unavailable. Please try again later or type details manually.",
+        };
       }
 
-      return { success: false, error: friendlyError };
+      // Blocked (403) or otherwise unreadable: the page exists but a WAF rejects
+      // the scraper. Gemini's url_context fetcher often gets through where Jina
+      // (and direct fetches) are blocked.
+      const fallback = await extractProductViaUrlContext(
+        apiKey,
+        normalizedUrl,
+        await htmlImageCandidates(),
+      );
+      if (fallback) return fallback;
+
+      return {
+        success: false,
+        error: errorLine.includes("403")
+          ? "This website is protected against AI. Please input specifications manually."
+          : "Fetching data was blocked or could not read this website. Please input specs manually.",
+      };
     }
 
     console.log(
@@ -537,14 +977,13 @@ export async function autofillProductFromUrl(
 
     // Merge HTML-derived (priority) ahead of markdown candidates, collapsing size
     // variants of the same photo so the largest/canonical version wins each slot.
-    const junkPatterns =
-      /logo|icon|avatar|sprite|banner|pixel|social|facebook|instagram|pinterest|twitter|linkedin|tracker|nav|footer|header|loading|\.svg|\.gif|analytics|checkout|cart|adroll|doubleclick|yotpo|trust|badge|payment|paypal|visa|mastercard|amex|applepay|googlepay|shipping|delivery|guarante|refund|secur|padlock|warranty|search-menu|placeholder/i;
     const mergedImages: string[] = [];
     const seenImageKeys = new Set<string>();
 
     const tryAddImage = (src: string) => {
       const trimmed = src.trim();
-      if (!trimmed.startsWith("http") || junkPatterns.test(trimmed)) return;
+      if (!trimmed.startsWith("http") || JUNK_IMAGE_PATTERNS.test(trimmed))
+        return;
       const cleanUrl = cleanImageUrlSize(trimmed);
       const key = imageDedupKey(cleanUrl);
       if (seenImageKeys.has(key)) return;
@@ -605,90 +1044,18 @@ ${JSON.stringify(filteredImages)}
 
 Extract the following specifications and return them in the requested JSON structure. If a field cannot be found, use an empty string or omit it.
 Specifically:
-- name: The clean, brief product name/title (e.g. "Carey Acce- category: Match the product to one of these exact categories: ${CATEGORIES.map((c) => `"${c}"`).join(", ")}. Choose the single closest match.
-- subcategory: Match the product to one of the exact subcategories corresponding to the chosen category. The valid subcategories for each category are:
-${Object.entries(SUBCATEGORIES)
-  .map(([cat, subs]) => `  - "${cat}": ${subs.map((s) => `"${s}"`).join(", ")}`)
-  .join("\n")}
-  Choose the single closest match. If the category does not have a matching specific subcategory, use "Other".
-- description: A clean public description of the product.
-- finishColor: The finish, color, or upholstery (e.g. "Honed Natural", "Boucle Cream").
-- manufacturer: The brand or manufacturer (e.g. "Crate & Barrel").
-- materials: The material composition (e.g. "Solid Oak, Boucle Fabric").
-- dimensions: The dimensions of the product. Format the value consistently using abbreviated dimensions with double quotes for inches and capital letters for directions, separated by " x " (e.g., "25.5" W x 25.5" D x 32.25" H"). Never write out the full words (e.g., do not write "Width", "Depth", "Height", "inches", or "in"). If only some dimensions are present, format similarly (e.g., "18" W x 24" H").
-- msrp: The retail price/selling price listed on the page. Parse as a clean float number (e.g. 1299.00). Do not include currency symbols.
-- sku: The model number, article number, model name, or inventory SKU of the product if listed (e.g. "42801140").
-- imageUrls: The 'Candidate Images' array below is pre-ranked best-first. Select the top 1 to ${MAX_IMAGES} direct product image URLs from that array, keeping the very first suitable product image as the primary cover. If the 'Candidate Images' array is incomplete (contains fewer than ${MAX_IMAGES} valid product gallery images) or empty, you MUST also extract valid absolute product image URLs directly from the Markdown page content to complete the list up to ${MAX_IMAGES} images. Strongly prefer images that represent different views/details of the product. CRITICAL: You must NEVER under any circumstances return base64-encoded image data URLs (e.g. data:image/jpeg;base64,...). Only return absolute HTTP or HTTPS URLs.
-- confidence: An object with keys matching each of the parsed text/numeric fields above (name, sku, category, subcategory, description, finishColor, manufacturer, materials, dimensions, msrp, imageUrls). For each field, return a float confidence value between 0.0 (completely uncertain) and 1.0 (absolutely certain) based on how clearly and unambiguously the information was stated in the page content.
- 
-CRITICAL: You MUST return 100% valid JSON. Do not include raw unescaped newlines or raw unescaped double quotes inside your string properties. All double quotes inside text properties must be escaped as \\" and all literal linebreaks must be escaped as \\n. Do not include any inner monologues, reasoning, debates, or explanations within the JSON property values. Every property value must contain ONLY the final extracted data value (or an empty string if not found).`,
+${productFieldInstructions(
+  `The 'Candidate Images' array above is pre-ranked best-first. Select the top 1 to ${MAX_IMAGES} direct product image URLs from that array, keeping the very first suitable product image as the primary cover. If the 'Candidate Images' array is incomplete (contains fewer than ${MAX_IMAGES} valid product gallery images) or empty, you MUST also extract valid absolute product image URLs directly from the Markdown page content to complete the list up to ${MAX_IMAGES} images. Strongly prefer images that represent different views/details of the product. CRITICAL: You must NEVER under any circumstances return base64-encoded image data URLs (e.g. data:image/jpeg;base64,...). Only return absolute HTTP or HTTPS URLs.`,
+)}
+
+${JSON_OUTPUT_RULES}`,
             },
           ],
         },
       ],
       generationConfig: {
         responseMimeType: "application/json",
-        responseSchema: {
-          type: "OBJECT",
-          properties: {
-            name: { type: "STRING" },
-            sku: { type: "STRING" },
-            category: { type: "STRING" },
-            subcategory: { type: "STRING" },
-            description: { type: "STRING" },
-            finishColor: { type: "STRING" },
-            manufacturer: { type: "STRING" },
-            materials: { type: "STRING" },
-            dimensions: { type: "STRING" },
-            msrp: { type: "NUMBER" },
-            imageUrls: {
-              type: "ARRAY",
-              items: { type: "STRING" },
-            },
-            confidence: {
-              type: "OBJECT",
-              properties: {
-                name: { type: "NUMBER" },
-                sku: { type: "NUMBER" },
-                category: { type: "NUMBER" },
-                subcategory: { type: "NUMBER" },
-                description: { type: "NUMBER" },
-                finishColor: { type: "NUMBER" },
-                manufacturer: { type: "NUMBER" },
-                materials: { type: "NUMBER" },
-                dimensions: { type: "NUMBER" },
-                msrp: { type: "NUMBER" },
-                imageUrls: { type: "NUMBER" },
-              },
-              required: [
-                "name",
-                "sku",
-                "category",
-                "subcategory",
-                "description",
-                "finishColor",
-                "manufacturer",
-                "materials",
-                "dimensions",
-                "msrp",
-                "imageUrls",
-              ],
-            },
-          },
-          required: [
-            "name",
-            "sku",
-            "category",
-            "subcategory",
-            "description",
-            "finishColor",
-            "manufacturer",
-            "materials",
-            "dimensions",
-            "imageUrls",
-            "confidence",
-          ],
-        },
+        responseSchema: PRODUCT_RESPONSE_SCHEMA,
       },
     });
 
@@ -1098,6 +1465,258 @@ function extractVendorImageCandidates(markdown: string): {
   return { logoCandidates, imageCandidates };
 }
 
+const VENDOR_RESPONSE_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    name: { type: "STRING" },
+    category: { type: "STRING" },
+    description: { type: "STRING" },
+    addressLine1: { type: "STRING" },
+    addressLine2: { type: "STRING" },
+    city: { type: "STRING" },
+    region: { type: "STRING" },
+    postalCode: { type: "STRING" },
+    country: { type: "STRING" },
+    formattedAddress: { type: "STRING" },
+    repPhone: { type: "STRING" },
+    repEmail: { type: "STRING" },
+    logoUrl: { type: "STRING" },
+    heroImageUrl: { type: "STRING" },
+    instagram: { type: "STRING" },
+    pinterest: { type: "STRING" },
+    facebook: { type: "STRING" },
+    youtube: { type: "STRING" },
+    xTwitter: { type: "STRING" },
+    confidence: {
+      type: "OBJECT",
+      properties: {
+        name: { type: "NUMBER" },
+        category: { type: "NUMBER" },
+        description: { type: "NUMBER" },
+        addressLine1: { type: "NUMBER" },
+        addressLine2: { type: "NUMBER" },
+        city: { type: "NUMBER" },
+        region: { type: "NUMBER" },
+        postalCode: { type: "NUMBER" },
+        country: { type: "NUMBER" },
+        formattedAddress: { type: "NUMBER" },
+        repPhone: { type: "NUMBER" },
+        repEmail: { type: "NUMBER" },
+        logoUrl: { type: "NUMBER" },
+        heroImageUrl: { type: "NUMBER" },
+        instagram: { type: "NUMBER" },
+        pinterest: { type: "NUMBER" },
+        facebook: { type: "NUMBER" },
+        youtube: { type: "NUMBER" },
+        xTwitter: { type: "NUMBER" },
+      },
+      required: [
+        "name",
+        "category",
+        "description",
+        "addressLine1",
+        "addressLine2",
+        "city",
+        "region",
+        "postalCode",
+        "country",
+        "formattedAddress",
+        "repPhone",
+        "repEmail",
+        "logoUrl",
+        "heroImageUrl",
+        "instagram",
+        "pinterest",
+        "facebook",
+        "youtube",
+        "xTwitter",
+      ],
+    },
+  },
+  required: [
+    "name",
+    "category",
+    "description",
+    "addressLine1",
+    "addressLine2",
+    "city",
+    "region",
+    "postalCode",
+    "country",
+    "formattedAddress",
+    "repPhone",
+    "repEmail",
+    "logoUrl",
+    "heroImageUrl",
+    "instagram",
+    "pinterest",
+    "facebook",
+    "youtube",
+    "xTwitter",
+    "confidence",
+  ],
+};
+
+/**
+ * Google's favicon cache — serves a site's icon from Google's own infrastructure,
+ * so it works even for WAF-walled sites. A 256px icon is a usable logo stand-in
+ * (surfaced with low confidence; the user can replace it in the form).
+ */
+function faviconLogoUrl(siteUrl: string): string | undefined {
+  try {
+    const host = new URL(siteUrl).hostname;
+    return `https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${host}&size=256`;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Vendor fallback for sites that block the scraper (mirrors the product flow):
+ * one Gemini call with the `url_context` tool extracts the text fields (name,
+ * address, contact, socials — prose that survives Google's page digest). Images
+ * can't come from the digest, so the logo falls back to Google's favicon cache
+ * and the hero is left empty for the user to upload. Returns null on any
+ * failure so the caller can surface its own error message.
+ */
+async function extractVendorViaUrlContext(
+  apiKey: string,
+  vendorUrl: string,
+): Promise<VendorAutofillResult | null> {
+  const model = SCRAPER_CONFIG.urlContextModel;
+  console.log(
+    `[Vendor Autofill] Scraper blocked — attempting url_context fallback via ${model}`,
+  );
+
+  const prompt = `You are an expert business data extractor for an interior design CRM. Use the url_context tool to retrieve the company website at the URL below, then extract structured contact and brand information. For contact details NOT found on the retrieved page (address, phone, email, social profiles), use Google Search to find the company's official headquarters contact information — but only report values clearly associated with this exact company; when uncertain, return an empty string rather than guessing.
+
+Page URL: ${vendorUrl}
+
+Extract the following and return as JSON:
+- name: The company's official brand/trade name.
+- category: Match to ONE of these exact categories: ${VENDOR_CATEGORIES.join(", ")}. Leave empty if unsure.
+- description: A clean 1–3 sentence company description or tagline. About the company, not a product.
+- addressLine1: Street address line (number + street, or PO box) from footer, contact, or about section. Empty if not found.
+- addressLine2: Secondary address line (suite, unit, floor, building) if present. Empty if not found.
+- city: City / town / locality from the business address. Empty if not found.
+- region: State, province, or region exactly as written on the page (e.g. "TX", "Ontario", "Lombardia"). Do NOT convert or assume a US state. Empty if not found.
+- postalCode: Postal/ZIP code in whatever format appears (e.g. "12345", "SW1A 1AA", "75008"). Empty if not found.
+- country: The country as an ISO 3166-1 alpha-2 code (e.g. "US", "CA", "GB", "IT"). Do NOT assume the United States — infer it from the address, domain, currency, language, or phone code. Empty only if genuinely indeterminable.
+- formattedAddress: The full address as a single human-readable line. ALWAYS provide this whenever any address text is present, even if you cannot split it into the discrete fields above.
+- repPhone: Primary business phone number. Empty if not found.
+- repEmail: Primary business contact email (not newsletter/unsubscribe). Empty if not found.
+- logoUrl: Return an empty string (the logo is resolved separately).
+- heroImageUrl: Return an empty string (the cover image is chosen separately).
+- instagram: The company's official Instagram profile URL if found. Empty string if not found.
+- pinterest: The company's official Pinterest profile URL if found. Empty string if not found.
+- facebook: The company's official Facebook page URL if found. Empty string if not found.
+- youtube: The company's official YouTube channel URL if found. Empty string if not found.
+- xTwitter: The company's official X / Twitter profile URL if found. Empty string if not found.
+- confidence: Float 0.0–1.0 for each field based on how clearly the information appeared.
+
+CRITICAL: Return 100% valid JSON only. Use empty string "" for fields not found.`;
+
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          // googleSearch backfills contact info the walled page can't provide
+          // (HQ address, phone, socials live in Google's index/Knowledge Graph).
+          tools: [{ urlContext: {} }, { googleSearch: {} }],
+          generationConfig: {
+            responseMimeType: "application/json",
+            responseSchema: VENDOR_RESPONSE_SCHEMA,
+          },
+        }),
+        signal: AbortSignal.timeout(60000),
+      },
+    );
+
+    if (!res.ok) {
+      console.error(
+        `[Vendor Autofill] url_context fallback HTTP ${res.status}`,
+      );
+      return null;
+    }
+
+    const geminiJson = await res.json();
+    void recordAiUsage(geminiJson?.usageMetadata);
+
+    const candidate = geminiJson.candidates?.[0];
+    const retrievalStatus =
+      candidate?.urlContextMetadata?.urlMetadata?.[0]?.urlRetrievalStatus;
+    if (retrievalStatus !== "URL_RETRIEVAL_STATUS_SUCCESS") {
+      console.warn(
+        `[Vendor Autofill] url_context could not retrieve the page: ${retrievalStatus ?? "no retrieval metadata"}`,
+      );
+      return null;
+    }
+
+    const parts = candidate?.content?.parts as { text?: string }[] | undefined;
+    const parsedText = parts?.find((p) => typeof p.text === "string")?.text;
+    if (!parsedText) return null;
+
+    const extracted = parseGeminiJson(parsedText) as Record<string, unknown>;
+    const conf = (extracted.confidence ?? {}) as Record<string, number>;
+    const logoUrl = faviconLogoUrl(vendorUrl);
+    if (logoUrl) conf.logoUrl = 0.4;
+
+    const returnedData = sanitizeVendorData({
+      name: (extracted.name as string) || undefined,
+      category: (extracted.category as string) || undefined,
+      description: (extracted.description as string) || undefined,
+      addressLine1: (extracted.addressLine1 as string) || undefined,
+      addressLine2: (extracted.addressLine2 as string) || undefined,
+      city: (extracted.city as string) || undefined,
+      region: (extracted.region as string) || undefined,
+      postalCode: (extracted.postalCode as string) || undefined,
+      country: (extracted.country as string) || undefined,
+      formattedAddress: (extracted.formattedAddress as string) || undefined,
+      repPhone: (extracted.repPhone as string) || undefined,
+      repEmail: (extracted.repEmail as string) || undefined,
+      logoUrl,
+      heroImageUrl: undefined,
+      imageCandidates: undefined,
+      showImagePicker: false,
+      confidence: conf,
+      instagram: (extracted.instagram as string) || undefined,
+      pinterest: (extracted.pinterest as string) || undefined,
+      facebook: (extracted.facebook as string) || undefined,
+      youtube: (extracted.youtube as string) || undefined,
+      xTwitter: (extracted.xTwitter as string) || undefined,
+    });
+
+    void saveDiagnosticRun({
+      type: "vendor",
+      url: vendorUrl,
+      scrapedMarkdown: [
+        "Scraper blocked — page retrieved via Gemini url_context. Google injects a condensed text digest server-side; the raw page content is never returned, so there is no markdown to show.",
+        "",
+        `Retrieved URL: ${candidate?.urlContextMetadata?.urlMetadata?.[0]?.retrievedUrl ?? vendorUrl}`,
+        `Page digest size: ~${geminiJson?.usageMetadata?.toolUsePromptTokenCount ?? "unknown"} tokens (billed as input)`,
+        `Google Search grounding: ${candidate?.groundingMetadata ? "invoked (backfilled contact fields from the search index)" : "not invoked"}`,
+        `Logo: ${logoUrl ? "Google favicon cache fallback (confidence 0.4)" : "none available"}; hero left empty by design`,
+      ].join("\n"),
+      prompt,
+      rawResponse: parsedText,
+      parsedData: returnedData,
+    });
+
+    return {
+      success: true,
+      modelUsed: `${model} (url_context)`,
+      data: returnedData,
+    };
+  } catch (error) {
+    console.error("[Vendor Autofill] url_context fallback error:", error);
+    return null;
+  }
+}
+
 export async function autofillVendorFromUrl(
   url: string,
 ): Promise<VendorAutofillResult> {
@@ -1122,7 +1741,9 @@ export async function autofillVendorFromUrl(
       fetch(vendorUrl, {
         headers: { "User-Agent": "Mozilla/5.0 (compatible; CRM-Enricher/1.0)" },
         signal: AbortSignal.timeout(10000),
-      }).then((r) => r.text()),
+        // A WAF 403 page must count as "no HTML", not content — the blocked-site
+        // fallback below keys off rawHtml being empty.
+      }).then((r) => (r.ok ? r.text() : "")),
       fetch(`${SCRAPER_CONFIG.jinaReaderUrl}${vendorUrl}`, {
         headers: jinaHeaders,
         next: { revalidate: 0 },
@@ -1133,13 +1754,22 @@ export async function autofillVendorFromUrl(
     const rawHtml = htmlSettled.status === "fulfilled" ? htmlSettled.value : "";
     const rawMarkdownText =
       jinaSettled.status === "fulfilled" ? jinaSettled.value : "";
-    const markdownText = cleanScrapedMarkdown(rawMarkdownText);
+    let markdownText = cleanScrapedMarkdown(rawMarkdownText);
+
+    // Jina surfaces upstream WAF blocks as scraped "Access Denied" text —
+    // treat that as no content rather than feeding it to the model.
+    if (markdownText.includes("Warning: Target URL returned error")) {
+      console.warn("[Vendor Autofill] Jina scraped a target-site error page");
+      markdownText = "";
+    }
 
     if (!markdownText && !rawHtml) {
+      const fallback = await extractVendorViaUrlContext(apiKey, vendorUrl);
+      if (fallback) return fallback;
       return {
         success: false,
         error:
-          "Could not reach the vendor website. Please try again or fill manually.",
+          "Could not read the vendor website (it may block automated access). Please fill the details manually.",
       };
     }
 
@@ -1225,97 +1855,7 @@ CRITICAL: Return 100% valid JSON only. Never return base64 data: URLs. Use empty
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: {
         responseMimeType: "application/json",
-        responseSchema: {
-          type: "OBJECT",
-          properties: {
-            name: { type: "STRING" },
-            category: { type: "STRING" },
-            description: { type: "STRING" },
-            addressLine1: { type: "STRING" },
-            addressLine2: { type: "STRING" },
-            city: { type: "STRING" },
-            region: { type: "STRING" },
-            postalCode: { type: "STRING" },
-            country: { type: "STRING" },
-            formattedAddress: { type: "STRING" },
-            repPhone: { type: "STRING" },
-            repEmail: { type: "STRING" },
-            logoUrl: { type: "STRING" },
-            heroImageUrl: { type: "STRING" },
-            instagram: { type: "STRING" },
-            pinterest: { type: "STRING" },
-            facebook: { type: "STRING" },
-            youtube: { type: "STRING" },
-            xTwitter: { type: "STRING" },
-            confidence: {
-              type: "OBJECT",
-              properties: {
-                name: { type: "NUMBER" },
-                category: { type: "NUMBER" },
-                description: { type: "NUMBER" },
-                addressLine1: { type: "NUMBER" },
-                addressLine2: { type: "NUMBER" },
-                city: { type: "NUMBER" },
-                region: { type: "NUMBER" },
-                postalCode: { type: "NUMBER" },
-                country: { type: "NUMBER" },
-                formattedAddress: { type: "NUMBER" },
-                repPhone: { type: "NUMBER" },
-                repEmail: { type: "NUMBER" },
-                logoUrl: { type: "NUMBER" },
-                heroImageUrl: { type: "NUMBER" },
-                instagram: { type: "NUMBER" },
-                pinterest: { type: "NUMBER" },
-                facebook: { type: "NUMBER" },
-                youtube: { type: "NUMBER" },
-                xTwitter: { type: "NUMBER" },
-              },
-              required: [
-                "name",
-                "category",
-                "description",
-                "addressLine1",
-                "addressLine2",
-                "city",
-                "region",
-                "postalCode",
-                "country",
-                "formattedAddress",
-                "repPhone",
-                "repEmail",
-                "logoUrl",
-                "heroImageUrl",
-                "instagram",
-                "pinterest",
-                "facebook",
-                "youtube",
-                "xTwitter",
-              ],
-            },
-          },
-          required: [
-            "name",
-            "category",
-            "description",
-            "addressLine1",
-            "addressLine2",
-            "city",
-            "region",
-            "postalCode",
-            "country",
-            "formattedAddress",
-            "repPhone",
-            "repEmail",
-            "logoUrl",
-            "heroImageUrl",
-            "instagram",
-            "pinterest",
-            "facebook",
-            "youtube",
-            "xTwitter",
-            "confidence",
-          ],
-        },
+        responseSchema: VENDOR_RESPONSE_SCHEMA,
       },
     });
 

@@ -192,13 +192,26 @@ export function useLibraryItemForm() {
         return { ...updated, sellingPrice };
       });
 
-      toast.success(
-        `Product specs successfully filled with ${AI_ASSISTANT_NAME} (Review before saving)!`,
-        {
-          id: lunaToast.id,
-          duration: 5000,
-        },
-      );
+      // Blocked sites (url_context fallback) often yield specs but no images —
+      // tell the user plainly instead of letting them hunt for missing photos.
+      const aiReturnedImages = (ext.imageUrls ?? []).some((u) => u.trim());
+      if (aiReturnedImages) {
+        toast.success(
+          `Product specs successfully filled with ${AI_ASSISTANT_NAME} (Review before saving)!`,
+          {
+            id: lunaToast.id,
+            duration: 5000,
+          },
+        );
+      } else {
+        toast.warning(
+          `${AI_ASSISTANT_NAME} filled the specs but couldn't retrieve images from this website. Please add photos manually.`,
+          {
+            id: lunaToast.id,
+            duration: 8000,
+          },
+        );
+      }
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : String(err);
       toast.error(errMsg || "An unexpected error occurred during autofill.", {

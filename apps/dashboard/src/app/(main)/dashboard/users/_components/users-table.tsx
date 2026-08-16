@@ -111,7 +111,10 @@ export function UsersTable({ table }: { table: TableType<UserRow> }) {
         </Table>
       </div>
 
-      <div className="flex items-center justify-between px-4 py-4 bg-muted/50">
+      <div
+        data-slot="table-pagination"
+        className="flex items-center justify-between px-4 py-4 bg-muted/50"
+      >
         <div className="flex items-center gap-4 text-muted-foreground text-sm">
           <div className="flex items-center gap-2">
             <span>Rows per page</span>

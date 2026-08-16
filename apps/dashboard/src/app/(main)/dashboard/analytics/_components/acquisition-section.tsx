@@ -1,12 +1,6 @@
 import { Ellipsis } from "lucide-react";
 
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { fetchAcquisitionData } from "@/server/analytics-actions";
 
 import { AnalyticsSetupRequired } from "./analytics-setup-required";
@@ -37,24 +31,20 @@ export async function AcquisitionSection({
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
-      <Card className="gap-2 pt-0">
-        <CardHeader className="bg-muted/50 py-3">
+      <Card variant="panel">
+        <CardHeader>
           <CardTitle>Channels</CardTitle>
-          <CardAction>
-            <Ellipsis className="size-4" />
-          </CardAction>
+          <Ellipsis className="size-4" />
         </CardHeader>
         <CardContent className="flex flex-1 flex-col px-0 pt-0">
           <ChannelsTable data={channels} />
         </CardContent>
       </Card>
 
-      <Card className="gap-2 pt-0">
-        <CardHeader className="bg-muted/50 py-3">
+      <Card variant="panel">
+        <CardHeader>
           <CardTitle>Source / Medium</CardTitle>
-          <CardAction>
-            <Ellipsis className="size-4" />
-          </CardAction>
+          <Ellipsis className="size-4" />
         </CardHeader>
         <CardContent className="flex flex-1 flex-col px-0 pt-0">
           <SourceMediumTable data={sourceMedium} />

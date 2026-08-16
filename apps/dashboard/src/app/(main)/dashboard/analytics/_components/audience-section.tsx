@@ -43,9 +43,9 @@ export async function AudienceSection({
 
   return (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-12">
-      <Card className="col-span-1 lg:col-span-6 pt-0">
-        <CardHeader className="bg-muted/50 py-3.5">
-          <CardTitle className="font-normal">Devices</CardTitle>
+      <Card variant="panel" className="col-span-1 lg:col-span-6">
+        <CardHeader>
+          <CardTitle>Devices</CardTitle>
         </CardHeader>
         <CardContent>
           <Label className="ml-auto w-fit mb-4 -mt-4 text-card-foreground">
@@ -63,9 +63,9 @@ export async function AudienceSection({
         </CardContent>
       </Card>
 
-      <Card className="col-span-1 lg:col-span-6 pt-0">
-        <CardHeader className="bg-muted/50 py-3.5">
-          <CardTitle className="font-normal">New vs Returning</CardTitle>
+      <Card variant="panel" className="col-span-1 lg:col-span-6">
+        <CardHeader>
+          <CardTitle>New vs Returning</CardTitle>
         </CardHeader>
         <CardContent>
           <Label className="ml-auto w-fit mb-4 -mt-4 text-card-foreground">
@@ -83,11 +83,11 @@ export async function AudienceSection({
         </CardContent>
       </Card>
 
-      <Card className="md:col-span-1 lg:col-span-6 pt-0">
-        <CardHeader className="bg-muted/50 py-3.5">
-          <CardTitle className="font-normal">Top Cities</CardTitle>
+      <Card variant="panel" className="col-span-1 lg:col-span-6">
+        <CardHeader>
+          <CardTitle>Top Cities</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-1 flex-col">
+        <CardContent className="flex flex-1 flex-col px-0 pt-0">
           <GeoTable
             labelHeader="City"
             rows={cities.map((city) => ({
@@ -98,11 +98,11 @@ export async function AudienceSection({
           />
         </CardContent>
       </Card>
-      <Card className="md:col-span-1 lg:col-span-6 pt-0">
-        <CardHeader className="bg-muted/50 py-3.5">
-          <CardTitle className="font-normal">Top Countries</CardTitle>
+      <Card variant="panel" className="col-span-1 lg:col-span-6">
+        <CardHeader>
+          <CardTitle>Top Countries</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-1 flex-col">
+        <CardContent className="flex flex-1 flex-col px-0 pt-0">
           <GeoTable
             labelHeader="Country"
             rows={countries.map((country) => ({

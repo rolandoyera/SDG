@@ -1,13 +1,7 @@
 import { Ellipsis } from "lucide-react";
 
 import { HatchBarChart } from "@/components/charts/hatch-bar-chart";
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   type ConversionsData,
   fetchConversionsData,
@@ -155,12 +149,10 @@ export async function ConversionsSection({
   return (
     <div className="flex flex-col gap-6">
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="md:col-span-1 lg:col-span-4 pt-0">
-          <CardHeader className="bg-muted/50 py-3">
+        <Card variant="panel" className="md:col-span-1 lg:col-span-4">
+          <CardHeader>
             <CardTitle>Key Events</CardTitle>
-            <CardAction>
-              <Ellipsis className="size-4" />
-            </CardAction>
+            <Ellipsis className="size-4" />
           </CardHeader>
           <CardContent>
             {hasKeyEvents ? (
@@ -173,12 +165,10 @@ export async function ConversionsSection({
           </CardContent>
         </Card>
 
-        <Card className="md:col-span-1 lg:col-span-3 pt-0">
-          <CardHeader className="bg-muted/50 py-3">
+        <Card variant="panel" className="md:col-span-1 lg:col-span-3">
+          <CardHeader>
             <CardTitle>Lead Breakdown</CardTitle>
-            <CardAction>
-              <Ellipsis className="size-4" />
-            </CardAction>
+            <Ellipsis className="size-4" />
           </CardHeader>
           <CardContent>
             <LeadBreakdown eventCounts={eventCounts} />
@@ -187,12 +177,10 @@ export async function ConversionsSection({
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="md:col-span-1 lg:col-span-3 pt-0">
-          <CardHeader className="bg-muted/50 py-3">
+        <Card variant="panel" className="md:col-span-1 lg:col-span-3">
+          <CardHeader>
             <CardTitle>Form Funnels</CardTitle>
-            <CardAction>
-              <Ellipsis className="size-4" />
-            </CardAction>
+            <Ellipsis className="size-4" />
           </CardHeader>
           <CardContent className="flex flex-col gap-8">
             <FunnelSteps
@@ -235,14 +223,12 @@ export async function ConversionsSection({
           </CardContent>
         </Card>
 
-        <Card className="gap-2 md:col-span-1 lg:col-span-4 pt-0">
-          <CardHeader className="bg-muted/50 py-3">
+        <Card variant="panel" className="md:col-span-1 lg:col-span-4">
+          <CardHeader>
             <CardTitle>Leads by Channel</CardTitle>
-            <CardAction>
-              <Ellipsis className="size-4" />
-            </CardAction>
+            <Ellipsis className="size-4" />
           </CardHeader>
-          <CardContent className="flex flex-1 flex-col px-0">
+          <CardContent className="flex flex-1 flex-col px-0 pt-0">
             <LeadsByChannelTable data={channels} />
           </CardContent>
         </Card>

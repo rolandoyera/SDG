@@ -123,8 +123,7 @@ export function SortableHeader<TData>({
         "-mx-3 h-8 gap-1.5 px-3 font-medium text-foreground text-sm hover:bg-transparent",
         align === "right" && "-mx-3 ml-auto flex flex-row-reverse",
         className,
-      )}
-    >
+      )}>
       {children}
       <Icon
         className={cn(
@@ -166,22 +165,19 @@ export function TanTable<TData>({
           className={cn(
             "**:data-[slot='table-cell']:px-4 **:data-[slot='table-head']:px-4 **:data-[slot='table-cell']:py-4",
             tableClassName,
-          )}
-        >
+          )}>
           <TableHeader
             className={cn(
               "h-16 **:data-[slot='table-head']:h-11 **:data-[slot='table-head']:font-medium **:data-[slot='table-head']:text-foreground **:data-[slot='table-head']:text-sm",
               borderTop && "border-t",
-            )}
-          >
+            )}>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id} className="hover:bg-transparent">
                 {headerGroup.headers.map((header) => (
                   <TableHead
                     key={header.id}
                     colSpan={header.colSpan}
-                    className={header.column.columnDef.meta?.headClassName}
-                  >
+                    className={header.column.columnDef.meta?.headClassName}>
                     {header.isPlaceholder
                       ? null
                       : flexRender(
@@ -202,8 +198,7 @@ export function TanTable<TData>({
                   onClick={
                     onRowClick ? () => onRowClick(row.original) : undefined
                   }
-                  className={onRowClick ? "cursor-pointer" : undefined}
-                >
+                  className={onRowClick ? "cursor-pointer" : undefined}>
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
                       {flexRender(
@@ -218,8 +213,7 @@ export function TanTable<TData>({
               <TableRow>
                 <TableCell
                   colSpan={table.getVisibleLeafColumns().length}
-                  className="h-24 text-center"
-                >
+                  className="h-24 text-center">
                   {emptyMessage}
                 </TableCell>
               </TableRow>
@@ -229,7 +223,9 @@ export function TanTable<TData>({
       </div>
 
       {pagination ? (
-        <div className="mt-auto flex items-center justify-between gap-4 px-4 py-4 bg-muted/50">
+        <div
+          data-slot="table-pagination"
+          className="mt-auto flex items-center justify-between gap-4 px-4 py-3 bg-muted/50">
           <p className="hidden flex-1 text-muted-foreground text-sm lg:block">
             Viewing {visibleCount} out of {filteredCount.toLocaleString()}{" "}
             {noun}
@@ -244,13 +240,11 @@ export function TanTable<TData>({
                 value={`${table.getState().pagination.pageSize}`}
                 onValueChange={(value) => {
                   table.setPageSize(Number(value));
-                }}
-              >
+                }}>
                 <SelectTrigger
                   size="sm"
                   className="w-20 bg-card"
-                  id={rowsPerPageId}
-                >
+                  id={rowsPerPageId}>
                   <SelectValue
                     placeholder={table.getState().pagination.pageSize}
                   />
@@ -275,8 +269,7 @@ export function TanTable<TData>({
                 className="hidden size-8 lg:flex"
                 size="icon"
                 onClick={() => table.setPageIndex(0)}
-                disabled={!table.getCanPreviousPage()}
-              >
+                disabled={!table.getCanPreviousPage()}>
                 <span className="sr-only">Go to first page</span>
                 <ChevronsLeft className="size-4" />
               </Button>
@@ -285,8 +278,7 @@ export function TanTable<TData>({
                 className="size-8"
                 size="icon"
                 onClick={() => table.previousPage()}
-                disabled={!table.getCanPreviousPage()}
-              >
+                disabled={!table.getCanPreviousPage()}>
                 <span className="sr-only">Go to previous page</span>
                 <ChevronLeft className="size-4" />
               </Button>
@@ -295,8 +287,7 @@ export function TanTable<TData>({
                 className="size-8"
                 size="icon"
                 onClick={() => table.nextPage()}
-                disabled={!table.getCanNextPage()}
-              >
+                disabled={!table.getCanNextPage()}>
                 <span className="sr-only">Go to next page</span>
                 <ChevronRight className="size-4" />
               </Button>
@@ -305,8 +296,7 @@ export function TanTable<TData>({
                 className="hidden size-8 lg:flex"
                 size="icon"
                 onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-                disabled={!table.getCanNextPage()}
-              >
+                disabled={!table.getCanNextPage()}>
                 <span className="sr-only">Go to last page</span>
                 <ChevronsRight className="size-4" />
               </Button>

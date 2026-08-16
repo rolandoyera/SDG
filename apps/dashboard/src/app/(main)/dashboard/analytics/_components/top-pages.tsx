@@ -1,12 +1,6 @@
 import { Ellipsis } from "lucide-react";
 
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { fetchTopPagesData } from "@/server/analytics-actions";
 
 import { AnalyticsSetupRequired } from "./analytics-setup-required";
@@ -22,12 +16,10 @@ export async function TopPages({
   const result = await fetchTopPagesData(range, campaign);
 
   return (
-    <Card className="h-full gap-2 pt-0">
-      <CardHeader className="bg-muted/50 py-3">
+    <Card variant="panel" className="h-full">
+      <CardHeader>
         <CardTitle>Top Pages</CardTitle>
-        <CardAction>
-          <Ellipsis className="size-4" />
-        </CardAction>
+        <Ellipsis className="size-4" />
       </CardHeader>
 
       <CardContent className="flex flex-1 flex-col px-0 pt-0">

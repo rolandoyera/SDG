@@ -1,12 +1,6 @@
 import { Ellipsis } from "lucide-react";
 
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Display,
   DisplayContent,
@@ -67,12 +61,10 @@ export async function GoogleSearchSection({ range }: { range?: string }) {
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Top queries */}
-        <Card className="gap-2 pt-0">
-          <CardHeader className="bg-muted/50 py-3">
+        <Card variant="panel">
+          <CardHeader>
             <CardTitle>Top Search Queries</CardTitle>
-            <CardAction>
-              <Ellipsis className="size-4" />
-            </CardAction>
+            <Ellipsis className="size-4" />
           </CardHeader>
           <CardContent className="flex flex-1 flex-col px-0 pt-0">
             {!queries.success ? (
@@ -88,12 +80,10 @@ export async function GoogleSearchSection({ range }: { range?: string }) {
         </Card>
 
         {/* Top pages */}
-        <Card className="gap-2 pt-0">
-          <CardHeader className="bg-muted/50 py-3">
+        <Card variant="panel">
+          <CardHeader>
             <CardTitle>Top Pages in Search</CardTitle>
-            <CardAction>
-              <Ellipsis className="size-4" />
-            </CardAction>
+            <Ellipsis className="size-4" />
           </CardHeader>
           <CardContent className="flex flex-1 flex-col px-0 pt-0">
             {!pages.success ? (

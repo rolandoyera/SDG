@@ -1,12 +1,6 @@
 import { Ellipsis } from "lucide-react";
 
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { fetchTrafficTrend } from "@/server/analytics-actions";
 
 import { AnalyticsSetupRequired } from "./analytics-setup-required";
@@ -22,12 +16,10 @@ export async function TrafficTrend({
   const result = await fetchTrafficTrend(range, campaign);
 
   return (
-    <Card className="h-full pt-0">
-      <CardHeader className="bg-muted/50 py-3">
+    <Card variant="panel" className="h-full">
+      <CardHeader>
         <CardTitle className="font-normal">Traffic Trend</CardTitle>
-        <CardAction>
-          <Ellipsis className="size-4" />
-        </CardAction>
+        <Ellipsis className="size-4" />
       </CardHeader>
       <CardContent>
         {!result.success ? (

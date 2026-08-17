@@ -40,11 +40,19 @@ export function ItemDetailHeader({
       <div className="flex flex-col justify-start gap-16 pb-4 md:flex-row md:items-center">
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-2">
-            <Badge variant="secondary">{item.category}</Badge>
+            <Link
+              href={`/dashboard/library?category=${encodeURIComponent(item.category)}`}
+            >
+              <Badge variant="secondary">{item.category}</Badge>
+            </Link>
             {item.subcategory && (
               <span>
                 <span className="mr-0.5">→</span>{" "}
-                <Badge variant="outline">{item.subcategory}</Badge>
+                <Link
+                  href={`/dashboard/library?category=${encodeURIComponent(item.category)}&subcategory=${encodeURIComponent(item.subcategory)}`}
+                >
+                  <Badge variant="outline">{item.subcategory}</Badge>
+                </Link>
               </span>
             )}
           </div>

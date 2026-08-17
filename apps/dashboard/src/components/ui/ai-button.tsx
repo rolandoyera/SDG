@@ -29,7 +29,8 @@ export function AiButton({
       className={cn(
         "group relative h-10 shrink-0 cursor-pointer overflow-hidden border-0 bg-indigo-900 px-3 font-medium text-sm text-white shadow-violet-500/20 shadow-xs transition-all duration-200 hover:scale-[1.01] hover:shadow-md hover:shadow-violet-500/30 disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none disabled:hover:scale-100",
         className,
-      )}>
+      )}
+    >
       {loading && (
         <span className="absolute inset-0 -translate-x-full animate-shimmer bg-linear-to-r from-transparent via-white/20 to-transparent" />
       )}

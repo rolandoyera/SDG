@@ -46,15 +46,25 @@ export function LibraryItemCard({
             <ShoppingBag className="size-8 text-muted-foreground/30" />
           </div>
         )}
-
-        {/* Sourcing Category & Subcategory Tags */}
-        <div className="absolute top-2 left-2.5 flex items-center gap-1.5">
-          <Badge variant="overlay">{item.category}</Badge>
-          {item.subcategory && (
-            <Badge variant="overlay">{item.subcategory}</Badge>
-          )}
-        </div>
       </Link>
+
+      {/* Sourcing Category & Subcategory Tags - link to the filtered catalog.
+          Sibling of the thumbnail link (never nest anchors); the Card is
+          `relative`, so the overlay position is unchanged. */}
+      <div className="absolute top-2 left-2.5 z-10 flex items-center gap-1.5">
+        <Link
+          href={`/dashboard/library?category=${encodeURIComponent(item.category)}`}
+        >
+          <Badge variant="overlay">{item.category}</Badge>
+        </Link>
+        {item.subcategory && (
+          <Link
+            href={`/dashboard/library?category=${encodeURIComponent(item.category)}&subcategory=${encodeURIComponent(item.subcategory)}`}
+          >
+            <Badge variant="overlay">{item.subcategory}</Badge>
+          </Link>
+        )}
+      </div>
 
       <CardContent className="flex flex-1 flex-col gap-3 pt-0">
         <div className="flex-1">

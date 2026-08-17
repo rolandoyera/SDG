@@ -153,7 +153,8 @@ export function ProjectNotesCard({
           size="sm"
           variant="secondary"
           onClick={() => setComposer({ note: null })}
-          className="flex items-center gap-1.5">
+          className="flex items-center gap-1.5"
+        >
           <Plus className="size-3.5" />
           Note
         </Button>
@@ -170,7 +171,8 @@ export function ProjectNotesCard({
           <form
             id="project-note-form"
             onSubmit={handleSubmit(submit)}
-            className="flex flex-col gap-2">
+            className="flex flex-col gap-2"
+          >
             <Controller
               control={control}
               name="body"
@@ -195,14 +197,16 @@ export function ProjectNotesCard({
               type="button"
               variant="outline"
               disabled={formState.isSubmitting}
-              onClick={() => handleOpenChange(false)}>
+              onClick={() => handleOpenChange(false)}
+            >
               Cancel
             </Button>
             <Button
               type="submit"
               form="project-note-form"
               disabled={formState.isSubmitting}
-              className="flex items-center gap-1.5">
+              className="flex items-center gap-1.5"
+            >
               {formState.isSubmitting && (
                 <Loader2 className="size-3.5 animate-spin" />
               )}
@@ -259,7 +263,8 @@ function NoteItem({ note, isOwn, isLast, onEdit, onDelete }: NoteItemProps) {
           isOwn
             ? "bg-primary text-primary-foreground"
             : "bg-foreground text-background",
-        )}>
+        )}
+      >
         {isOwn ? "You" : initials(note.createdBy.name)}
       </div>
       <div className="min-w-0 flex-1">
@@ -268,7 +273,8 @@ function NoteItem({ note, isOwn, isLast, onEdit, onDelete }: NoteItemProps) {
             className={cn(
               "font-semibold text-sm",
               isOwn ? "text-primary" : "text-card-foreground",
-            )}>
+            )}
+          >
             {displayName}
           </span>
           <span className="text-muted-foreground text-xs">{stamp}</span>
@@ -282,7 +288,8 @@ function NoteItem({ note, isOwn, isLast, onEdit, onDelete }: NoteItemProps) {
                     size="icon-sm"
                     onClick={onEdit}
                     aria-label="Edit Note"
-                    className="size-7 rounded-full text-muted-foreground hover:text-foreground">
+                    className="size-7 rounded-full text-muted-foreground hover:text-foreground"
+                  >
                     <Pencil className="size-3.5" />
                   </Button>
                 </TooltipTrigger>
@@ -297,7 +304,8 @@ function NoteItem({ note, isOwn, isLast, onEdit, onDelete }: NoteItemProps) {
                       size="icon-sm"
                       onClick={() => setOpen(true)}
                       aria-label="Delete Note"
-                      className="size-7 rounded-full text-muted-foreground hover:text-destructive">
+                      className="size-7 rounded-full text-muted-foreground hover:text-destructive"
+                    >
                       <Trash2 className="size-3.5" />
                     </Button>
                   </TooltipTrigger>
@@ -320,7 +328,8 @@ function NoteItem({ note, isOwn, isLast, onEdit, onDelete }: NoteItemProps) {
                         void handleConfirm();
                       }}
                       disabled={deleting}
-                      className="flex items-center gap-1.5 bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      className="flex items-center gap-1.5 bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
                       {deleting && <Loader2 className="size-4 animate-spin" />}
                       Delete Note
                     </AlertDialogAction>

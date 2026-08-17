@@ -437,8 +437,7 @@ export function PageVitalsClient() {
         timedOut.length === 2 ? await runPagespeedBoth(data) : null;
       for (const strategy of timedOut) {
         const run =
-          retried?.[strategy] ??
-          (await runPagespeed({ ...data, strategy }));
+          retried?.[strategy] ?? (await runPagespeed({ ...data, strategy }));
         if (run.success && run.data) {
           const report = run.data;
           setReports((prev) => ({ ...prev, [strategy]: report }));

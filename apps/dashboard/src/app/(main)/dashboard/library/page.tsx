@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+
+import { useSearchParams } from "next/navigation";
 
 import { Loader2, Plus, Search, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
@@ -29,14 +31,33 @@ import { QuickVendorDialog } from "./_components/quick-vendor-dialog";
 import { useLibraryItemForm } from "./_components/use-library-item-form";
 import PageHeader from "@/components/page-header";
 
-export default function LibraryPage() {
+function LibraryContent() {
   const { profile, organizationId, loading: authLoading } = useAuth();
   const [items, setItems] = useState<LibraryItem[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeCategory, setActiveCategory] = useState("All");
-  const [activeSubcategory, setActiveSubcategory] = useState("All");
+
+  // Filters live in the URL (?category=&subcategory=) so category/subcategory
+  // badges elsewhere can deep-link into a filtered catalog, and refresh/copied
+  // links land on the same view.
+  const searchParams = useSearchParams();
+  const activeCategory = searchParams.get("category") ?? "All";
+  const activeSubcategory = searchParams.get("subcategory") ?? "All";
+
+  const setFilters = (category: string, subcategory: string) => {
+    const params = new URLSearchParams(window.location.search);
+    if (category === "All") params.delete("category");
+    else params.set("category", category);
+    if (subcategory === "All") params.delete("subcategory");
+    else params.set("subcategory", subcategory);
+    const qs = params.toString();
+    window.history.replaceState(
+      null,
+      "",
+      qs ? `${window.location.pathname}?${qs}` : window.location.pathname,
+    );
+  };
 
   const form = useLibraryItemForm();
 
@@ -66,8 +87,15 @@ export default function LibraryPage() {
           if (params.get("add") === "true") {
             form.reset();
             setIsModalOpen(true);
-            const newUrl = window.location.pathname;
-            window.history.replaceState({}, "", newUrl);
+            params.delete("add");
+            const qs = params.toString();
+            window.history.replaceState(
+              {},
+              "",
+              qs
+                ? `${window.location.pathname}?${qs}`
+                : window.location.pathname,
+            );
           }
         }
       } catch (error) {
@@ -160,7 +188,8 @@ export default function LibraryPage() {
         />
         <Button
           onClick={handleOpenAdd}
-          className="flex items-center gap-2 bg-primary text-primary-foreground hover:bg-primary/95 sm:self-start">
+          className="flex items-center gap-2 bg-primary text-primary-foreground hover:bg-primary/95 sm:self-start"
+        >
           <Plus className="size-4" />
           Add Item
         </Button>
@@ -171,11 +200,9 @@ export default function LibraryPage() {
         <div className="3xl:flex hidden w-full flex-col md:w-auto">
           <Tabs
             value={activeCategory}
-            onValueChange={(val) => {
-              setActiveCategory(val);
-              setActiveSubcategory("All");
-            }}
-            className="w-full">
+            onValueChange={(val) => setFilters(val, "All")}
+            className="w-full"
+          >
             <TabsList className="flex max-w-full flex-wrap gap-0.5">
               <TabsTrigger value="All">All Categories</TabsTrigger>
               {CATEGORIES.map((cat) => (
@@ -192,12 +219,14 @@ export default function LibraryPage() {
               gridTemplateRows: isSubcategoryVisible ? "1fr" : "0fr",
               opacity: isSubcategoryVisible ? 1 : 0,
               marginTop: isSubcategoryVisible ? "1rem" : "0rem",
-            }}>
+            }}
+          >
             <div className="overflow-hidden">
               <Tabs
                 value={activeSubcategory}
-                onValueChange={setActiveSubcategory}
-                className="w-full">
+                onValueChange={(val) => setFilters(activeCategory, val)}
+                className="w-full"
+              >
                 <TabsList className="flex max-w-full flex-wrap gap-0.5">
                   <TabsTrigger value="All">All {activeCategory}</TabsTrigger>
                   {isSubcategoryVisible &&
@@ -215,10 +244,8 @@ export default function LibraryPage() {
         <div className="flex 3xl:hidden w-full flex-col gap-2 md:w-auto md:flex-row md:items-center">
           <Select
             value={activeCategory}
-            onValueChange={(val) => {
-              setActiveCategory(val);
-              setActiveSubcategory("All");
-            }}>
+            onValueChange={(val) => setFilters(val, "All")}
+          >
             <SelectTrigger className="w-full md:w-55">
               <SelectValue placeholder="Category" />
             </SelectTrigger>
@@ -235,7 +262,8 @@ export default function LibraryPage() {
           {activeCategory !== "All" && SUBCATEGORIES[activeCategory] && (
             <Select
               value={activeSubcategory}
-              onValueChange={setActiveSubcategory}>
+              onValueChange={(val) => setFilters(activeCategory, val)}
+            >
               <SelectTrigger className="fade-in w-full animate-in duration-200 md:w-55">
                 <SelectValue placeholder="Subcategory" />
               </SelectTrigger>
@@ -283,7 +311,8 @@ export default function LibraryPage() {
           {!searchQuery && (
             <Button
               onClick={handleOpenAdd}
-              className="mt-4 flex items-center gap-2">
+              className="mt-4 flex items-center gap-2"
+            >
               <Plus className="size-4" />
               Add An Item
             </Button>
@@ -322,5 +351,23 @@ export default function LibraryPage() {
         }}
       />
     </div>
+  );
+}
+
+// useSearchParams requires a Suspense boundary on a statically rendered route.
+export default function LibraryPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-75 flex-col items-center justify-center gap-3">
+          <Loader2 className="size-8 animate-spin text-primary" />
+          <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
+            Loading Library
+          </p>
+        </div>
+      }
+    >
+      <LibraryContent />
+    </Suspense>
   );
 }

@@ -34,20 +34,24 @@ export async function TopTrafficSources({
           <Tabs defaultValue="channels" className="flex flex-col gap-3">
             <TabsList
               className="w-full justify-start border-b px-2.5 pt-2"
-              variant="line">
+              variant="line"
+            >
               <TabsTrigger
                 className="flex-none font-normal text-card-foreground! text-sm"
-                value="channels">
+                value="channels"
+              >
                 Channels
               </TabsTrigger>
               <TabsTrigger
                 className="flex-none font-normal text-card-foreground! text-sm"
-                value="referrers">
+                value="referrers"
+              >
                 Referrers
               </TabsTrigger>
               <TabsTrigger
                 className="flex-none font-normal text-card-foreground! text-sm"
-                value="campaigns">
+                value="campaigns"
+              >
                 Campaigns
               </TabsTrigger>
             </TabsList>

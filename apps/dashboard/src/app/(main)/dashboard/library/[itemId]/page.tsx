@@ -166,7 +166,7 @@ export default function LibraryItemDetailPage({ params }: PageProps) {
 
   if (loading || authLoading) {
     return (
-      <div className="flex min-h-[400px] flex-col items-center justify-center gap-3">
+      <div className="flex min-h-100 flex-col items-center justify-center gap-3">
         <Loader2 className="size-8 animate-spin text-primary" />
         <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
           Fetching Item Specifications

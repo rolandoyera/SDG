@@ -280,7 +280,8 @@ export default function TenantsPage() {
             </p>
             <Button
               onClick={() => setIsDialogOpen(true)}
-              className="mt-4 flex items-center gap-2">
+              className="mt-4 flex items-center gap-2"
+            >
               <Plus className="size-4" />
               Create New Tenant
             </Button>
@@ -308,7 +309,8 @@ export default function TenantsPage() {
                   </div>
                   <Button
                     onClick={() => setIsDialogOpen(true)}
-                    className="flex items-center gap-1.5 text-primary-foreground hover:bg-primary/95">
+                    className="flex items-center gap-1.5 text-primary-foreground hover:bg-primary/95"
+                  >
                     <Plus className="size-3.5" />
                     Create Tenant
                   </Button>
@@ -336,7 +338,8 @@ export default function TenantsPage() {
                           <TableCell className="font-semibold text-foreground">
                             <Link
                               href={`/dashboard/tenants/${org.organizationId}`}
-                              className="transition-colors hover:text-primary hover:underline">
+                              className="transition-colors hover:text-primary hover:underline"
+                            >
                               {org.name}
                             </Link>
                           </TableCell>
@@ -353,7 +356,8 @@ export default function TenantsPage() {
                                   : org.plan === "Pro"
                                     ? "info"
                                     : "outline"
-                              }>
+                              }
+                            >
                               {org.plan}
                             </Badge>
                           </TableCell>
@@ -363,7 +367,8 @@ export default function TenantsPage() {
                                 org.status === "Active"
                                   ? "success"
                                   : "destructive"
-                              }>
+                              }
+                            >
                               {org.status}
                             </Badge>
                           </TableCell>
@@ -373,7 +378,8 @@ export default function TenantsPage() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="h-8 w-8 p-0">
+                                  className="h-8 w-8 p-0"
+                                >
                                   <span className="sr-only">Open menu</span>
                                   <ArrowUpDown className="h-4.5 w-4.5 rotate-90 opacity-60" />
                                 </Button>
@@ -394,7 +400,8 @@ export default function TenantsPage() {
                                     );
                                     router.push("/dashboard/home");
                                   }}
-                                  className="flex cursor-pointer items-center gap-2">
+                                  className="flex cursor-pointer items-center gap-2"
+                                >
                                   <Building2 className="size-4 opacity-70" />
                                   <span>
                                     {org.organizationId === activeOrgId
@@ -413,7 +420,8 @@ export default function TenantsPage() {
                                       org.status,
                                     )
                                   }
-                                  className="flex cursor-pointer items-center gap-2">
+                                  className="flex cursor-pointer items-center gap-2"
+                                >
                                   {org.status === "Active" ? (
                                     <>
                                       <UserX className="size-4 text-rose-500 opacity-80" />
@@ -445,7 +453,8 @@ export default function TenantsPage() {
                                       "Starter",
                                     )
                                   }
-                                  className="flex cursor-pointer items-center gap-2">
+                                  className="flex cursor-pointer items-center gap-2"
+                                >
                                   <CreditCard className="size-4 opacity-70" />
                                   <span>Switch to Starter Plan</span>
                                 </DropdownMenuItem>
@@ -454,7 +463,8 @@ export default function TenantsPage() {
                                   onClick={() =>
                                     handleUpdatePlan(org.organizationId, "Pro")
                                   }
-                                  className="flex cursor-pointer items-center gap-2">
+                                  className="flex cursor-pointer items-center gap-2"
+                                >
                                   <CreditCard className="size-4 opacity-70" />
                                   <span>Switch to Pro Plan</span>
                                 </DropdownMenuItem>
@@ -466,7 +476,8 @@ export default function TenantsPage() {
                                       "Enterprise",
                                     )
                                   }
-                                  className="flex cursor-pointer items-center gap-2">
+                                  className="flex cursor-pointer items-center gap-2"
+                                >
                                   <CreditCard className="size-4 opacity-70" />
                                   <span>Switch to Enterprise Plan</span>
                                 </DropdownMenuItem>
@@ -521,7 +532,8 @@ export default function TenantsPage() {
                           onClick={(event) => {
                             preventPaginationNavigation(event);
                             setCurrentPage(pageNumber);
-                          }}>
+                          }}
+                        >
                           {pageNumber}
                         </PaginationLink>
                       </PaginationItem>

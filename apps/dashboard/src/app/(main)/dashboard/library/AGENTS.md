@@ -18,7 +18,12 @@ across projects and proposals. Two routes, both **client components**:
 
 - [page.tsx](./page.tsx) — the catalog: searchable, category/subcategory-filtered grid of
   `LibraryItemCard`s, plus the "Add Item" dialog. Honors `?add=true` (Quick Create deep link) on
-  mount and clears it via `window.history.replaceState` (root AGENTS.md rule #3).
+  mount and clears it via `window.history.replaceState` (root AGENTS.md rule #3), preserving any
+  other params. The category/subcategory filters are **URL-driven** (`?category=`/`?subcategory=`,
+  read via `useSearchParams`, absent = "All"): filter changes sync back with
+  `window.history.replaceState` (no navigation/refetch), and the category/subcategory badges on
+  `LibraryItemCard` and `ItemDetailHeader` link to the filtered catalog. `useSearchParams` is why
+  the default export wraps `LibraryContent` in `Suspense` — required on a static route.
 - [[itemId]/page.tsx]([itemId]/page.tsx) — a single item: gallery, pricing, spec matrix, notes, and
   edit/delete.
 

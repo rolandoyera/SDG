@@ -81,7 +81,7 @@ export function VendorHero({ vendor }: VendorHeroProps) {
         ) : (
           <div className={`absolute inset-0 bg-linear-to-br ${gradient}`} />
         )}
-        <div className="absolute inset-0 bg-black/20" />
+
         {vendor.description && (
           <div className="absolute bottom-4 left-1/2 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded border border-white/10 bg-black/50 p-4 text-white shadow-lg backdrop-blur-md">
             <p className="mb-1 font-bold text-[10px] text-white/50 uppercase tracking-wider">
@@ -137,8 +137,7 @@ export function VendorHero({ vendor }: VendorHeroProps) {
             <DataField
               label="Address"
               empty="Not provided"
-              className="min-h-21"
-            >
+              className="min-h-21">
               {addressLines.length > 0 && (
                 <AddressValue lines={addressLines} query={addressText} />
               )}
@@ -146,8 +145,7 @@ export function VendorHero({ vendor }: VendorHeroProps) {
             <DataField
               label="Sourcing Notes"
               empty="Not provided"
-              className="h-21"
-            >
+              className="h-21">
               {vendor.notes}
             </DataField>
           </div>
@@ -164,8 +162,7 @@ export function VendorHero({ vendor }: VendorHeroProps) {
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) => e.currentTarget.blur()}
-                    className="cursor-pointer text-muted-foreground transition-colors hover:text-primary border border-border bg-background dark:border-input dark:bg-input/30 rounded-full p-1 shadow"
-                  >
+                    className="cursor-pointer text-muted-foreground transition-colors hover:text-primary border border-border bg-background dark:border-input dark:bg-input/30 rounded-full p-1 shadow">
                     <Icon strokeWidth={1.25} />
                   </a>
                 </TooltipTrigger>
@@ -174,8 +171,7 @@ export function VendorHero({ vendor }: VendorHeroProps) {
             ) : (
               <span
                 key={key}
-                className="cursor-not-allowed text-muted-foreground/20"
-              >
+                className="cursor-not-allowed text-muted-foreground/20">
                 <Icon strokeWidth={1.5} />
               </span>
             ),

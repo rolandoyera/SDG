@@ -32,6 +32,17 @@ interface DiagnosticOutputViewerProps {
 const JSON_TOKEN_REGEX =
   /("(?:\\u[\dA-Fa-f]{4}|\\[^u]|[^\\"])*"(?=\s*:)|"(?:\\u[\dA-Fa-f]{4}|\\[^u]|[^\\"])*"|true|false|null|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|[{}[\],:])/g;
 
+/**
+ * Radix's ScrollArea viewport wraps children in a `display: table; min-width: 100%`
+ * div. Table sizing is shrink-to-fit, so one long token (these outputs are full of
+ * CDN URLs) widens it past the card and nothing below it can wrap. Forcing the
+ * wrapper to block bounds it to the viewport instead.
+ *
+ * Only apply this when the content is meant to wrap — the "No wrap" mode depends on
+ * the default table behavior to overflow and drive the horizontal scrollbar.
+ */
+const WRAPPABLE_VIEWPORT = "[&_[data-slot=scroll-area-viewport]>div]:block!";
+
 function copyLabel(copied: boolean) {
   return copied ? "Copied" : "Copy";
 }
@@ -182,7 +193,10 @@ function MarkdownPreview({ value }: { value: string }) {
           return (
             <h3
               key={block.id}
-              className={cn("font-heading font-semibold text-foreground", size)}
+              className={cn(
+                "wrap-break-word font-heading font-semibold text-foreground",
+                size,
+              )}
             >
               {block.text}
             </h3>
@@ -193,7 +207,9 @@ function MarkdownPreview({ value }: { value: string }) {
           return (
             <div key={block.id} className="flex gap-2 text-foreground">
               <span className="mt-2 size-1.5 shrink-0 rounded-full bg-primary/70" />
-              <p>{block.text}</p>
+              {/* min-w-0: a flex child won't shrink below its min-content width
+                  without it, so a long URL would push the row wider instead of wrapping. */}
+              <p className="min-w-0 wrap-break-word">{block.text}</p>
             </div>
           );
         }
@@ -202,7 +218,7 @@ function MarkdownPreview({ value }: { value: string }) {
           return (
             <code
               key={block.id}
-              className="block rounded border bg-muted/35 px-3 py-2 font-mono text-muted-foreground text-xs"
+              className="block whitespace-pre-wrap wrap-break-word rounded border bg-muted/35 px-3 py-2 font-mono text-muted-foreground text-xs"
             >
               {block.text}
             </code>
@@ -210,7 +226,7 @@ function MarkdownPreview({ value }: { value: string }) {
         }
 
         return (
-          <p key={block.id} className="text-foreground">
+          <p key={block.id} className="wrap-break-word text-foreground">
             {block.text}
           </p>
         );
@@ -249,7 +265,13 @@ function TextBlock({
           <span className="select-none text-right text-muted-foreground/55 tabular-nums">
             {number}
           </span>
-          <span className="text-foreground">
+          {/* The content column is `1fr`, but grid items default to
+              `min-width: auto` and so refuse to shrink below their longest token —
+              min-w-0 lets the column narrow, and `wrap-anywhere` (unlike
+              `break-word`) actually lowers min-content width so a bare URL breaks. */}
+          <span
+            className={cn("text-foreground", wrap && "min-w-0 wrap-anywhere")}
+          >
             {json ? renderJsonLine(line, number) : line || " "}
           </span>
         </div>
@@ -365,11 +387,15 @@ export function DiagnosticOutputViewer({
             {emptyText}
           </div>
         ) : kind === "markdown" && !showRaw ? (
-          <ScrollArea className="h-145 bg-background/30">
+          <ScrollArea
+            className={cn("h-145 bg-background/30", WRAPPABLE_VIEWPORT)}
+          >
             <MarkdownPreview value={value} />
           </ScrollArea>
         ) : (
-          <ScrollArea className="h-145 bg-background/30">
+          <ScrollArea
+            className={cn("h-145 bg-background/30", wrap && WRAPPABLE_VIEWPORT)}
+          >
             <TextBlock
               value={displayValue}
               wrap={wrap}

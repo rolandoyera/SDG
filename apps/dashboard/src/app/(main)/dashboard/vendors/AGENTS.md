@@ -129,6 +129,27 @@ Enrichment only fills form state — nothing is saved until the user submits.
   only ever yield small images. Every candidate is then run through `cleanImageUrlSize`, which
   strips `_1920x`/`_180x`-style suffixes to reach the CDN master. Don't "simplify" this back to a
   markdown-only extractor.
+- **Candidates are measured, not guessed — `src/server/image-probe.ts`.** URL-shape heuristics only
+  work for CDNs that put the size in the filename; Magento hides the rendition in a _hash
+  directory_ (`/media/image_resizer/cache/<hash>/…`), which no suffix regex can see, so every
+  Arteriors candidate used to arrive thumbnail-sized. `measureImageCandidates` rewrites each URL to
+  its likely original (`originalVariants` — Magento cache segments, Shopify/WP suffixes), reads the
+  real pixel dimensions off the wire with a ranged GET (~64KB, ~300ms, all in parallel), then keeps
+  whichever variant actually won. Measuring is what makes rewriting safe: a guess that 404s or
+  comes back smaller is discarded instead of becoming a broken hero. Verified on arteriorshome.com:
+  390×390 → 2000×2000, 1920×887 → 3840×1774.
+  - Extraction over-collects to `RAW_HERO_CANDIDATE_LIMIT` (10) because measurement then drops and
+    merges; the survivors are trimmed to `HERO_CANDIDATE_LIMIT` (6) for the picker.
+  - **Dedup is by measured `(width, height, bytes)`,** not filename — the same photo reached via two
+    rendition paths collapses to one entry. Candidates that don't parse as an image are dropped,
+    which also kills the empty `<img src="https://site.com/">` placeholders scraped pages are full
+    of (they resolve to an HTML page).
+  - `imageCandidates` is `ImageCandidate[]` (`{ url, width, height, bytes? }`), **not** `string[]`,
+    ranked largest-first. `ImagePickerDialog` renders the real dimensions on each thumbnail and
+    badges anything under `MIN_HERO_WIDTH` (1000px) as "Low res" — the point is knowing before
+    applying, since a soft hero used to only become obvious after it rendered.
+  - Pure logic is covered by `src/server/image-probe.test.ts` (URL rewriting + the JPEG/PNG/GIF/WebP
+    header parsers). Run it when touching either.
 - **The model returns `heroImageIndex` (a number), never a hero URL.** Given a free-text field it
   copied whatever image URL sat nearest in the markdown prose — invariably a thumbnail — instead of
   using the normalized candidate list. The prompt numbers the candidates and the action resolves

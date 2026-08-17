@@ -1,6 +1,10 @@
 "use server";
 
 import { SCRAPER_CONFIG } from "@/config/scraper-config";
+import {
+  measureImageCandidates,
+  type ImageCandidate,
+} from "@/server/image-probe";
 import { AI_ASSISTANT_NAME } from "@/lib/ai-assistant";
 
 import {
@@ -1297,7 +1301,8 @@ export interface VendorAutofillResult {
     repEmail?: string;
     logoUrl?: string;
     heroImageUrl?: string;
-    imageCandidates?: string[];
+    /** Measured, ranked largest-first — see `measureImageCandidates`. */
+    imageCandidates?: ImageCandidate[];
     showImagePicker?: boolean;
     confidence?: Record<string, number>;
     instagram?: string;
@@ -1417,6 +1422,11 @@ function extractOgMeta(html: string, base: string): OgMeta {
   };
 }
 
+/** Hero URLs collected before measurement; trimmed to `HERO_CANDIDATE_LIMIT` after. */
+const RAW_HERO_CANDIDATE_LIMIT = 10;
+/** Hero candidates shown in the cover-image picker. */
+const HERO_CANDIDATE_LIMIT = 6;
+
 function extractVendorImageCandidates(
   rawHtml: string,
   markdown: string,
@@ -1478,7 +1488,13 @@ function extractVendorImageCandidates(
       if (logoCandidates.length < 6 && !logoCandidates.includes(cleanUrl))
         logoCandidates.push(cleanUrl);
     } else {
-      if (imageCandidates.length < 6 && !imageCandidates.includes(cleanUrl))
+      // Over-collect: measurement below drops unreachable URLs and collapses
+      // duplicate renditions, so the picker needs slack to still end up with a
+      // useful spread.
+      if (
+        imageCandidates.length < RAW_HERO_CANDIDATE_LIMIT &&
+        !imageCandidates.includes(cleanUrl)
+      )
         imageCandidates.push(cleanUrl);
     }
   }
@@ -1801,15 +1817,23 @@ export async function autofillVendorFromUrl(
     }
 
     const ogMeta = rawHtml ? extractOgMeta(rawHtml, vendorUrl) : {};
-    const { logoCandidates, imageCandidates } = extractVendorImageCandidates(
-      rawHtml,
-      markdownText,
-      vendorUrl,
+    const { logoCandidates, imageCandidates: rawImageCandidates } =
+      extractVendorImageCandidates(rawHtml, markdownText, vendorUrl);
+
+    // Upgrade each candidate to its CDN original, read the real dimensions off
+    // the wire, drop what doesn't resolve, collapse duplicate renditions, and
+    // rank largest-first. Everything downstream — the model's numbered list and
+    // the user's picker — works from measured images rather than URL guesswork.
+    const measuredCandidates = await measureImageCandidates(
+      rawImageCandidates,
+      HERO_CANDIDATE_LIMIT,
     );
+    const imageCandidates = measuredCandidates.map((c) => c.url);
 
     console.log(`[Vendor Autofill] OG:`, ogMeta);
     console.log(
-      `[Vendor Autofill] Logo candidates: ${logoCandidates.length}, Image candidates: ${imageCandidates.length}`,
+      `[Vendor Autofill] Logo candidates: ${logoCandidates.length}, Image candidates: ${rawImageCandidates.length} raw → ${measuredCandidates.length} measured`,
+      measuredCandidates.map((c) => `${c.width}x${c.height}`).join(", "),
     );
 
     const logoSourceLines = [
@@ -1826,11 +1850,11 @@ export async function autofillVendorFromUrl(
       .filter(Boolean)
       .join("\n");
 
-    // Numbered so the model can only answer with an index. The list is already
-    // ranked best-first (og:image → JSON-LD → largest srcset → markdown) and
-    // size-normalized, so index 0 is the safe default.
-    const heroSourceLines = imageCandidates
-      .map((src, i) => `${i}: ${src}`)
+    // Numbered so the model can only answer with an index. Dimensions are real
+    // (measured, not parsed from the URL) so the model can rule out anything too
+    // small to serve as a banner.
+    const heroSourceLines = measuredCandidates
+      .map((c, i) => `${i}: [${c.width}x${c.height}] ${c.url}`)
       .join("\n");
 
     const optimizedMarkdown = markdownText.substring(
@@ -1847,7 +1871,7 @@ Meta description: ${ogMeta.ogDescription ?? "not found"}
 Logo Sources (use in priority order listed):
 ${logoSourceLines || "none found"}
 
-Hero Image Candidates (numbered, pre-ranked best-first):
+Hero Image Candidates (numbered, measured, ranked largest-first):
 ${heroSourceLines || "none found"}
 
 Page Content (Markdown):
@@ -1930,9 +1954,15 @@ CRITICAL: Return 100% valid JSON only. Never return base64 data: URLs. Use empty
     // whenever more than one candidate exists, leave heroImageUrl empty and
     // tell the client to open the picker so the user makes the final choice.
     // The logo stays the model's pick (logos are identifiable from URL/context).
-    const pickerImageCandidates = [
-      ...new Set([modelHeroPick, ...imageCandidates].filter(Boolean)),
-    ];
+    //
+    // The model's pick leads, then the rest in size order — it judges subject
+    // matter (brand shot vs UI chrome), which is exactly what dimensions can't.
+    const pickerImageCandidates = modelHeroPick
+      ? [
+          ...measuredCandidates.filter((c) => c.url === modelHeroPick),
+          ...measuredCandidates.filter((c) => c.url !== modelHeroPick),
+        ]
+      : measuredCandidates;
     const showImagePicker = pickerImageCandidates.length > 1;
 
     const logoUrl = (extracted.logoUrl as string) || "";

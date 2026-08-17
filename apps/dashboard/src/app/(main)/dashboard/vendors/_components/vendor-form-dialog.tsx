@@ -43,6 +43,7 @@ import { runAiActionWithRetry } from "@/lib/ai-retry";
 import { uploadVendorImage } from "@/lib/db";
 import { cn, formatUsZip, formatVendorPhone } from "@/lib/utils";
 import { autofillVendorFromUrl } from "@/server/ai-actions";
+import type { ImageCandidate } from "@/server/image-probe";
 
 import {
   COUNTRIES,
@@ -70,9 +71,15 @@ const LABEL_CLASS = "h-5 flex items-center";
 interface ImagePickerDialogProps {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  candidates: string[];
+  candidates: ImageCandidate[];
   onApply: (hero: string | null) => void;
 }
+
+/**
+ * Below this the image can't fill a hero banner without visible softening, so
+ * it's called out in the picker rather than discovered after it's applied.
+ */
+const MIN_HERO_WIDTH = 1000;
 
 function ImagePickerDialog({
   open,
@@ -101,37 +108,53 @@ function ImagePickerDialog({
 
         <div className="max-h-[60vh] overflow-y-auto px-0.5 py-1">
           <div className="grid grid-cols-3 gap-2">
-            {candidates.map((url) => (
-              <button
-                key={url}
-                type="button"
-                onClick={() =>
-                  setSelectedHero(url === selectedHero ? null : url)
-                }
-                className={`relative aspect-video overflow-hidden rounded border-2 bg-muted/30 transition-all ${
-                  selectedHero === url
-                    ? "border-primary shadow-md"
-                    : "border-border hover:border-muted-foreground/40"
-                }`}
-              >
-                {/* biome-ignore lint/performance/noImgElement: selectable preview uses dynamic scraped hero image URLs. */}
-                <img
-                  src={url}
-                  alt=""
-                  className="h-full w-full object-cover"
-                  onError={(e) => {
-                    (
-                      e.currentTarget.parentElement as HTMLElement
-                    ).style.display = "none";
-                  }}
-                />
-                {selectedHero === url && (
-                  <div className="absolute top-1 right-1 flex size-5 items-center justify-center rounded-full bg-primary">
-                    <Check className="size-3 text-primary-foreground" />
-                  </div>
-                )}
-              </button>
-            ))}
+            {candidates.map(({ url, width, height }) => {
+              const lowRes = width < MIN_HERO_WIDTH;
+              return (
+                <button
+                  key={url}
+                  type="button"
+                  onClick={() =>
+                    setSelectedHero(url === selectedHero ? null : url)
+                  }
+                  className={`relative aspect-video overflow-hidden rounded border-2 bg-muted/30 transition-all ${
+                    selectedHero === url
+                      ? "border-primary shadow-md"
+                      : "border-border hover:border-muted-foreground/40"
+                  }`}
+                >
+                  {/* biome-ignore lint/performance/noImgElement: selectable preview uses dynamic scraped hero image URLs. */}
+                  <img
+                    src={url}
+                    alt=""
+                    className="h-full w-full object-cover"
+                    onError={(e) => {
+                      (
+                        e.currentTarget.parentElement as HTMLElement
+                      ).style.display = "none";
+                    }}
+                  />
+                  {/* Real measured dimensions — the whole point is knowing before
+                      applying, not after it renders soft in the hero. */}
+                  <span
+                    className={`absolute bottom-1 left-1 rounded px-1.5 py-0.5 font-medium text-[0.65rem] tabular-nums ${
+                      lowRes
+                        ? "bg-amber-500/90 text-white"
+                        : "bg-black/65 text-white"
+                    }`}
+                  >
+                    {lowRes
+                      ? `Low res · ${width}×${height}`
+                      : `${width}×${height}`}
+                  </span>
+                  {selectedHero === url && (
+                    <div className="absolute top-1 right-1 flex size-5 items-center justify-center rounded-full bg-primary">
+                      <Check className="size-3 text-primary-foreground" />
+                    </div>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -196,7 +219,7 @@ export function VendorFormDialog({
 
   const [aiLoading, setAiLoading] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [heroCandidates, setHeroCandidates] = useState<string[]>([]);
+  const [heroCandidates, setHeroCandidates] = useState<ImageCandidate[]>([]);
 
   const logoUrlValue = watch("logoUrl");
   const heroImageUrlValue = watch("heroImageUrl");

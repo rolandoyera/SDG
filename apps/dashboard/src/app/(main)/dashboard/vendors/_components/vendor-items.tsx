@@ -5,7 +5,6 @@ import Link from "next/link";
 import { Plus, ShoppingBag } from "lucide-react";
 
 import { DashboardImage } from "@/components/dashboard-image";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -26,14 +25,15 @@ export function VendorItems({ items, onAddItem }: VendorItemsProps) {
   return (
     <Card
       variant="panel"
-      className="flex h-full max-h-[80vh] flex-col md:max-h-none"
-    >
+      className="flex h-full max-h-[80vh] flex-col md:max-h-none">
       <CardHeader>
         <CardTitle>
           <span className="flex items-center gap-2">
             <ShoppingBag className="icons" />
-            Linked Library Items
-            <Badge variant="secondary">{items.length}</Badge>
+            Vendor Library Items
+            <span className="rounded-full bg-foreground text-xs font-semibold text-background size-4 flex items-center justify-center">
+              {items.length}
+            </span>
           </span>
         </CardTitle>
         {onAddItem && (
@@ -44,8 +44,7 @@ export function VendorItems({ items, onAddItem }: VendorItemsProps) {
                 variant="outline"
                 size="icon"
                 onClick={onAddItem}
-                className="size-8 shrink-0 rounded-full"
-              >
+                className="size-8 shrink-0 rounded-full">
                 <Plus className="size-4" />
                 <span className="sr-only">Add Items</span>
               </Button>
@@ -59,7 +58,7 @@ export function VendorItems({ items, onAddItem }: VendorItemsProps) {
           <div className="flex flex-col items-center justify-center px-4 py-16 text-center">
             <ShoppingBag className="mb-2 size-10 text-muted-foreground/30" />
             <p className="font-medium text-muted-foreground text-sm">
-              No linked products
+              No vendor products
             </p>
             <p className="mt-1 max-w-60 text-muted-foreground/60 text-xs">
               Items from the product library will appear here when added to this
@@ -71,8 +70,7 @@ export function VendorItems({ items, onAddItem }: VendorItemsProps) {
             {items.map((item) => (
               <div
                 key={item.itemId}
-                className="grid grid-cols-1 md:grid-cols-[.5fr_.25fr_.25fr_.25fr_.1fr] gap-3 justify-between p-3"
-              >
+                className="grid grid-cols-1 md:grid-cols-[.5fr_.25fr_.25fr_.25fr_.1fr] gap-3 justify-between p-3">
                 <div className="flex gap-2">
                   {/* Thumbnail */}
                   <div className="relative flex size-32 shrink-0 items-center justify-center overflow-hidden bg-background/50">
@@ -96,8 +94,7 @@ export function VendorItems({ items, onAddItem }: VendorItemsProps) {
                           In:{" "}
                           <Link
                             href={`/dashboard/library?category=${encodeURIComponent(item.category)}`}
-                            className="cursor-pointer transition-colors hover:text-primary hover:underline"
-                          >
+                            className="cursor-pointer transition-colors hover:text-primary hover:underline">
                             {item.category}
                           </Link>
                         </Label>
@@ -107,8 +104,7 @@ export function VendorItems({ items, onAddItem }: VendorItemsProps) {
                         <Label>
                           <Link
                             href={`/dashboard/library?category=${encodeURIComponent(item.category)}&subcategory=${encodeURIComponent(item.subcategory)}`}
-                            className="cursor-pointer transition-colors hover:text-primary hover:underline"
-                          >
+                            className="cursor-pointer transition-colors hover:text-primary hover:underline">
                             {item.subcategory}
                           </Link>
                         </Label>
@@ -116,8 +112,7 @@ export function VendorItems({ items, onAddItem }: VendorItemsProps) {
                     </div>
                     <Link
                       href={`/dashboard/library/${item.itemId}`}
-                      className="line-clamp-1 font-heading font-semibold text-sm transition-colors hover:text-primary hover:underline"
-                    >
+                      className="line-clamp-1 font-heading font-semibold text-sm transition-colors hover:text-primary hover:underline">
                       {item.name}
                     </Link>
                   </div>

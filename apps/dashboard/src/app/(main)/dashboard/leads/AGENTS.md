@@ -16,8 +16,9 @@ The sales pipeline: capture/qualify a `Lead` (`@/lib/types`), then convert it in
 can be an individual or a company (`isCompany`). Two routes, both **client components**:
 
 - [page.tsx](./page.tsx) — the pipeline: a `LeadsTable` (TanStack table) plus the "Add Lead" dialog.
-  Honors `?add=true` (Quick Create deep link) on mount and clears it via `window.history.replaceState`
-  (root AGENTS.md rule #3).
+  Honors `?add=true` (Quick Create deep link) via the shared `QuickCreateTrigger`
+  (`../_components/quick-create-trigger.tsx`), which reacts to same-page navigations and clears the
+  param via `window.history.replaceState` (root AGENTS.md rule #3).
 - [[leadId]/page.tsx]([leadId]/page.tsx) — a single lead: contact / project-fit / source cards,
   edit, and **Convert to Client**.
 

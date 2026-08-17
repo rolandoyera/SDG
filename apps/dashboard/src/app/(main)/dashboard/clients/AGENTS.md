@@ -16,8 +16,9 @@ The client directory (people/companies that projects attach to). A `Client` (`@/
 individual or a company (`isCompany`). Two routes, both **client components**:
 
 - [page.tsx](./page.tsx) — the directory: searchable grid of client cards, plus the "Add Client"
-  dialog. Honors `?add=true` (Quick Create deep link) on mount and clears it via
-  `window.history.replaceState` (root AGENTS.md rule #3).
+  dialog. Honors `?add=true` (Quick Create deep link) via the shared `QuickCreateTrigger`
+  (`../_components/quick-create-trigger.tsx`), which reacts to same-page navigations and clears the
+  param via `window.history.replaceState` (root AGENTS.md rule #3).
 - [[clientId]/page.tsx]([clientId]/page.tsx) — a single client profile: contact card, the client's
   projects (with inline "Add Project"), and a notes log; edit/delete.
 

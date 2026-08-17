@@ -14,6 +14,8 @@ vi.mock("@/lib/db", () => ({ getClients: vi.fn(async () => []) }));
 vi.mock("@/server/client-actions", () => ({ createClient: vi.fn() }));
 vi.mock("next/navigation", () => ({
   usePathname: () => "/dashboard/clients",
+  // QuickCreateTrigger reads ?add= via useSearchParams; no params in tests.
+  useSearchParams: () => new URLSearchParams(),
 }));
 vi.mock("@/components/auth-context", () => ({
   useAuth: () => authState,

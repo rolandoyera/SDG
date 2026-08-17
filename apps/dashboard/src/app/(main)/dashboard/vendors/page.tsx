@@ -34,6 +34,7 @@ import type { Vendor } from "@/lib/types";
 import { formatVendorPhone } from "@/lib/utils";
 import { mirrorVendorImagesToFirebase } from "@/lib/vendor-image-mirror";
 
+import { QuickCreateTrigger } from "../_components/quick-create-trigger";
 import {
   EMPTY_VENDOR_FORM,
   VENDOR_CATEGORIES,
@@ -64,10 +65,6 @@ export default function VendorsPage() {
       const params = new URLSearchParams(window.location.search);
       const searchParam = params.get("search");
       if (searchParam) setSearchQuery(searchParam);
-      if (params.get("add") === "true") {
-        setIsAddOpen(true);
-        window.history.replaceState({}, "", window.location.pathname);
-      }
     }
 
     async function loadData() {
@@ -220,6 +217,7 @@ export default function VendorsPage() {
           </div>
         )}
 
+        <QuickCreateTrigger onTrigger={() => setIsAddOpen(true)} />
         <VendorFormDialog
           open={isAddOpen}
           onOpenChange={setIsAddOpen}

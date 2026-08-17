@@ -32,6 +32,7 @@ import { createClient } from "@/server/client-actions";
 import type { Client } from "@/lib/types";
 import { formatPhone } from "@/lib/utils";
 
+import { QuickCreateTrigger } from "../_components/quick-create-trigger";
 import type { ClientFormData } from "./_components/client-constants";
 import { ClientFormDialog } from "./_components/client-form-dialog";
 import { getClientName } from "./_components/client-name";
@@ -50,15 +51,6 @@ export default function ClientsPage() {
   useEffect(() => {
     if (authLoading || !organizationId) return;
     const orgId = organizationId; // stable string dependency; profile object identity churns on each heartbeat
-
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get("add") === "true") {
-        setIsDialogOpen(true);
-        const newUrl = window.location.pathname;
-        window.history.replaceState({}, "", newUrl);
-      }
-    }
 
     async function loadData() {
       try {
@@ -244,6 +236,7 @@ export default function ClientsPage() {
           </div>
         )}
 
+        <QuickCreateTrigger onTrigger={() => setIsDialogOpen(true)} />
         <ClientFormDialog
           open={isDialogOpen}
           onOpenChange={setIsDialogOpen}

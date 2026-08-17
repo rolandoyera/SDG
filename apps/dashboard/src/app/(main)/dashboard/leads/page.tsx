@@ -11,6 +11,7 @@ import { PageTitle } from "@/components/page-title-updater";
 import { addLead, getLeads, getOrganizationUsers } from "@/lib/db";
 import type { ActivityActor, Lead, UserProfile } from "@/lib/types";
 
+import { QuickCreateTrigger } from "../_components/quick-create-trigger";
 import {
   type LeadFormData,
   leadFormToFields,
@@ -30,14 +31,6 @@ export default function LeadsPage() {
   useEffect(() => {
     if (authLoading || !organizationId) return;
     const orgId = organizationId; // stable string dependency; profile object identity churns on each heartbeat
-
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get("add") === "true") {
-        setIsAddOpen(true);
-        window.history.replaceState({}, "", window.location.pathname);
-      }
-    }
 
     async function loadData() {
       try {
@@ -117,6 +110,7 @@ export default function LeadsPage() {
           />
         )}
 
+        <QuickCreateTrigger onTrigger={() => setIsAddOpen(true)} />
         <LeadFormDialog
           open={isAddOpen}
           onOpenChange={setIsAddOpen}

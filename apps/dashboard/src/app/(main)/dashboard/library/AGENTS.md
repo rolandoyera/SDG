@@ -17,9 +17,10 @@ The Global Product Library — an org-wide catalog of items (`LibraryItem` in `@
 across projects and proposals. Two routes, both **client components**:
 
 - [page.tsx](./page.tsx) — the catalog: searchable, category/subcategory-filtered grid of
-  `LibraryItemCard`s, plus the "Add Item" dialog. Honors `?add=true` (Quick Create deep link) on
-  mount and clears it via `window.history.replaceState` (root AGENTS.md rule #3), preserving any
-  other params. The category/subcategory filters are **URL-driven** (`?category=`/`?subcategory=`,
+  `LibraryItemCard`s, plus the "Add Item" dialog. Honors `?add=true` (Quick Create deep link) via
+  the shared `QuickCreateTrigger` (`../_components/quick-create-trigger.tsx`), which reacts to
+  same-page navigations and clears the param via `window.history.replaceState` (root AGENTS.md
+  rule #3), preserving any other params. The category/subcategory filters are **URL-driven** (`?category=`/`?subcategory=`,
   read via `useSearchParams`, absent = "All"): filter changes sync back with
   `window.history.replaceState` (no navigation/refetch), and the category/subcategory badges on
   `LibraryItemCard` and `ItemDetailHeader` link to the filtered catalog. `useSearchParams` is why

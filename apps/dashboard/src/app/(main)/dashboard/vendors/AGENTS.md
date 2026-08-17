@@ -169,8 +169,9 @@ Enrichment only fills form state — nothing is saved until the user submits.
 - **`organizationId` is the effect dependency, not `profile`.** Both routes depend on the stable
   `organizationId` string from `useAuth` (the `profile` object identity churns each heartbeat). See
   the project memory note on effect deps — keep it that way.
-- **Deep-link triggers.** The directory honors `?search=` and `?add=true` query params on mount and
-  immediately clears `?add=true` via `window.history.replaceState` (root AGENTS.md rule #3). Preserve
-  the cleanup so reloads don't re-open the dialog.
+- **Deep-link triggers.** The directory honors `?search=` on mount, and `?add=true` via the shared
+  `QuickCreateTrigger` (`../_components/quick-create-trigger.tsx`), which reacts to same-page
+  navigations and immediately clears `?add=true` via `window.history.replaceState` (root AGENTS.md
+  rule #3). Preserve the cleanup so reloads don't re-open the dialog.
 - **`vendorId` is generated client-side** (`vendor-<random>`) and reused as the Storage upload
   prefix so images land under the right vendor even before the doc is created.

@@ -24,6 +24,7 @@ import { addLibraryItem, getLibraryItems, getVendors } from "@/lib/db";
 import { mirrorExternalImagesToFirebase } from "@/lib/library-image-mirror";
 import type { LibraryItem, Vendor } from "@/lib/types";
 
+import { QuickCreateTrigger } from "../_components/quick-create-trigger";
 import { LibraryItemCard } from "./_components/library-item-card";
 import { CATEGORIES, SUBCATEGORIES } from "./_components/library-constants";
 import { LibraryItemFormDialog } from "./_components/library-item-form-dialog";
@@ -80,24 +81,6 @@ function LibraryContent() {
         ]);
         setItems(itemsData);
         setVendors(vendorsData);
-
-        // Auto-open add modal if deep-linked via Quick Create
-        if (typeof window !== "undefined") {
-          const params = new URLSearchParams(window.location.search);
-          if (params.get("add") === "true") {
-            form.reset();
-            setIsModalOpen(true);
-            params.delete("add");
-            const qs = params.toString();
-            window.history.replaceState(
-              {},
-              "",
-              qs
-                ? `${window.location.pathname}?${qs}`
-                : window.location.pathname,
-            );
-          }
-        }
       } catch (error) {
         console.error("Failed to load catalog data:", error);
         toast.error("Failed to fetch library catalog from Firestore.", {
@@ -108,7 +91,7 @@ function LibraryContent() {
       }
     }
     void loadData();
-  }, [organizationId, authLoading, form.reset]);
+  }, [organizationId, authLoading]);
 
   const handleOpenAdd = () => {
     form.reset();
@@ -330,6 +313,7 @@ function LibraryContent() {
         </div>
       )}
 
+      <QuickCreateTrigger onTrigger={handleOpenAdd} />
       <LibraryItemFormDialog
         open={isModalOpen}
         onOpenChange={setIsModalOpen}

@@ -140,6 +140,52 @@ Enrichment only fills form state — nothing is saved until the user submits.
   390×390 → 2000×2000, 1920×887 → 3840×1774.
   - Extraction over-collects to `RAW_HERO_CANDIDATE_LIMIT` (10) because measurement then drops and
     merges; the survivors are trimmed to `HERO_CANDIDATE_LIMIT` (6) for the picker.
+  - **Candidates are zoned by real DOM ancestry, parsed with cheerio** (already a runtime dep) —
+    `ImageZone` / `ZONE_ORDER`: `declared` (og:image, JSON-LD) → `main` → `footer` → `nav`.
+    **Do not go back to inferring zone from the filename.** That was tried and is provably
+    impossible: arhaus.com names its megamenu thumbnails `metafield-<uuid>.jpg`, so a
+    `/nav|menu|header|footer/` pattern can't see them — and by demoting only the honestly-named
+    `MegaMenu`/`BathNav` files it made things _worse_, leaving the picker showing six anonymous nav
+    tiles. The DOM is unambiguous: 56 of arhaus's 69 `<picture>` elements sit inside nav/header and
+    only 12 in `<main>`.
+  - The zone tier is applied twice, both load-bearing: `extractVendorImageCandidates` orders by zone
+    _before_ the raw cap (megamenu markup sits early in the document, so a document-order cap spends
+    every slot on nav), and `measureImageCandidates`'s `demote` predicate keeps chrome last _after_
+    measurement (nav tiles are often the largest images on the page). `demote` is evaluated against
+    the URL the caller passed IN — the winning variant is usually a rewritten URL the caller has
+    never seen, so testing that one would silently never match.
+  - Chrome is demoted, never dropped: a page whose only usable photography lives in its nav should
+    still offer something rather than an empty picker.
+  - **`<source>` is read before `<img>`, and `data-srcset`/`data-src` count.** Inside a `<picture>`
+    the sources carry the full-resolution art direction while the `<img>` is the small fallback, and
+    4 of artistictile.com's 5 `<picture>` heroes declare their real asset via `data-srcset` (lazy
+    loading). This is what makes that homepage carousel reachable at all.
+  - **Store candidate URLs AS FOUND — never pre-strip the size suffix at collection.** It's lossy and
+    unrecoverable: arhaus's og:image is `SocialSharing-1200x628.png`, whose "cleaned" form
+    `SocialSharing.png` doesn't exist, so the candidate 404'd and vanished instead of measuring at
+    1200×628. `originalVariants` already probes the stripped form alongside the original and keeps
+    whichever wins — the same optimisation, done safely.
+  - Verified end to end: artistictile.com went from five 600px thumbnails to **5000×2617 plus the
+    five 3250×1448 carousel heroes**; arhaus surfaces its homepage carousel (1100×1100) and og:image
+    (1200×628) ahead of the megamenu tiles.
+  - **Three different CDN conventions, all handled by `originalVariants`:** filename suffix
+    (Shopify `_1920x`, WP `-1024x768`), hash directory (Magento), and **query param** (newer Shopify
+    `?v=…&width=600`, imgix `?w=&h=`). The query-param case is easy to miss because the URL looks
+    clean — arhaus.com serves everything as `?width=600`, which no filename or path regex can see.
+    `SIZE_PARAMS` are stripped; the `v` version param must be kept or the CDN 404s.
+  - **Some storefronts throttle the direct HTML fetch (HTTP 430) regardless of User-Agent.**
+    Measured on arhaus.com with alternating browser/bot UAs and cooldowns: success tracks request
+    rate, not the UA — so don't "fix" this by spoofing a browser string, it was tried and the
+    evidence didn't support it. The failure is silent and degrading, not loud: `rawHtml` comes back
+    empty, `extractOgMeta` finds nothing (the `Logo Sources: none found` tell in the prompt log),
+    and every hero candidate falls back to a Jina-markdown thumbnail.
+  - **`fetchJinaHtml` is the recovery for that.** When the direct fetch returns nothing, the action
+    re-asks Jina for HTML (`x-respond-with: html`) instead of markdown — Jina fetches from its own
+    infrastructure, so it gets through where we don't. Measured on arhaus.com: Jina _markdown_ is
+    59KB with 0 srcsets and no og:image; Jina _HTML_ is 794KB with 276 srcsets, 2 JSON-LD blocks and
+    an og:image, and the resulting candidates lead with 1410×784 and 1200×628 instead of five
+    identical 600px thumbnails. It only fires when the direct fetch failed (it costs a second Jina
+    call), and a failure there is non-fatal — the flow continues with an empty `rawHtml`.
   - **Dedup is by measured `(width, height, bytes)`,** not filename — the same photo reached via two
     rendition paths collapses to one entry. Candidates that don't parse as an image are dropped,
     which also kills the empty `<img src="https://site.com/">` placeholders scraped pages are full
@@ -150,13 +196,22 @@ Enrichment only fills form state — nothing is saved until the user submits.
     applying, since a soft hero used to only become obvious after it rendered.
   - Pure logic is covered by `src/server/image-probe.test.ts` (URL rewriting + the JPEG/PNG/GIF/WebP
     header parsers). Run it when touching either.
-- **The model returns `heroImageIndex` (a number), never a hero URL.** Given a free-text field it
-  copied whatever image URL sat nearest in the markdown prose — invariably a thumbnail — instead of
-  using the normalized candidate list. The prompt numbers the candidates and the action resolves
-  the index back to a URL, treating `-1`/out-of-range as "no pick" (falls back to the pre-ranked
-  order). `VENDOR_RESPONSE_SCHEMA` carries `heroImageIndex`, but the **confidence** sub-object
-  still keys on `heroImageUrl` — that name is the client-facing form field. Keep `logoUrl` as-is;
-  it's still a model-emitted string.
+- **The model returns `heroImageId` — an enum-constrained LETTER, never a URL or a number.** Two
+  failures got us here, and both are easy to reintroduce:
+  1. Given a free-text field, the model copied whatever image URL sat nearest in the markdown prose
+     — invariably a thumbnail — instead of using the candidate list.
+  2. Given a _numbered_ list, it answered `64` for a six-item list. Jina labels every image in the
+     scraped page as `![Image 64: …]`, so numeric ids compete with dozens of "Image N" strings
+     already in the content. **Never label the candidates numerically.**
+
+  So the ids are letters (`HERO_ID_LABELS` = A–F, plus `"NONE"`), and they're declared as a schema
+  `enum` so an invalid answer is impossible at decode time rather than something we detect and
+  silently discard afterwards. `vendorResponseSchema(heroIds)` is therefore built **per request** —
+  the enum lists exactly the candidates that exist; the url_context fallback passes `[]` so `"NONE"`
+  is the only legal answer. Declare the enum as `{ type: "STRING", enum: [...] }` only: `format:
+"enum"` is for top-level `text/x.enum` responses and risks a 400 as a property.
+  The **confidence** sub-object still keys on `heroImageUrl` — that name is the client-facing form
+  field. Keep `logoUrl` as-is; it's still a model-emitted string.
 
 - **Blocked-site fallback (url_context).** Jina's "Access Denied" scrape output is detected and
   treated as no content; when neither Jina markdown nor the direct HTML fetch got through (WAF'd
@@ -169,9 +224,9 @@ Enrichment only fills form state — nothing is saved until the user submits.
   in the form). Other text fields fill from the page digest; images can't (the digest strips
   markup), so `logoUrl` falls back to
   Google's favicon cache (`t3.gstatic.com/faviconV2`, confidence 0.4 — user-replaceable, and the
-  mirror step self-hosts it on save) and `heroImageUrl` stays empty with no picker. This path
-  shares `VENDOR_RESPONSE_SCHEMA`, so its prompt instructs `heroImageIndex: -1` (there is no
-  candidate list in this mode) — keep the two prompts in sync when the schema changes.
+  mirror step self-hosts it on save) and `heroImageUrl` stays empty with no picker. This path calls
+  `vendorResponseSchema([])`, so its prompt instructs `heroImageId: "NONE"` (there is no candidate
+  list in this mode) — keep the two prompts in sync when the schema changes.
 
 ## Conventions easy to break
 

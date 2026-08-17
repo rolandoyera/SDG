@@ -1,6 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { originalVariants, parseDimensions } from "./image-probe";
+import {
+  measureImageCandidates,
+  originalVariants,
+  parseDimensions,
+} from "./image-probe";
 
 describe("originalVariants", () => {
   it("strips the Magento image_resizer cache segment", () => {
@@ -31,14 +35,91 @@ describe("originalVariants", () => {
     );
   });
 
+  it("drops Shopify's width query param but keeps the version", () => {
+    expect(
+      originalVariants(
+        "https://www.arhaus.com/cdn/shop/files/hero.jpg?v=1747047932&width=600",
+      )[0],
+    ).toBe("https://www.arhaus.com/cdn/shop/files/hero.jpg?v=1747047932");
+  });
+
+  it("drops imgix-style w/h params", () => {
+    expect(
+      originalVariants(
+        "https://example.com/photo.jpg?w=300&h=200&auto=format",
+      )[0],
+    ).toBe("https://example.com/photo.jpg?auto=format");
+  });
+
   it("always keeps the input as the final fallback", () => {
     const url = "https://example.com/media/photo.jpg";
+    expect(originalVariants(url)).toEqual([url]);
+  });
+
+  it("leaves a URL with only a version param alone", () => {
+    const url = "https://example.com/photo.jpg?v=123";
     expect(originalVariants(url)).toEqual([url]);
   });
 
   it("does not treat a short hex directory as a cache segment", () => {
     const url = "https://example.com/cache/abc123/photo.jpg";
     expect(originalVariants(url)).toEqual([url]);
+  });
+});
+
+describe("measureImageCandidates ranking", () => {
+  /** Serves a PNG header whose IHDR encodes the size embedded in the URL. */
+  function stubFetch() {
+    vi.stubGlobal("fetch", async (url: string) => {
+      const [, w, h] = /-(\d+)x(\d+)\./.exec(url) ?? [];
+      const buf = Buffer.alloc(32);
+      buf.writeUInt32BE(0x89504e47, 0);
+      buf.writeUInt32BE(Number(w), 16);
+      buf.writeUInt32BE(Number(h), 20);
+      return {
+        ok: true,
+        headers: { get: () => null },
+        body: {
+          getReader: () => {
+            let sent = false;
+            return {
+              read: async () => {
+                if (sent) return { done: true, value: undefined };
+                sent = true;
+                return { done: false, value: buf };
+              },
+              cancel: async () => {
+                /* nothing to release in the stub */
+              },
+            };
+          },
+        },
+      };
+    });
+  }
+
+  it("ranks by pixel count when nothing is demoted", async () => {
+    stubFetch();
+    const out = await measureImageCandidates(
+      ["https://x.test/a-400x400.png", "https://x.test/b-1200x1200.png"],
+      6,
+    );
+    expect(out.map((c) => c.width)).toEqual([1200, 400]);
+    vi.unstubAllGlobals();
+  });
+
+  it("sorts demoted candidates last even when they are far larger", async () => {
+    stubFetch();
+    const out = await measureImageCandidates(
+      [
+        "https://x.test/megamenu-3000x3000.png",
+        "https://x.test/story-500x500.png",
+      ],
+      6,
+      (url) => /menu/i.test(url),
+    );
+    expect(out.map((c) => c.width)).toEqual([500, 3000]);
+    vi.unstubAllGlobals();
   });
 });
 

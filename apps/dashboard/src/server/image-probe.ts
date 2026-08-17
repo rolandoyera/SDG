@@ -35,6 +35,9 @@ export interface ImageCandidate {
 const HEADER_BYTES = 65536;
 const PROBE_TIMEOUT_MS = 8000;
 
+/** Query params that request a rendition rather than identify the asset. */
+const SIZE_PARAMS = ["width", "height", "w", "h"];
+
 /**
  * Rewrites a rendition URL to the original asset it was derived from, best guess
  * first. Always includes the input as the final fallback. Each returned URL is
@@ -77,6 +80,16 @@ export function originalVariants(url: string): string[] {
   if (suffixed !== path) {
     const rewritten = new URL(parsed.href);
     rewritten.pathname = suffixed;
+    add(rewritten.href);
+  }
+
+  // Newer Shopify (and imgix/Cloudinary) size via QUERY PARAMS instead —
+  // `?v=…&width=600`. Dropping the sizing params returns the original; the
+  // version param has to stay or the CDN 404s. If the URL turns out to be signed,
+  // stripping params just invalidates it and the probe discards the variant.
+  if (SIZE_PARAMS.some((p) => parsed.searchParams.has(p))) {
+    const rewritten = new URL(parsed.href);
+    for (const param of SIZE_PARAMS) rewritten.searchParams.delete(param);
     add(rewritten.href);
   }
 
@@ -216,10 +229,14 @@ async function probe(url: string): Promise<ImageCandidate | null> {
  * unreachable or not an image is dropped, which conveniently also removes the
  * empty `<img src="https://site.com/">` placeholders that scraped pages are
  * full of (they resolve to an HTML page, not an image).
+ *
+ * `demote` optionally marks URLs that should rank below everything else
+ * regardless of size — see the sort below.
  */
 export async function measureImageCandidates(
   urls: string[],
   limit: number,
+  demote?: (url: string) => boolean,
 ): Promise<ImageCandidate[]> {
   const measured = await Promise.all(
     urls.map(async (url) => {
@@ -229,23 +246,39 @@ export async function measureImageCandidates(
         await Promise.all(originalVariants(url).map(probe))
       ).filter((r): r is ImageCandidate => r !== null);
       if (results.length === 0) return null;
-      return results.reduce((best, current) =>
-        current.width * current.height > best.width * best.height
-          ? current
-          : best,
+      const best = results.reduce((a, b) =>
+        b.width * b.height > a.width * a.height ? b : a,
       );
+      // Evaluate `demote` against the URL the CALLER passed in — the winning
+      // variant is usually a rewritten URL the caller has never seen, so testing
+      // that one instead would silently never match.
+      return { candidate: best, demoted: demote?.(url) ?? false };
     }),
   );
 
+  // Size decides the order, except that `demote` forms a lower tier that always
+  // sorts beneath everything else. Callers use it for images that are large but
+  // categorically wrong for the job (site chrome), so they stay available as a
+  // last resort rather than being dropped — a page whose only usable photography
+  // lives in its nav should still produce candidates.
   const ranked = measured
-    .filter((c): c is ImageCandidate => c !== null)
-    .sort((a, b) => b.width * b.height - a.width * a.height);
+    .filter(
+      (m): m is { candidate: ImageCandidate; demoted: boolean } => m !== null,
+    )
+    .sort((a, b) => {
+      const tier = Number(a.demoted) - Number(b.demoted);
+      if (tier !== 0) return tier;
+      return (
+        b.candidate.width * b.candidate.height -
+        a.candidate.width * a.candidate.height
+      );
+    });
 
   // Identical byte length at identical dimensions is the same file reached by a
   // different path — a far more reliable duplicate signal than filename shape.
   const seen = new Set<string>();
   const deduped: ImageCandidate[] = [];
-  for (const candidate of ranked) {
+  for (const { candidate } of ranked) {
     const key = `${candidate.width}x${candidate.height}:${candidate.bytes ?? candidate.url}`;
     if (seen.has(key)) continue;
     seen.add(key);

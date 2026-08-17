@@ -1,5 +1,7 @@
 "use server";
 
+import * as cheerio from "cheerio";
+
 import { SCRAPER_CONFIG } from "@/config/scraper-config";
 import {
   measureImageCandidates,
@@ -312,6 +314,21 @@ function extractProductImagesFromHtml(html: string, base: string): string[] {
 /** Image URLs that are never product photos (nav chrome, payment badges, trackers, …). */
 const JUNK_IMAGE_PATTERNS =
   /logo|icon|avatar|sprite|banner|pixel|social|facebook|instagram|pinterest|twitter|linkedin|tracker|nav|footer|header|loading|\.svg|\.gif|analytics|checkout|cart|adroll|doubleclick|yotpo|trust|badge|payment|paypal|visa|mastercard|amex|applepay|googlepay|shipping|delivery|guarante|refund|secur|padlock|warranty|search-menu|placeholder/i;
+
+/**
+ * Headers for the direct page fetch.
+ *
+ * Some storefronts (arhaus.com, Shopify) throttle server-side fetches with HTTP
+ * 430 regardless of User-Agent — measured across alternating browser/bot UAs with
+ * cooldowns, success and failure track request rate, not the UA. So this stays an
+ * honest, identifiable bot string; spoofing a browser buys nothing here. When the
+ * fetch does fail the scrape degrades rather than errors: og:image, JSON-LD and
+ * srcset are all lost, and hero candidates fall back to the pre-shrunk thumbnail
+ * URLs in Jina's markdown.
+ */
+const PAGE_FETCH_HEADERS = {
+  "User-Agent": "Mozilla/5.0 (compatible; CRM-Enricher/1.0)",
+};
 
 const JSON_OUTPUT_RULES = `CRITICAL: You MUST return 100% valid JSON. Do not include raw unescaped newlines or raw unescaped double quotes inside your string properties. All double quotes inside text properties must be escaped as \\" and all literal linebreaks must be escaped as \\n. Do not include any inner monologues, reasoning, debates, or explanations within the JSON property values. Every property value must contain ONLY the final extracted data value (or an empty string if not found).`;
 
@@ -766,7 +783,7 @@ export async function autofillProductFromUrl(
     // (og:image, JSON-LD, srcset). Failures here are non-fatal — images simply fall
     // back to whatever the markdown yields.
     const rawHtmlPromise = fetch(normalizedUrl, {
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; CRM-Enricher/1.0)" },
+      headers: PAGE_FETCH_HEADERS,
       signal: AbortSignal.timeout(12000),
     })
       .then((r) => (r.ok ? r.text() : ""))
@@ -1422,10 +1439,70 @@ function extractOgMeta(html: string, base: string): OgMeta {
   };
 }
 
+/**
+ * Asks Jina Reader for raw HTML instead of markdown. Used only as a fallback for
+ * sites that block our own fetch — see the call site for the measurements.
+ * Failures are non-fatal: the caller just carries on with an empty rawHtml.
+ */
+async function fetchJinaHtml(
+  targetUrl: string,
+  jinaHeaders: Record<string, string>,
+): Promise<string> {
+  try {
+    const res = await fetch(`${SCRAPER_CONFIG.jinaReaderUrl}${targetUrl}`, {
+      headers: { ...jinaHeaders, "x-respond-with": "html" },
+      next: { revalidate: 0 },
+      signal: AbortSignal.timeout(20000),
+    });
+    return res.ok ? await res.text() : "";
+  } catch {
+    return "";
+  }
+}
+
 /** Hero URLs collected before measurement; trimmed to `HERO_CANDIDATE_LIMIT` after. */
 const RAW_HERO_CANDIDATE_LIMIT = 10;
 /** Hero candidates shown in the cover-image picker. */
 const HERO_CANDIDATE_LIMIT = 6;
+
+/**
+ * Where an image sits in the document, best-first. This replaced a filename
+ * heuristic (`/nav|menu|header|footer/`) that was provably unable to do the job:
+ * on arhaus.com the megamenu thumbnails are named `metafield-<uuid>.jpg`, so no
+ * amount of pattern matching can tell them apart from content imagery — and once
+ * the honestly-named `MegaMenu`/`BathNav` files were demoted, the anonymous ones
+ * were all that remained. The DOM answers this exactly: 56 of arhaus's 69
+ * `<picture>` elements are inside nav/header, and only 12 are in `<main>`.
+ */
+type ImageZone = "declared" | "main" | "footer" | "nav";
+
+/** Best-first. `declared` = og:image / JSON-LD, i.e. the page's own nomination. */
+const ZONE_ORDER: ImageZone[] = ["declared", "main", "footer", "nav"];
+
+/**
+ * Cheerio 1.x doesn't re-export the node type, so derive the selection type from
+ * the API rather than importing from its transitive `domhandler` dependency.
+ */
+type CheerioSelection = ReturnType<cheerio.CheerioAPI>;
+
+/** Reads the biggest URL an element offers, preferring srcset over a bare src. */
+function bestSourceUrl($el: CheerioSelection): string | undefined {
+  // `data-srcset`/`data-src` carry the real asset on lazy-loading themes —
+  // 4 of artistictile.com's 5 `<picture>` heroes are declared that way.
+  const srcset = $el.attr("srcset") ?? $el.attr("data-srcset");
+  if (srcset) {
+    const largest = largestFromSrcset(srcset);
+    if (largest) return largest;
+  }
+  return $el.attr("src") ?? $el.attr("data-src");
+}
+
+function zoneOf($el: CheerioSelection): ImageZone {
+  if ($el.closest("nav, header, [role=navigation], [role=banner]").length)
+    return "nav";
+  if ($el.closest("footer, [role=contentinfo]").length) return "footer";
+  return "main";
+}
 
 function extractVendorImageCandidates(
   rawHtml: string,
@@ -1434,171 +1511,209 @@ function extractVendorImageCandidates(
 ): {
   logoCandidates: string[];
   imageCandidates: string[];
+  /** Subset of `imageCandidates` that came from site chrome. */
+  navUrls: Set<string>;
 } {
-  const all: string[] = [];
-  const seenAll = new Set<string>();
-  const push = (src: string) => {
-    const trimmed = src.trim();
-    if (!trimmed) return;
-    const key = imageDedupKey(trimmed);
-    if (seenAll.has(key)) return;
-    seenAll.add(key);
-    all.push(trimmed);
-  };
-
-  // Raw HTML first: og:image, JSON-LD, and the largest `srcset` variant are the
-  // only full-resolution signals on the page. Jina's markdown flattens
-  // `<img srcset>` down to `src`, which on responsive themes (Shopify et al.) is
-  // a pre-shrunk thumbnail — markdown alone can only ever yield small images.
-  for (const src of extractProductImagesFromHtml(rawHtml, baseUrl)) push(src);
-
-  const mdImgRe = /!\[.*?\]\((https?:\/\/[^)\s]+)\)/gi;
-  let m = mdImgRe.exec(markdown);
-  while (m !== null) {
-    push(m[1]);
-    m = mdImgRe.exec(markdown);
-  }
-
-  const htmlImgRe = /<img\s+[^>]*src=["'](https?:\/\/[^"']+)["']/gi;
-  m = htmlImgRe.exec(markdown);
-  while (m !== null) {
-    push(m[1]);
-    m = htmlImgRe.exec(markdown);
-  }
-
-  const rawUrlRe =
-    /(https?:\/\/[^\s"'<>()]+?\.(?:jpg|jpeg|png|webp|gif|svg)(?:\?[^\s"'<>()]*)?)/gi;
-  m = rawUrlRe.exec(markdown);
-  while (m !== null) {
-    push(m[1]);
-    m = rawUrlRe.exec(markdown);
-  }
-
   const junkRe =
     /pixel|tracker|analytics|data:|base64|cart|checkout|spinner|loading|1x1|adroll|doubleclick|yotpo|trust|badge|payment|paypal|visa|mastercard|amex|applepay|googlepay|shipping|delivery|guarante|refund|secur|padlock|warranty|\.svg|\.gif/i;
   const logoKeyRe = /logo|brand|icon/i;
 
   const logoCandidates: string[] = [];
-  const imageCandidates: string[] = [];
+  const byZone: Record<ImageZone, string[]> = {
+    declared: [],
+    main: [],
+    footer: [],
+    nav: [],
+  };
+  const seen = new Set<string>();
 
-  for (const src of all) {
-    if (junkRe.test(src)) continue;
-    const cleanUrl = cleanImageUrlSize(src);
-    if (logoKeyRe.test(cleanUrl)) {
-      if (logoCandidates.length < 6 && !logoCandidates.includes(cleanUrl))
-        logoCandidates.push(cleanUrl);
-    } else {
-      // Over-collect: measurement below drops unreachable URLs and collapses
-      // duplicate renditions, so the picker needs slack to still end up with a
-      // useful spread.
-      if (
-        imageCandidates.length < RAW_HERO_CANDIDATE_LIMIT &&
-        !imageCandidates.includes(cleanUrl)
-      )
-        imageCandidates.push(cleanUrl);
+  const add = (src: string | undefined, zone: ImageZone) => {
+    if (!src?.trim()) return;
+    const abs = resolveAbsoluteUrl(src.trim(), baseUrl);
+    if (!abs.startsWith("http") || junkRe.test(abs)) return;
+    const key = imageDedupKey(abs);
+    if (seen.has(key)) return;
+    seen.add(key);
+    if (logoKeyRe.test(abs)) {
+      if (logoCandidates.length < 6) logoCandidates.push(cleanImageUrlSize(abs));
+      return;
     }
+    // Store the URL AS FOUND. Pre-stripping the size suffix here is lossy and
+    // unrecoverable: arhaus's og:image is `SocialSharing-1200x628.png`, whose
+    // "cleaned" form `SocialSharing.png` doesn't exist — so the candidate 404'd
+    // and vanished instead of measuring at 1200x628. `originalVariants` already
+    // probes the stripped form alongside the original and keeps whichever wins,
+    // which is the same optimisation done safely.
+    byZone[zone].push(abs);
+  };
+
+  if (rawHtml) {
+    const $ = cheerio.load(rawHtml);
+
+    // The page's own nominations outrank anything we infer from the markup.
+    for (const src of extractProductImagesFromHtml(rawHtml, baseUrl).slice(
+      0,
+      4,
+    ))
+      add(src, "declared");
+
+    // `<source>` before `<img>`: inside a `<picture>` the sources carry the
+    // full-resolution art directions and the `<img>` is the small fallback.
+    $("picture source, source, img").each((_, el) => {
+      const $el = $(el);
+      add(bestSourceUrl($el), zoneOf($el));
+    });
   }
 
-  return { logoCandidates, imageCandidates };
+  // Markdown fallback for when the HTML never arrived. Zone is unknowable here,
+  // so it lands in `main` — no worse than the old behavior, and it only matters
+  // when we have nothing better.
+  const pushMd = (re: RegExp) => {
+    let m = re.exec(markdown);
+    while (m !== null) {
+      add(m[1], "main");
+      m = re.exec(markdown);
+    }
+  };
+  pushMd(/!\[.*?\]\((https?:\/\/[^)\s]+)\)/gi);
+  pushMd(/<img\s+[^>]*src=["'](https?:\/\/[^"']+)["']/gi);
+  pushMd(
+    /(https?:\/\/[^\s"'<>()]+?\.(?:jpg|jpeg|png|webp|gif|svg)(?:\?[^\s"'<>()]*)?)/gi,
+  );
+
+  // Zone order is applied HERE, before the raw cap — megamenu markup sits early
+  // in the document, so a document-order cap spends every slot on nav before a
+  // single content image is measured. Over-collect because measurement then drops
+  // unreachable URLs and collapses duplicate renditions.
+  const imageCandidates = ZONE_ORDER.flatMap((zone) => byZone[zone]).slice(
+    0,
+    RAW_HERO_CANDIDATE_LIMIT,
+  );
+
+  return {
+    logoCandidates,
+    imageCandidates,
+    navUrls: new Set(byZone.nav),
+  };
 }
 
-const VENDOR_RESPONSE_SCHEMA = {
-  type: "OBJECT",
-  properties: {
-    name: { type: "STRING" },
-    category: { type: "STRING" },
-    description: { type: "STRING" },
-    addressLine1: { type: "STRING" },
-    addressLine2: { type: "STRING" },
-    city: { type: "STRING" },
-    region: { type: "STRING" },
-    postalCode: { type: "STRING" },
-    country: { type: "STRING" },
-    formattedAddress: { type: "STRING" },
-    repPhone: { type: "STRING" },
-    repEmail: { type: "STRING" },
-    logoUrl: { type: "STRING" },
-    /**
-     * Index into the `Hero Image Candidates` list in the prompt (-1 = none).
-     * Deliberately NOT a URL: when the model was free to emit a string it copied
-     * whatever image URL sat nearest in the markdown prose — invariably a
-     * pre-shrunk thumbnail — instead of using the normalized candidate list.
-     */
-    heroImageIndex: { type: "NUMBER" },
-    instagram: { type: "STRING" },
-    pinterest: { type: "STRING" },
-    facebook: { type: "STRING" },
-    youtube: { type: "STRING" },
-    xTwitter: { type: "STRING" },
-    confidence: {
-      type: "OBJECT",
-      properties: {
-        name: { type: "NUMBER" },
-        category: { type: "NUMBER" },
-        description: { type: "NUMBER" },
-        addressLine1: { type: "NUMBER" },
-        addressLine2: { type: "NUMBER" },
-        city: { type: "NUMBER" },
-        region: { type: "NUMBER" },
-        postalCode: { type: "NUMBER" },
-        country: { type: "NUMBER" },
-        formattedAddress: { type: "NUMBER" },
-        repPhone: { type: "NUMBER" },
-        repEmail: { type: "NUMBER" },
-        logoUrl: { type: "NUMBER" },
-        heroImageUrl: { type: "NUMBER" },
-        instagram: { type: "NUMBER" },
-        pinterest: { type: "NUMBER" },
-        facebook: { type: "NUMBER" },
-        youtube: { type: "NUMBER" },
-        xTwitter: { type: "NUMBER" },
+/**
+ * Labels for the hero candidates the model chooses between.
+ *
+ * Letters, not numbers, and enum-constrained rather than validated after the
+ * fact — both deliberate:
+ *
+ * - Jina's markdown labels every image in the page as `![Image 64: …]`, so a
+ *   numbered candidate list competes with dozens of "Image N" strings already in
+ *   the content. The model duly answered `64` for a six-item list. Letters can't
+ *   collide with anything the page numbering produces.
+ * - Declaring the ids as a schema `enum` makes an out-of-range answer
+ *   structurally impossible at decode time, instead of something we detect
+ *   afterwards and silently discard along with the model's judgement.
+ */
+const HERO_ID_LABELS = ["A", "B", "C", "D", "E", "F"] as const;
+const HERO_ID_NONE = "NONE";
+
+/**
+ * Built per request so the enum lists exactly the candidates that exist.
+ * `heroIds` is empty in the url_context fallback, which has no candidate list.
+ */
+function vendorResponseSchema(heroIds: readonly string[]) {
+  return {
+    type: "OBJECT",
+    properties: {
+      name: { type: "STRING" },
+      category: { type: "STRING" },
+      description: { type: "STRING" },
+      addressLine1: { type: "STRING" },
+      addressLine2: { type: "STRING" },
+      city: { type: "STRING" },
+      region: { type: "STRING" },
+      postalCode: { type: "STRING" },
+      country: { type: "STRING" },
+      formattedAddress: { type: "STRING" },
+      repPhone: { type: "STRING" },
+      repEmail: { type: "STRING" },
+      logoUrl: { type: "STRING" },
+      // `enum` alone is the documented shape for an enum PROPERTY; `format:
+      // "enum"` belongs to top-level `text/x.enum` responses and risks a 400 here.
+      heroImageId: { type: "STRING", enum: [...heroIds, HERO_ID_NONE] },
+      instagram: { type: "STRING" },
+      pinterest: { type: "STRING" },
+      facebook: { type: "STRING" },
+      youtube: { type: "STRING" },
+      xTwitter: { type: "STRING" },
+      confidence: {
+        type: "OBJECT",
+        properties: {
+          name: { type: "NUMBER" },
+          category: { type: "NUMBER" },
+          description: { type: "NUMBER" },
+          addressLine1: { type: "NUMBER" },
+          addressLine2: { type: "NUMBER" },
+          city: { type: "NUMBER" },
+          region: { type: "NUMBER" },
+          postalCode: { type: "NUMBER" },
+          country: { type: "NUMBER" },
+          formattedAddress: { type: "NUMBER" },
+          repPhone: { type: "NUMBER" },
+          repEmail: { type: "NUMBER" },
+          logoUrl: { type: "NUMBER" },
+          // Keyed by the client-facing form field, not by `heroImageId`.
+          heroImageUrl: { type: "NUMBER" },
+          instagram: { type: "NUMBER" },
+          pinterest: { type: "NUMBER" },
+          facebook: { type: "NUMBER" },
+          youtube: { type: "NUMBER" },
+          xTwitter: { type: "NUMBER" },
+        },
+        required: [
+          "name",
+          "category",
+          "description",
+          "addressLine1",
+          "addressLine2",
+          "city",
+          "region",
+          "postalCode",
+          "country",
+          "formattedAddress",
+          "repPhone",
+          "repEmail",
+          "logoUrl",
+          "heroImageUrl",
+          "instagram",
+          "pinterest",
+          "facebook",
+          "youtube",
+          "xTwitter",
+        ],
       },
-      required: [
-        "name",
-        "category",
-        "description",
-        "addressLine1",
-        "addressLine2",
-        "city",
-        "region",
-        "postalCode",
-        "country",
-        "formattedAddress",
-        "repPhone",
-        "repEmail",
-        "logoUrl",
-        "heroImageUrl",
-        "instagram",
-        "pinterest",
-        "facebook",
-        "youtube",
-        "xTwitter",
-      ],
     },
-  },
-  required: [
-    "name",
-    "category",
-    "description",
-    "addressLine1",
-    "addressLine2",
-    "city",
-    "region",
-    "postalCode",
-    "country",
-    "formattedAddress",
-    "repPhone",
-    "repEmail",
-    "logoUrl",
-    "heroImageIndex",
-    "instagram",
-    "pinterest",
-    "facebook",
-    "youtube",
-    "xTwitter",
-    "confidence",
-  ],
-};
+    required: [
+      "name",
+      "category",
+      "description",
+      "addressLine1",
+      "addressLine2",
+      "city",
+      "region",
+      "postalCode",
+      "country",
+      "formattedAddress",
+      "repPhone",
+      "repEmail",
+      "logoUrl",
+      "heroImageId",
+      "instagram",
+      "pinterest",
+      "facebook",
+      "youtube",
+      "xTwitter",
+      "confidence",
+    ],
+  };
+}
 
 /**
  * Google's favicon cache — serves a site's icon from Google's own infrastructure,
@@ -1649,7 +1764,7 @@ Extract the following and return as JSON:
 - repPhone: Primary business phone number. Empty if not found.
 - repEmail: Primary business contact email (not newsletter/unsubscribe). Empty if not found.
 - logoUrl: Return an empty string (the logo is resolved separately).
-- heroImageIndex: Return -1 (there are no image candidates in this mode; the cover image is chosen separately).
+- heroImageId: Return "NONE" (there are no image candidates in this mode; the cover image is chosen separately).
 - instagram: The company's official Instagram profile URL if found. Empty string if not found.
 - pinterest: The company's official Pinterest profile URL if found. Empty string if not found.
 - facebook: The company's official Facebook page URL if found. Empty string if not found.
@@ -1672,7 +1787,8 @@ CRITICAL: Return 100% valid JSON only. Use empty string "" for fields not found.
           tools: [{ urlContext: {} }, { googleSearch: {} }],
           generationConfig: {
             responseMimeType: "application/json",
-            responseSchema: VENDOR_RESPONSE_SCHEMA,
+            // No candidate list in this mode, so "NONE" is the only legal answer.
+            responseSchema: vendorResponseSchema([]),
           },
         }),
         signal: AbortSignal.timeout(60000),
@@ -1782,7 +1898,7 @@ export async function autofillVendorFromUrl(
 
     const [htmlSettled, jinaSettled] = await Promise.allSettled([
       fetch(vendorUrl, {
-        headers: { "User-Agent": "Mozilla/5.0 (compatible; CRM-Enricher/1.0)" },
+        headers: PAGE_FETCH_HEADERS,
         signal: AbortSignal.timeout(10000),
         // A WAF 403 page must count as "no HTML", not content — the blocked-site
         // fallback below keys off rawHtml being empty.
@@ -1794,10 +1910,33 @@ export async function autofillVendorFromUrl(
       }).then((r) => (r.ok ? r.text() : Promise.reject(`Jina ${r.status}`))),
     ]);
 
-    const rawHtml = htmlSettled.status === "fulfilled" ? htmlSettled.value : "";
+    let rawHtml = htmlSettled.status === "fulfilled" ? htmlSettled.value : "";
     const rawMarkdownText =
       jinaSettled.status === "fulfilled" ? jinaSettled.value : "";
     let markdownText = cleanScrapedMarkdown(rawMarkdownText);
+
+    // Storefronts that throttle our direct fetch (arhaus.com answers 430) leave
+    // rawHtml empty, which silently costs us every high-resolution image signal —
+    // og:image, JSON-LD and srcset all live in the HTML, so hero candidates fall
+    // back to the pre-shrunk thumbnails in Jina's markdown. Jina fetches from its
+    // own infrastructure, so asking it for HTML gets through where we don't.
+    // Measured on arhaus.com: markdown 59KB/0 srcsets/no og:image, vs HTML
+    // 794KB/276 srcsets/2 JSON-LD blocks/og:image at 1200x628.
+    //
+    // Only requested when the direct fetch actually failed — it costs a second
+    // Jina call, and on the blocked path it overlaps the markdown request anyway.
+    let htmlSource = rawHtml ? "direct" : "none";
+    if (!rawHtml) {
+      rawHtml = await fetchJinaHtml(vendorUrl, jinaHeaders);
+      htmlSource = rawHtml ? "jina-html" : "none";
+    }
+    // Which HTML a run actually used decides every image signal downstream, and
+    // an empty rawHtml degrades silently rather than erroring — so say it plainly.
+    console.log(
+      `[Vendor Autofill] HTML source: ${htmlSource} (${rawHtml.length} bytes), ` +
+        `og:image ${/property=["']og:image["']/i.test(rawHtml) ? "present" : "ABSENT"}, ` +
+        `markdown ${markdownText.length} chars`,
+    );
 
     // Jina surfaces upstream WAF blocks as scraped "Access Denied" text —
     // treat that as no content rather than feeding it to the model.
@@ -1817,18 +1956,21 @@ export async function autofillVendorFromUrl(
     }
 
     const ogMeta = rawHtml ? extractOgMeta(rawHtml, vendorUrl) : {};
-    const { logoCandidates, imageCandidates: rawImageCandidates } =
-      extractVendorImageCandidates(rawHtml, markdownText, vendorUrl);
+    const {
+      logoCandidates,
+      imageCandidates: rawImageCandidates,
+      navUrls,
+    } = extractVendorImageCandidates(rawHtml, markdownText, vendorUrl);
 
     // Upgrade each candidate to its CDN original, read the real dimensions off
     // the wire, drop what doesn't resolve, collapse duplicate renditions, and
-    // rank largest-first. Everything downstream — the model's numbered list and
+    // rank largest-first. Everything downstream — the model's lettered list and
     // the user's picker — works from measured images rather than URL guesswork.
     const measuredCandidates = await measureImageCandidates(
       rawImageCandidates,
       HERO_CANDIDATE_LIMIT,
+      (url) => navUrls.has(url),
     );
-    const imageCandidates = measuredCandidates.map((c) => c.url);
 
     console.log(`[Vendor Autofill] OG:`, ogMeta);
     console.log(
@@ -1850,11 +1992,13 @@ export async function autofillVendorFromUrl(
       .filter(Boolean)
       .join("\n");
 
-    // Numbered so the model can only answer with an index. Dimensions are real
-    // (measured, not parsed from the URL) so the model can rule out anything too
-    // small to serve as a banner.
+    // Lettered so the model can only answer with one of these ids, and so the
+    // ids can't be confused with the `![Image 64: …]` labels Jina stamps on every
+    // image in the page content. Dimensions are real (measured, not parsed from
+    // the URL) so the model can rule out anything too small to be a banner.
+    const heroIds = measuredCandidates.map((_, i) => HERO_ID_LABELS[i]);
     const heroSourceLines = measuredCandidates
-      .map((c, i) => `${i}: [${c.width}x${c.height}] ${c.url}`)
+      .map((c, i) => `${heroIds[i]}: [${c.width}x${c.height}] ${c.url}`)
       .join("\n");
 
     const optimizedMarkdown = markdownText.substring(
@@ -1871,7 +2015,7 @@ Meta description: ${ogMeta.ogDescription ?? "not found"}
 Logo Sources (use in priority order listed):
 ${logoSourceLines || "none found"}
 
-Hero Image Candidates (numbered, measured, ranked largest-first):
+Hero Image Candidates (lettered, measured, ranked largest-first):
 ${heroSourceLines || "none found"}
 
 Page Content (Markdown):
@@ -1891,7 +2035,7 @@ Extract the following and return as JSON:
 - repPhone: Primary business phone number. Empty if not found.
 - repEmail: Primary business contact email (not newsletter/unsubscribe). Empty if not found.
 - logoUrl: The single best logo URL from the Logo Sources above. Use priority order. Only absolute HTTPS URLs. Return empty string if nothing suitable.
-- heroImageIndex: The NUMBER of the single best brand/lifestyle image in the numbered Hero Image Candidates list above. It must be a product showcase or brand image — not a tracker pixel, ad banner, logo, or UI element. Return -1 if the list is empty or nothing in it is suitable. NEVER return a URL, and NEVER return a number that is not one of the listed indices — URLs found elsewhere in the page content are lower-resolution duplicates and must not be used.
+- heroImageId: The letter id (${heroIds.join(", ") || "none available"}) of the single best brand/lifestyle image in the Hero Image Candidates list above. It must be a product showcase or brand image — not a tracker pixel, ad banner, logo, or UI element. Return "NONE" if the list is empty or nothing in it is suitable. Answer ONLY with one of those exact ids — do not return a URL, and ignore the "Image N" numbering that appears throughout the page content below, which is unrelated to this list.
 - instagram: The company's official Instagram profile URL if found (e.g. "https://instagram.com/brandname"). Empty string if not found.
 - pinterest: The company's official Pinterest profile URL if found (e.g. "https://pinterest.com/brandname"). Empty string if not found.
 - facebook: The company's official Facebook page URL if found (e.g. "https://facebook.com/brandname"). Empty string if not found.
@@ -1905,7 +2049,7 @@ CRITICAL: Return 100% valid JSON only. Never return base64 data: URLs. Use empty
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: {
         responseMimeType: "application/json",
-        responseSchema: VENDOR_RESPONSE_SCHEMA,
+        responseSchema: vendorResponseSchema(heroIds),
       },
     });
 
@@ -1938,17 +2082,16 @@ CRITICAL: Return 100% valid JSON only. Never return base64 data: URLs. Use empty
     const extracted = parseGeminiJson(parsedText) as Record<string, unknown>;
     const conf = (extracted.confidence ?? {}) as Record<string, number>;
 
-    // The model answers with an index, so its pick is always one of the
-    // normalized full-resolution candidates — it can no longer smuggle in a
-    // thumbnail URL copied out of the page prose. Out-of-range or -1 falls back
-    // to the pre-ranked order (og:image first).
-    const heroIndex = Number(extracted.heroImageIndex);
+    // The model answers with an enum-constrained letter id, so its pick is always
+    // one of the measured candidates — it can neither smuggle in a thumbnail URL
+    // from the page prose nor name an id that doesn't exist. "NONE" (and any
+    // unexpected value) falls back to pure size order.
+    const heroId = String(extracted.heroImageId ?? "");
+    const heroIndex = heroIds.indexOf(
+      heroId as (typeof HERO_ID_LABELS)[number],
+    );
     const modelHeroPick =
-      Number.isInteger(heroIndex) &&
-      heroIndex >= 0 &&
-      heroIndex < imageCandidates.length
-        ? imageCandidates[heroIndex]
-        : "";
+      heroIndex >= 0 ? measuredCandidates[heroIndex].url : "";
 
     // The model can't see the images, so it never picks the hero blindly:
     // whenever more than one candidate exists, leave heroImageUrl empty and

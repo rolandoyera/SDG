@@ -96,7 +96,9 @@ and redirects to the catalog if it doesn't match. **Keep that guard.** If you ad
 
 ## AI autofill ("Autofill with [assistant]")
 
-The sourcing-link field's button calls `autofillProductFromUrl(url)` (`src/server/ai-actions.ts`, a
+The sourcing-link field's button is the shared `AiButton` (`@/components/ui/ai-button` — owns the
+indigo styling, LunaMoon icon, and shimmer/"Analyzing…" loading state; pass `loading` separately
+from `disabled`). It calls `autofillProductFromUrl(url)` (`src/server/ai-actions.ts`, a
 `"use server"` action; Gemini + scrape, keys server-only), wrapped in `runAiActionWithRetry` with a
 progress toast. It fills scalar specs (name, sku, category, finish, materials, dimensions, msrp, …)
 plus image URLs and writes `aiMetadata` (source url, model, confidence). It only mutates **form
@@ -129,11 +131,26 @@ state** — nothing is saved until the user submits, and the mirror step (above)
 
 ## Conventions easy to break
 
+- **Radix Select echoes programmatic value changes — keep the onValueChange guards.** Radix's hidden
+  native select re-emits value changes set via RHF back through `onValueChange` (and emits `""` when
+  the matching item isn't mounted yet in that commit). The dialog's category handler ignores
+  `val === field.value` (otherwise an AI autofill's category echo wipes the subcategory it just set)
+  and the subcategory handler ignores empty/no-op values. `library-item-form-dialog.test.tsx` pins
+  this — don't simplify the handlers back to bare `field.onChange`-with-side-effects.
+
 - **Form changes are three-touch.** A new item field means updating `libraryItemSchema`,
   `EMPTY_LIBRARY_ITEM_FORM`, **and** `libraryItemToForm` in `library-constants.ts`, plus rendering a
   `Controller` in `library-item-form-dialog.tsx`. Miss one and RHF/Zod silently drop or mistype it.
-- **Pricing is derived, not free-typed.** `unitCost`/`markup` drive `sellingPrice` (`updatePricing`);
-  editing `sellingPrice` back-computes `markup` (`setSellingPrice`). Keep both directions in sync.
+- **Pricing is derived, not free-typed.** The client pays MSRP and the markup % is the margin
+  backed out of it: `sellingPrice = msrp`, `unitCost = msrp × (1 − markup/100)` (MSRP $100 @ 20%
+  → cost $80, selling $100 — `deriveFromMsrp`). Each field has its own setter (`setMsrp`,
+  `setMarkup`, `setUnitCost`, `setSellingPrice`) and all stay editable: a manual `unitCost`
+  back-computes `markup` off MSRP; a manual `sellingPrice` is a pure override (client discount)
+  that markup/MSRP edits will re-derive. Items with **no MSRP** run the same margin off cost
+  instead (`sellingPrice = unitCost ÷ (1 − markup/100)`), and there `sellingPrice` edits
+  back-compute `markup`. The default markup % for new items comes from Company Settings
+  (`OrgSettings.defaultMarkupPercent`, fetched via `getOrganization` into a ref so `reset` stays
+  stable), falling back to `EMPTY_LIBRARY_ITEM_FORM.markup` (20) when unset.
 - **Images cap at `MAX_IMAGES` (6).** Upload, AI fill, and reorder all respect it; the first image is
   the cover (`coverImageUrl`/`coverImagePath`). Use the hook's `setAsCover`/`reorderImages`/
   `removeImageUrl` — they keep `imageUrls`, `images`, `manualImageUrls`, and the cover consistent.

@@ -324,7 +324,12 @@ ${Object.entries(SUBCATEGORIES)
   .map(([cat, subs]) => `  - "${cat}": ${subs.map((s) => `"${s}"`).join(", ")}`)
   .join("\n")}
   Choose the single closest match. If the category does not have a matching specific subcategory, use "Other".
-- description: A clean public description of the product.
+- description: Write a concise product description for use in an interior design client proposal. Describe the item as a designer would naturally explain a selected product directly to a client during a conversation. The wording should feel human and conversational, not like manufacturer copy, ecommerce copy, or a technical specification sheet.
+  Prioritize the product type, defining visual/design feature, primary materials, and at most one or two meaningful functional features. Include only the most important details needed for a client to understand the item.
+  Do not include secondary technical details such as faucet hole spacing, mounting methods, plumbing accommodations, installation requirements, hardware options, care instructions, warranties, shipping information, or construction details that are not visually or functionally important to the client.
+  Do not list available options or alternate finishes. Describe only the selected product/variant when clearly identified.
+  Use clean, professional proposal language. Avoid marketing language, storytelling, superlatives, filler, and phrases such as "this piece includes," "designed to," "perfect for," "timeless," "luxurious," or "elevated." Never use any form of the verb "feature" ("features," "featuring," "featured").
+  Do not invent or infer details. The final description must not exceed 250 characters, including spaces and punctuation. Prefer shorter wording when the product can be clearly described in fewer characters.
 - finishColor: The finish, color, or upholstery (e.g. "Honed Natural", "Boucle Cream").
 - manufacturer: The brand or manufacturer (e.g. "Crate & Barrel").
 - materials: The material composition (e.g. "Solid Oak, Boucle Fabric").

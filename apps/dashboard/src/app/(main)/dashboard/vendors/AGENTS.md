@@ -106,7 +106,9 @@ URL — go through the mirror so links don't rot and `DashboardImage` can serve 
 
 ## AI enrichment ("Enrich with [assistant]")
 
-The website field's button calls `autofillVendorFromUrl(url)` (`src/server/ai-actions.ts`, a
+The website field's button is the shared `AiButton` (`@/components/ui/ai-button` — owns the
+indigo styling, LunaMoon icon, and shimmer/"Analyzing…" loading state; pass `loading` separately
+from `disabled`). It calls `autofillVendorFromUrl(url)` (`src/server/ai-actions.ts`, a
 `"use server"` action; Gemini + Jina scrape, keys server-only). It returns scalar fields (name,
 category, the international address fields incl. `country` as an ISO alpha-2 code and a
 `formattedAddress` fallback, rep, socials) plus an `imageCandidates` array (hero/cover candidates

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -10,7 +10,7 @@ import { useAuth } from "@/components/auth-context";
 import { startLunaProductAutofillToast } from "@/components/luna-progress-toast";
 import { AI_ASSISTANT_NAME } from "@/lib/ai-assistant";
 import { runAiActionWithRetry } from "@/lib/ai-retry";
-import { uploadLibraryImage } from "@/lib/db";
+import { getOrganization, uploadLibraryImage } from "@/lib/db";
 import { autofillProductFromUrl } from "@/server/ai-actions";
 
 import {
@@ -22,6 +22,17 @@ import {
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
+const round2 = (n: number) => Number(n.toFixed(2));
+
+// Pricing model: the client pays MSRP, and the markup % is the margin backed out
+// of it — wholesale cost = MSRP × (1 − markup/100). MSRP $100 @ 20% → cost $80,
+// selling price $100. Without an MSRP the same margin runs off cost instead:
+// selling = cost ÷ (1 − markup/100).
+const deriveFromMsrp = (msrp: number, markup: number) => ({
+  unitCost: round2(msrp * (1 - markup / 100)),
+  sellingPrice: msrp,
+});
+
 export function useLibraryItemForm() {
   const { organizationId } = useAuth();
   const rhfForm = useForm<LibraryItemFormData>({
@@ -32,6 +43,22 @@ export function useLibraryItemForm() {
   // Reactive form data — replaces useState<LibraryItemFormData>
   const formData = rhfForm.watch();
   const [tempItemId, setTempItemId] = useState("");
+
+  // Org default markup % (Company Settings → defaultMarkupPercent). Held in a
+  // ref so `reset` stays referentially stable (the catalog effect depends on it).
+  const defaultMarkupRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!organizationId) return;
+    let cancelled = false;
+    void getOrganization(organizationId).then((org) => {
+      if (!cancelled) {
+        defaultMarkupRef.current = org?.settings?.defaultMarkupPercent ?? null;
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [organizationId]);
 
   // Compatibility setter: mirrors the previous useState pattern so the dialog
   // doesn't need wholesale rewrites on every field.
@@ -65,7 +92,11 @@ export function useLibraryItemForm() {
 
   const reset = useCallback(
     (values?: Partial<LibraryItemFormData>, customItemId?: string) => {
-      rhfForm.reset({ ...EMPTY_LIBRARY_ITEM_FORM, ...values });
+      rhfForm.reset({
+        ...EMPTY_LIBRARY_ITEM_FORM,
+        markup: defaultMarkupRef.current ?? EMPTY_LIBRARY_ITEM_FORM.markup,
+        ...values,
+      });
       setTempItemId(
         customItemId ?? `item-${Math.random().toString(36).substr(2, 9)}`,
       );
@@ -83,16 +114,61 @@ export function useLibraryItemForm() {
     [rhfForm],
   );
 
-  const updatePricing = (unitCost: number, markup: number, msrp: number) => {
-    const sellingPrice = Number((unitCost * (1 + markup / 100)).toFixed(2));
-    setFormData((prev) => ({ ...prev, unitCost, markup, msrp, sellingPrice }));
+  const setMsrp = (msrp: number) => {
+    setFormData((prev) =>
+      msrp > 0
+        ? { ...prev, msrp, ...deriveFromMsrp(msrp, prev.markup) }
+        : { ...prev, msrp },
+    );
   };
 
+  const setMarkup = (markup: number) => {
+    setFormData((prev) => {
+      const msrp = prev.msrp ?? 0;
+      if (msrp > 0) return { ...prev, markup, ...deriveFromMsrp(msrp, markup) };
+      if (prev.unitCost > 0 && markup < 100) {
+        return {
+          ...prev,
+          markup,
+          sellingPrice: round2(prev.unitCost / (1 - markup / 100)),
+        };
+      }
+      return { ...prev, markup };
+    });
+  };
+
+  // Wholesale cost stays editable — a manual cost back-computes the markup %
+  // off MSRP when present; without an MSRP it drives the selling price instead.
+  const setUnitCost = (unitCost: number) => {
+    setFormData((prev) => {
+      const msrp = prev.msrp ?? 0;
+      if (msrp > 0) {
+        return {
+          ...prev,
+          unitCost,
+          markup: round2(((msrp - unitCost) / msrp) * 100),
+        };
+      }
+      if (unitCost > 0 && prev.markup < 100) {
+        return {
+          ...prev,
+          unitCost,
+          sellingPrice: round2(unitCost / (1 - prev.markup / 100)),
+        };
+      }
+      return { ...prev, unitCost };
+    });
+  };
+
+  // Selling Price stays editable as a manual override (e.g. a client discount
+  // off MSRP); markup keeps tying cost ↔ MSRP, so it doesn't back-compute here
+  // unless there's no MSRP (then markup is the cost ↔ selling margin).
   const setSellingPrice = (value: number) => {
     setFormData((prev) => {
+      const msrp = prev.msrp ?? 0;
       const markup =
-        prev.unitCost > 0
-          ? Number((((value - prev.unitCost) / prev.unitCost) * 100).toFixed(2))
+        msrp === 0 && prev.unitCost > 0 && value > 0
+          ? round2((1 - prev.unitCost / value) * 100)
           : prev.markup;
       return { ...prev, sellingPrice: value, markup };
     });
@@ -186,10 +262,10 @@ export function useLibraryItemForm() {
           },
         };
 
-        const sellingPrice = Number(
-          (prev.unitCost * (1 + prev.markup / 100)).toFixed(2),
-        );
-        return { ...updated, sellingPrice };
+        const msrp = updated.msrp ?? 0;
+        return msrp > 0
+          ? { ...updated, ...deriveFromMsrp(msrp, prev.markup) }
+          : updated;
       });
 
       // Blocked sites (url_context fallback) often yield specs but no images —
@@ -371,7 +447,9 @@ export function useLibraryItemForm() {
     setTempTextValue,
     uploadingImage,
     aiLoading,
-    updatePricing,
+    setUnitCost,
+    setMarkup,
+    setMsrp,
     setSellingPrice,
     autofillWithAi,
     handleImageUpload,

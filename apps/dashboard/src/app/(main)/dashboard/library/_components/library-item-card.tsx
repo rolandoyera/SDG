@@ -24,6 +24,9 @@ export function LibraryItemCard({
 }) {
   const vendorName = parentVendor?.name || "Unknown Vendor";
   const profitable = item.sellingPrice > item.unitCost;
+  // Items without a selling price carry the org's default markup in the data;
+  // showing it would imply pricing exists, so display 0 instead.
+  const displayMarkup = item.sellingPrice > 0 ? Math.round(item.markup) : 0;
 
   return (
     <Card className="group relative flex h-full flex-col overflow-hidden pt-0 transition-all duration-200 has-[.detail-link:hover]:-translate-y-1 has-[.detail-link:hover]:shadow-md">
@@ -114,7 +117,7 @@ export function LibraryItemCard({
             ) : (
               <TrendingDown className="size-3" />
             )}
-            {Math.round(item.markup)}% markup
+            {displayMarkup}% markup
           </Badge>
         </div>
       </CardContent>

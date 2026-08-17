@@ -134,7 +134,8 @@ export default function TradesPage() {
           </div>
           <Button
             onClick={handleOpenAdd}
-            className="flex items-center gap-2 bg-primary text-primary-foreground hover:bg-primary/95 sm:self-start">
+            className="flex items-center gap-2 bg-primary text-primary-foreground hover:bg-primary/95 sm:self-start"
+          >
             <Plus className="size-4" />
             Add Trade Profile
           </Button>
@@ -147,18 +148,21 @@ export default function TradesPage() {
             <Tabs
               value={activeType}
               onValueChange={setActiveType}
-              className="w-auto">
+              className="w-auto"
+            >
               <TabsList className="flex h-auto! w-max gap-0.5">
                 <TabsTrigger
                   value="All"
-                  className="cursor-pointer px-3 py-1.5 font-semibold text-[12px]">
+                  className="cursor-pointer px-3 py-1.5 font-semibold text-[12px]"
+                >
                   All Trades
                 </TabsTrigger>
                 {TRADE_TYPES.map((type) => (
                   <TabsTrigger
                     key={type}
                     value={type}
-                    className="cursor-pointer px-3 py-1.5 font-semibold text-[12px]">
+                    className="cursor-pointer px-3 py-1.5 font-semibold text-[12px]"
+                  >
                     {type}
                   </TabsTrigger>
                 ))}
@@ -198,7 +202,8 @@ export default function TradesPage() {
             {!searchQuery && (
               <Button
                 onClick={handleOpenAdd}
-                className="mt-4 flex items-center gap-2">
+                className="mt-4 flex items-center gap-2"
+              >
                 <Plus className="size-4" />
                 Add Trade Profile
               </Button>
@@ -272,7 +277,8 @@ function TradeCard({ trade }: { trade: Trade }) {
       {/* Visual Header */}
       <Link
         href={`/dashboard/trades/${trade.tradeId}`}
-        className="detail-link relative flex h-36 w-full cursor-pointer items-center justify-center overflow-hidden bg-muted/20">
+        className="detail-link relative flex h-36 w-full cursor-pointer items-center justify-center overflow-hidden bg-muted/20"
+      >
         <div className={`absolute inset-0 bg-linear-to-br ${gradient}`} />
         <div className="absolute inset-0 bg-black/5" />
 
@@ -300,7 +306,8 @@ function TradeCard({ trade }: { trade: Trade }) {
           <H3 className="line-clamp-1 transition-colors group-has-[.detail-link:hover]:text-primary">
             <Link
               href={`/dashboard/trades/${trade.tradeId}`}
-              className="detail-link cursor-pointer">
+              className="detail-link cursor-pointer"
+            >
               {trade.companyName}
             </Link>
           </H3>
@@ -355,7 +362,8 @@ function TradeCard({ trade }: { trade: Trade }) {
       <CardFooter className="border-t bg-muted/20 px-4 py-2.5">
         <Link
           href={`/dashboard/trades/${trade.tradeId}`}
-          className="detail-link w-full text-center font-semibold text-primary/80 text-xs hover:text-primary hover:underline">
+          className="detail-link w-full text-center font-semibold text-primary/80 text-xs hover:text-primary hover:underline"
+        >
           View Trade Profile
         </Link>
       </CardFooter>

@@ -121,6 +121,22 @@ choice. The logo is always the model's own pick (identifiable from URL/context);
 picker. A "Choose Cover Image" button under the hero field reopens the picker after skipping.
 Enrichment only fills form state — nothing is saved until the user submits.
 
+- **Hero candidates come from the raw HTML, not the markdown.** `extractVendorImageCandidates`
+  takes `(rawHtml, markdown, baseUrl)` and runs the shared `extractProductImagesFromHtml` first
+  (og:image → JSON-LD → largest `srcset` variant), then appends markdown-scraped URLs as a
+  fallback. This ordering is the whole point: Jina's markdown flattens `<img srcset>` down to
+  `src`, which on responsive themes (Shopify et al.) is a pre-shrunk thumbnail — markdown alone can
+  only ever yield small images. Every candidate is then run through `cleanImageUrlSize`, which
+  strips `_1920x`/`_180x`-style suffixes to reach the CDN master. Don't "simplify" this back to a
+  markdown-only extractor.
+- **The model returns `heroImageIndex` (a number), never a hero URL.** Given a free-text field it
+  copied whatever image URL sat nearest in the markdown prose — invariably a thumbnail — instead of
+  using the normalized candidate list. The prompt numbers the candidates and the action resolves
+  the index back to a URL, treating `-1`/out-of-range as "no pick" (falls back to the pre-ranked
+  order). `VENDOR_RESPONSE_SCHEMA` carries `heroImageIndex`, but the **confidence** sub-object
+  still keys on `heroImageUrl` — that name is the client-facing form field. Keep `logoUrl` as-is;
+  it's still a model-emitted string.
+
 - **Blocked-site fallback (url_context).** Jina's "Access Denied" scrape output is detected and
   treated as no content; when neither Jina markdown nor the direct HTML fetch got through (WAF'd
   sites like fergusonhome.com), the action falls back to one Gemini call with the `urlContext`
@@ -132,7 +148,9 @@ Enrichment only fills form state — nothing is saved until the user submits.
   in the form). Other text fields fill from the page digest; images can't (the digest strips
   markup), so `logoUrl` falls back to
   Google's favicon cache (`t3.gstatic.com/faviconV2`, confidence 0.4 — user-replaceable, and the
-  mirror step self-hosts it on save) and `heroImageUrl` stays empty with no picker.
+  mirror step self-hosts it on save) and `heroImageUrl` stays empty with no picker. This path
+  shares `VENDOR_RESPONSE_SCHEMA`, so its prompt instructs `heroImageIndex: -1` (there is no
+  candidate list in this mode) — keep the two prompts in sync when the schema changes.
 
 ## Conventions easy to break
 

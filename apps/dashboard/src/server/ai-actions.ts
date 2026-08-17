@@ -1417,25 +1417,42 @@ function extractOgMeta(html: string, base: string): OgMeta {
   };
 }
 
-function extractVendorImageCandidates(markdown: string): {
+function extractVendorImageCandidates(
+  rawHtml: string,
+  markdown: string,
+  baseUrl: string,
+): {
   logoCandidates: string[];
   imageCandidates: string[];
 } {
   const all: string[] = [];
+  const seenAll = new Set<string>();
+  const push = (src: string) => {
+    const trimmed = src.trim();
+    if (!trimmed) return;
+    const key = imageDedupKey(trimmed);
+    if (seenAll.has(key)) return;
+    seenAll.add(key);
+    all.push(trimmed);
+  };
+
+  // Raw HTML first: og:image, JSON-LD, and the largest `srcset` variant are the
+  // only full-resolution signals on the page. Jina's markdown flattens
+  // `<img srcset>` down to `src`, which on responsive themes (Shopify et al.) is
+  // a pre-shrunk thumbnail — markdown alone can only ever yield small images.
+  for (const src of extractProductImagesFromHtml(rawHtml, baseUrl)) push(src);
 
   const mdImgRe = /!\[.*?\]\((https?:\/\/[^)\s]+)\)/gi;
   let m = mdImgRe.exec(markdown);
   while (m !== null) {
-    const src = m[1].trim();
-    if (src && !all.includes(src)) all.push(src);
+    push(m[1]);
     m = mdImgRe.exec(markdown);
   }
 
   const htmlImgRe = /<img\s+[^>]*src=["'](https?:\/\/[^"']+)["']/gi;
   m = htmlImgRe.exec(markdown);
   while (m !== null) {
-    const src = m[1].trim();
-    if (src && !all.includes(src)) all.push(src);
+    push(m[1]);
     m = htmlImgRe.exec(markdown);
   }
 
@@ -1443,8 +1460,7 @@ function extractVendorImageCandidates(markdown: string): {
     /(https?:\/\/[^\s"'<>()]+?\.(?:jpg|jpeg|png|webp|gif|svg)(?:\?[^\s"'<>()]*)?)/gi;
   m = rawUrlRe.exec(markdown);
   while (m !== null) {
-    const src = m[1].trim();
-    if (src && !all.includes(src)) all.push(src);
+    push(m[1]);
     m = rawUrlRe.exec(markdown);
   }
 
@@ -1486,7 +1502,13 @@ const VENDOR_RESPONSE_SCHEMA = {
     repPhone: { type: "STRING" },
     repEmail: { type: "STRING" },
     logoUrl: { type: "STRING" },
-    heroImageUrl: { type: "STRING" },
+    /**
+     * Index into the `Hero Image Candidates` list in the prompt (-1 = none).
+     * Deliberately NOT a URL: when the model was free to emit a string it copied
+     * whatever image URL sat nearest in the markdown prose — invariably a
+     * pre-shrunk thumbnail — instead of using the normalized candidate list.
+     */
+    heroImageIndex: { type: "NUMBER" },
     instagram: { type: "STRING" },
     pinterest: { type: "STRING" },
     facebook: { type: "STRING" },
@@ -1552,7 +1574,7 @@ const VENDOR_RESPONSE_SCHEMA = {
     "repPhone",
     "repEmail",
     "logoUrl",
-    "heroImageUrl",
+    "heroImageIndex",
     "instagram",
     "pinterest",
     "facebook",
@@ -1611,7 +1633,7 @@ Extract the following and return as JSON:
 - repPhone: Primary business phone number. Empty if not found.
 - repEmail: Primary business contact email (not newsletter/unsubscribe). Empty if not found.
 - logoUrl: Return an empty string (the logo is resolved separately).
-- heroImageUrl: Return an empty string (the cover image is chosen separately).
+- heroImageIndex: Return -1 (there are no image candidates in this mode; the cover image is chosen separately).
 - instagram: The company's official Instagram profile URL if found. Empty string if not found.
 - pinterest: The company's official Pinterest profile URL if found. Empty string if not found.
 - facebook: The company's official Facebook page URL if found. Empty string if not found.
@@ -1779,8 +1801,11 @@ export async function autofillVendorFromUrl(
     }
 
     const ogMeta = rawHtml ? extractOgMeta(rawHtml, vendorUrl) : {};
-    const { logoCandidates, imageCandidates } =
-      extractVendorImageCandidates(markdownText);
+    const { logoCandidates, imageCandidates } = extractVendorImageCandidates(
+      rawHtml,
+      markdownText,
+      vendorUrl,
+    );
 
     console.log(`[Vendor Autofill] OG:`, ogMeta);
     console.log(
@@ -1801,15 +1826,11 @@ export async function autofillVendorFromUrl(
       .filter(Boolean)
       .join("\n");
 
-    const heroSourceLines = [
-      ogMeta.ogImage
-        ? `og:image (highest priority): ${cleanImageUrlSize(ogMeta.ogImage)}`
-        : null,
-      imageCandidates.length > 0
-        ? `Hero image candidates from page: ${JSON.stringify(imageCandidates)}`
-        : null,
-    ]
-      .filter(Boolean)
+    // Numbered so the model can only answer with an index. The list is already
+    // ranked best-first (og:image → JSON-LD → largest srcset → markdown) and
+    // size-normalized, so index 0 is the safe default.
+    const heroSourceLines = imageCandidates
+      .map((src, i) => `${i}: ${src}`)
       .join("\n");
 
     const optimizedMarkdown = markdownText.substring(
@@ -1826,7 +1847,7 @@ Meta description: ${ogMeta.ogDescription ?? "not found"}
 Logo Sources (use in priority order listed):
 ${logoSourceLines || "none found"}
 
-Hero Image Sources (use in priority order listed):
+Hero Image Candidates (numbered, pre-ranked best-first):
 ${heroSourceLines || "none found"}
 
 Page Content (Markdown):
@@ -1846,7 +1867,7 @@ Extract the following and return as JSON:
 - repPhone: Primary business phone number. Empty if not found.
 - repEmail: Primary business contact email (not newsletter/unsubscribe). Empty if not found.
 - logoUrl: The single best logo URL from the Logo Sources above. Use priority order. Only absolute HTTPS URLs. Return empty string if nothing suitable.
-- heroImageUrl: The single best brand/lifestyle image URL from Hero Image Sources above. Must be a product showcase or brand image — not a tracker pixel, ad banner, or UI element. Only absolute HTTPS URLs. Return empty string if nothing suitable.
+- heroImageIndex: The NUMBER of the single best brand/lifestyle image in the numbered Hero Image Candidates list above. It must be a product showcase or brand image — not a tracker pixel, ad banner, logo, or UI element. Return -1 if the list is empty or nothing in it is suitable. NEVER return a URL, and NEVER return a number that is not one of the listed indices — URLs found elsewhere in the page content are lower-resolution duplicates and must not be used.
 - instagram: The company's official Instagram profile URL if found (e.g. "https://instagram.com/brandname"). Empty string if not found.
 - pinterest: The company's official Pinterest profile URL if found (e.g. "https://pinterest.com/brandname"). Empty string if not found.
 - facebook: The company's official Facebook page URL if found (e.g. "https://facebook.com/brandname"). Empty string if not found.
@@ -1893,21 +1914,29 @@ CRITICAL: Return 100% valid JSON only. Never return base64 data: URLs. Use empty
     const extracted = parseGeminiJson(parsedText) as Record<string, unknown>;
     const conf = (extracted.confidence ?? {}) as Record<string, number>;
 
+    // The model answers with an index, so its pick is always one of the
+    // normalized full-resolution candidates — it can no longer smuggle in a
+    // thumbnail URL copied out of the page prose. Out-of-range or -1 falls back
+    // to the pre-ranked order (og:image first).
+    const heroIndex = Number(extracted.heroImageIndex);
+    const modelHeroPick =
+      Number.isInteger(heroIndex) &&
+      heroIndex >= 0 &&
+      heroIndex < imageCandidates.length
+        ? imageCandidates[heroIndex]
+        : "";
+
     // The model can't see the images, so it never picks the hero blindly:
     // whenever more than one candidate exists, leave heroImageUrl empty and
     // tell the client to open the picker so the user makes the final choice.
     // The logo stays the model's pick (logos are identifiable from URL/context).
     const pickerImageCandidates = [
-      ...new Set(
-        [extracted.heroImageUrl as string, ...imageCandidates].filter(Boolean),
-      ),
+      ...new Set([modelHeroPick, ...imageCandidates].filter(Boolean)),
     ];
     const showImagePicker = pickerImageCandidates.length > 1;
 
     const logoUrl = (extracted.logoUrl as string) || "";
-    const heroImageUrl = showImagePicker
-      ? ""
-      : (extracted.heroImageUrl as string) || "";
+    const heroImageUrl = showImagePicker ? "" : modelHeroPick;
 
     const rawReturnedData = {
       name: (extracted.name as string) || undefined,

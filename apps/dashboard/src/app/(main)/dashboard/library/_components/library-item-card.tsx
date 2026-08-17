@@ -33,7 +33,8 @@ export function LibraryItemCard({
       {/* Visual Thumbnail Area */}
       <Link
         href={`/dashboard/library/${item.itemId}`}
-        className="detail-link relative flex aspect-square w-full cursor-pointer items-center justify-center overflow-hidden border-border/40 border-b bg-muted/40">
+        className="detail-link relative flex aspect-square w-full cursor-pointer items-center justify-center overflow-hidden border-border/40 border-b bg-muted/40"
+      >
         {item.coverImageUrl ? (
           <DashboardImage
             priority
@@ -55,12 +56,14 @@ export function LibraryItemCard({
           `relative`, so the overlay position is unchanged. */}
       <div className="absolute top-2 left-2.5 z-10 flex items-center gap-1.5">
         <Link
-          href={`/dashboard/library?category=${encodeURIComponent(item.category)}`}>
+          href={`/dashboard/library?category=${encodeURIComponent(item.category)}`}
+        >
           <Badge variant="overlay">{item.category}</Badge>
         </Link>
         {item.subcategory && (
           <Link
-            href={`/dashboard/library?category=${encodeURIComponent(item.category)}&subcategory=${encodeURIComponent(item.subcategory)}`}>
+            href={`/dashboard/library?category=${encodeURIComponent(item.category)}&subcategory=${encodeURIComponent(item.subcategory)}`}
+          >
             <Badge variant="overlay">{item.subcategory}</Badge>
           </Link>
         )}
@@ -72,7 +75,8 @@ export function LibraryItemCard({
           <H3 className="transition-colors group-has-[.detail-link:hover]:text-primary">
             <Link
               href={`/dashboard/library/${item.itemId}`}
-              className="detail-link block">
+              className="detail-link block"
+            >
               {item.name}
             </Link>
           </H3>
@@ -89,14 +93,16 @@ export function LibraryItemCard({
                   }
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-0.5 truncate font-medium text-foreground/80 hover:text-primary hover:underline">
+                  className="flex items-center gap-0.5 truncate font-medium text-foreground/80 hover:text-primary hover:underline"
+                >
                   {vendorName}
                   <ExternalLink className="ml-1 size-2.5 shrink-0" />
                 </a>
               ) : (
                 <Link
                   href={`/dashboard/vendors/${item.vendorId}`}
-                  className="flex items-center gap-0.5 truncate font-medium text-foreground/80 hover:text-primary hover:underline">
+                  className="flex items-center gap-0.5 truncate font-medium text-foreground/80 hover:text-primary hover:underline"
+                >
                   {vendorName}
                   <ExternalLink className="size-2.5 shrink-0" />
                 </Link>
@@ -111,7 +117,8 @@ export function LibraryItemCard({
         <div className="mt-auto -mb-4 text-right">
           <Badge
             className="text-[9px] pr-0"
-            variant={profitable ? "trendingUp" : "trendingDown"}>
+            variant={profitable ? "trendingUp" : "trendingDown"}
+          >
             {profitable ? (
               <TrendingUp className="size-3" />
             ) : (
@@ -132,7 +139,8 @@ export function LibraryItemCard({
           <DataField
             className="text-right"
             label="Selling Price"
-            empty="Not set">
+            empty="Not set"
+          >
             <span className="text-primary text-sm font-semibold">
               {formatCurrency(item.sellingPrice)}
             </span>

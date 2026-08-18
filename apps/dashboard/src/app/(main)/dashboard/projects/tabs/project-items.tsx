@@ -113,10 +113,10 @@ import { cn, formatCurrency } from "@/lib/utils";
 import { AddItemsDialog } from "./_tab_components/add-items-dialog";
 import { EditItemDialog } from "./_tab_components/edit-item-dialog";
 import {
-  DEFAULT_ITEM_COLUMN_VISIBILITY,
-  ITEM_COLUMN_OPTIONS,
-  ItemsTable,
-} from "./_tab_components/items-table";
+  itemColumnLayoutKey,
+  normalizeItemColumnLayout,
+} from "./_tab_components/items-fields";
+import { ITEM_COLUMN_OPTIONS, ItemsTable } from "./_tab_components/items-table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // ----------------------------------------------------
@@ -281,19 +281,18 @@ export function ProjectItems({ project: initialProject }: ProjectItemsProps) {
   // below reconciles it live; the editing user's own changes flow through
   // optimistic local state.
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(
-    () => ({
-      ...DEFAULT_ITEM_COLUMN_VISIBILITY,
-      ...(initialProject.itemColumnLayout?.visibility ?? {}),
-    }),
+    () => normalizeItemColumnLayout(initialProject.itemColumnLayout).visibility,
   );
   const [columnSizing, setColumnSizing] = useState<ColumnSizingState>(
-    () => initialProject.itemColumnLayout?.sizing ?? {},
+    () => normalizeItemColumnLayout(initialProject.itemColumnLayout).sizing,
   );
-  // JSON of the layout we believe is persisted. Used to (a) dedupe writes and
-  // (b) break the snapshot→setState→save feedback loop: a remote-applied layout
-  // matches this ref, so the save effect skips it.
+  // Canonical key of the layout we believe is persisted. Used to (a) dedupe
+  // writes and (b) break the snapshot→setState→save feedback loop: a
+  // remote-applied layout matches this ref, so the save effect skips it. It must
+  // be `itemColumnLayoutKey` (order-insensitive) on BOTH sides — Firestore
+  // returns map keys sorted, so a raw JSON compare never matches what we wrote.
   const persistedLayoutRef = useRef(
-    JSON.stringify(initialProject.itemColumnLayout ?? null),
+    itemColumnLayoutKey(initialProject.itemColumnLayout),
   );
 
   // Dialog States
@@ -347,14 +346,12 @@ export function ProjectItems({ project: initialProject }: ProjectItemsProps) {
         if (unsubscribed || !snap.exists()) return;
         const data = snap.data() as Project;
         setProject(data);
-        const incoming = JSON.stringify(data.itemColumnLayout ?? null);
+        const incoming = itemColumnLayoutKey(data.itemColumnLayout);
         if (incoming !== persistedLayoutRef.current) {
           persistedLayoutRef.current = incoming;
-          setColumnVisibility({
-            ...DEFAULT_ITEM_COLUMN_VISIBILITY,
-            ...(data.itemColumnLayout?.visibility ?? {}),
-          });
-          setColumnSizing(data.itemColumnLayout?.sizing ?? {});
+          const next = normalizeItemColumnLayout(data.itemColumnLayout);
+          setColumnVisibility(next.visibility);
+          setColumnSizing(next.sizing);
         }
       },
       (error) => {
@@ -430,10 +427,14 @@ export function ProjectItems({ project: initialProject }: ProjectItemsProps) {
       skipFirstPersistRef.current = false;
       return;
     }
-    const layout = { visibility: columnVisibility, sizing: columnSizing };
-    if (JSON.stringify(layout) === persistedLayoutRef.current) return;
+    const layout = normalizeItemColumnLayout({
+      visibility: columnVisibility as Record<string, boolean>,
+      sizing: columnSizing,
+    });
+    const key = itemColumnLayoutKey(layout);
+    if (key === persistedLayoutRef.current) return;
     const timer = setTimeout(() => {
-      persistedLayoutRef.current = JSON.stringify(layout);
+      persistedLayoutRef.current = key;
       void updateProjectItemsLayout(project.projectId, layout).catch(
         (error) => {
           console.error(error);

@@ -223,10 +223,18 @@ same for everyone printing/presenting it. This is deliberately subtle:
   **`updateProjectItemsLayout`** — a dedicated helper that writes only the layout and **does not bump
   `lastActivityAt`** (it's a presentation tweak, not project activity). Don't route layout writes
   through `updateProject`.
-- `persistedLayoutRef` (a JSON string of the layout we believe is saved) breaks the
+- `persistedLayoutRef` (the **canonical key** of the layout we believe is saved) breaks the
   snapshot→setState→save **feedback loop**: the project listener only re-applies an incoming layout
   when it differs from the ref; the save effect skips when the current layout equals the ref. Keep
   both guards if you touch this — without them, every viewer's echo triggers another write.
+- **That key must be `itemColumnLayoutKey`, never `JSON.stringify`.** Firestore stores map fields
+  **sorted by key**, so a layout always reads back in a different key order than it was written in,
+  and both sides of the compare must also normalize through `normalizeItemColumnLayout` (state
+  carries every field id merged from the defaults; a stored doc may carry a subset). A raw JSON
+  compare reports every round-trip as a change and the guard inverts into an infinite
+  write→snapshot→write loop — the column picker flickers and won't hold a toggle, and it burns
+  thousands of Firestore ops. It only reproduces in production: the **emulator preserves map key
+  insertion order**. Pinned by `_tab_components/items-fields.test.ts`.
 - `skipFirstPersistRef` skips the very first save run so merely opening the page never writes defaults
   back.
 

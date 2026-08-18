@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 import type { VisibilityState } from "@tanstack/react-table";
 
-import type { ProjectRoomItem, Vendor } from "@/lib/types";
+import type { ItemColumnLayout, ProjectRoomItem, Vendor } from "@/lib/types";
 import { cn, formatCurrency } from "@/lib/utils";
 
 // ----------------------------------------------------
@@ -216,6 +216,45 @@ export const DEFAULT_ITEM_COLUMN_VISIBILITY: VisibilityState =
 
 /** Field lookup by column id. */
 export const FIELD_BY_ID = new Map(ITEM_FIELDS.map((f) => [f.id, f]));
+
+/**
+ * The layout as the UI holds it: visibility always carries every field id
+ * (defaults filled in), sizing defaults to empty. Both a stored layout and the
+ * live grid state normalize to the same shape, so they can be compared.
+ */
+export function normalizeItemColumnLayout(
+  layout?: Partial<ItemColumnLayout> | null,
+): ItemColumnLayout {
+  return {
+    visibility: {
+      ...DEFAULT_ITEM_COLUMN_VISIBILITY,
+      ...(layout?.visibility ?? {}),
+    } as Record<string, boolean>,
+    sizing: layout?.sizing ?? {},
+  };
+}
+
+/**
+ * Stable identity for a layout, used to tell "same layout" from "actually
+ * changed" on both the save and the snapshot side.
+ *
+ * Key order must not matter: Firestore stores map fields **sorted by key**, so a
+ * layout read back never matches the insertion order it was written in. Plain
+ * `JSON.stringify` comparison therefore reports every round-trip as a change,
+ * which loops snapshot -> setState -> save -> snapshot forever. (The emulator
+ * preserves insertion order, so this only ever bites in production.)
+ */
+export function itemColumnLayoutKey(
+  layout?: Partial<ItemColumnLayout> | null,
+): string {
+  const { visibility, sizing } = normalizeItemColumnLayout(layout);
+  const entries = (map: Record<string, boolean | number>) =>
+    Object.keys(map)
+      .sort()
+      .map((key) => `${key}:${map[key]}`)
+      .join(",");
+  return `v[${entries(visibility)}]s[${entries(sizing)}]`;
+}
 
 /** Leading thumbnail track width in px. */
 export const THUMBNAIL_SIZE = 56;

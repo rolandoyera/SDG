@@ -29,11 +29,18 @@ export interface ImageCandidate {
   width: number;
   height: number;
   bytes?: number;
+  /** True when the caller's `demote` predicate matched — see `measureImageCandidates`. */
+  demoted?: boolean;
 }
 
 /** Enough to clear a JPEG's EXIF block and reach the SOF marker. */
 const HEADER_BYTES = 65536;
 const PROBE_TIMEOUT_MS = 8000;
+
+/** A Cloudinary transform segment is comma-separated `key_value` tokens. */
+const CLOUDINARY_TRANSFORM_TOKEN = /(?:^|,)[a-z]{1,3}_[^,/]+/;
+/** Asked for with `c_limit`, so this is a ceiling, never an upscale target. */
+const CLOUDINARY_PROBE_WIDTH = 3000;
 
 /** Query params that request a rendition rather than identify the asset. */
 const SIZE_PARAMS = ["width", "height", "w", "h"];
@@ -90,6 +97,31 @@ export function originalVariants(url: string): string[] {
   if (SIZE_PARAMS.some((p) => parsed.searchParams.has(p))) {
     const rewritten = new URL(parsed.href);
     for (const param of SIZE_PARAMS) rewritten.searchParams.delete(param);
+    add(rewritten.href);
+  }
+
+  // Cloudinary: the size lives in a comma-separated transform SEGMENT
+  // (`/image/private/t_base,c_lpad,f_auto,dpr_auto,w_1200,h_630/product/…`), which
+  // no filename or query rule can see. Two traps here, both measured on
+  // fergusonhome.com's `s3.img-b.com` delivery:
+  //   - Removing the segment 404s. `/image/private/` requires a transform.
+  //   - Simply raising `w_` UPSCALES. `c_lpad,w_2000` returns a 2000x2000 canvas
+  //     built from a 600x600 master — bigger bytes, no more detail, and we'd have
+  //     badged a padded thumbnail as full resolution.
+  // `c_limit` never enlarges, so whatever comes back is the genuine master.
+  const cloudinary =
+    /\/image\/(upload|private|authenticated|fetch)\/([^/]+)\//.exec(path);
+  if (cloudinary && CLOUDINARY_TRANSFORM_TOKEN.test(cloudinary[2])) {
+    // Keep named transforms (`t_base`) and format negotiation; drop the crop,
+    // explicit height and DPR that force a fixed canvas.
+    const preserved = cloudinary[2]
+      .split(",")
+      .filter((token) => token.startsWith("t_") || token === "f_auto");
+    const rewritten = new URL(parsed.href);
+    rewritten.pathname = path.replace(
+      cloudinary[0],
+      `/image/${cloudinary[1]}/${[...preserved, "c_limit", `w_${CLOUDINARY_PROBE_WIDTH}`].join(",")}/`,
+    );
     add(rewritten.href);
   }
 
@@ -278,11 +310,13 @@ export async function measureImageCandidates(
   // different path — a far more reliable duplicate signal than filename shape.
   const seen = new Set<string>();
   const deduped: ImageCandidate[] = [];
-  for (const { candidate } of ranked) {
+  for (const { candidate, demoted } of ranked) {
     const key = `${candidate.width}x${candidate.height}:${candidate.bytes ?? candidate.url}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    deduped.push(candidate);
+    // Surfaced so callers can drop demoted results entirely — the flag can't be
+    // recomputed downstream, since the winning URL is usually a rewritten one.
+    deduped.push(demoted ? { ...candidate, demoted } : candidate);
     if (deduped.length >= limit) break;
   }
 

@@ -154,8 +154,18 @@ Enrichment only fills form state — nothing is saved until the user submits.
     measurement (nav tiles are often the largest images on the page). `demote` is evaluated against
     the URL the caller passed IN — the winning variant is usually a rewritten URL the caller has
     never seen, so testing that one would silently never match.
-  - Chrome is demoted, never dropped: a page whose only usable photography lives in its nav should
-    still offer something rather than an empty picker.
+  - **Nav imagery is EXCLUDED from the picker**, not just ranked low — megamenu tiles and category
+    thumbnails are never a vendor's cover. It stays in the raw list purely as a safety net: if
+    nothing outside the nav survives measurement, the action falls back to the nav results rather
+    than showing an empty picker, and logs `FELL BACK to nav`. `measureImageCandidates` surfaces the
+    `demoted` flag on each candidate so the caller can filter — it can't be recomputed downstream,
+    since the winning URL is usually a rewritten one the caller never passed in.
+  - **Do NOT strip nav from the TEXT payload with Jina's `x-remove-selector`.** Tried and measured:
+    removing `nav, header, …` cuts arhaus.com's markdown from 59K to 2.5K chars and loses the ZIP,
+    phone AND social links — the contact data lives in the footer, but Jina's readability picks a
+    different content root once nav is gone and the footer never makes the output. Narrowing to
+    `nav` alone doesn't help (still 96% gone). artistictile.com also lost its phone under the wider
+    selector. Nav is worthless for images, but it cannot be removed from the text this way.
   - **`<source>` is read before `<img>`, and `data-srcset`/`data-src` count.** Inside a `<picture>`
     the sources carry the full-resolution art direction while the `<img>` is the small fallback, and
     4 of artistictile.com's 5 `<picture>` heroes declare their real asset via `data-srcset` (lazy
@@ -212,6 +222,36 @@ Enrichment only fills form state — nothing is saved until the user submits.
 "enum"` is for top-level `text/x.enum` responses and risks a 400 as a property.
   The **confidence** sub-object still keys on `heroImageUrl` — that name is the client-facing form
   field. Keep `logoUrl` as-is; it's still a model-emitted string.
+
+- **Blocked-site escalation (Firecrawl).** When Jina comes back with a bot wall, the action retries
+  through `fetchViaFirecrawl` (`FIRECRAWL_API_KEY`) before falling back to url_context — a real
+  browser clears challenges that defeat every plain fetcher. fergusonhome.com sits behind Akamai Bot
+  Manager and answers our direct fetch, Jina markdown and Jina HTML alike with a 403 challenge; a
+  Jina API key made no difference, because the block is on the fetcher, not our quota. Firecrawl
+  returns 17KB of real markdown and 840KB of HTML, and Ferguson now yields name, category, phone and
+  5 measured hero candidates where it previously produced none.
+  - **Request `rawHtml`, never `html`.** Firecrawl's `html` format is cleaned and drops `<head>`,
+    taking og:image and JSON-LD with it (measured on both ferguson and arhaus).
+  - **On success, Firecrawl's rawHtml REPLACES whatever we already had** — it doesn't just fill an
+    empty slot. Ferguson's direct fetch returns HTTP 200 with a 2.5KB Akamai sensor stub, which
+    passes a non-empty check and would otherwise shadow the real 840KB page.
+  - **`looksBlocked` gates the escalation on a LENGTH FLOOR, not just phrases.** Matching one exact
+    string wasn't enough: Ferguson's block page alternates between Jina's `Warning: Target URL
+returned error` wrapper and a bare `Access Denied` body, so a phrase-only check fired on one run
+    and silently skipped the next. Real vendor homepages measured 30K-75K markdown chars; every
+    block page came back under 400. `MIN_USABLE_MARKDOWN` is 600.
+  - It's slow (~15s cold) and metered, so it stays the tier _after_ Jina, never the default fetcher.
+  - **`looksBlockedHtml` discards challenge HTML before the url_context guard.** A bot challenge is
+    served as HTTP 200 with a real body, so a non-empty `rawHtml` is not proof we got the page —
+    ferguson's is 2.5KB of Akamai sensor script against 840KB for the real thing. Left in place it
+    poisoned image extraction _and_ made the `!markdownText && !rawHtml` guard below unreachable for
+    exactly the sites that guard exists for. `MIN_USABLE_HTML` is 5000; genuine vendor pages
+    measured 400KB-3.5MB.
+
+- **The full chain is: direct fetch → Jina markdown → Jina HTML → Firecrawl → url_context → error.**
+  Both branches are verified against fergusonhome.com: with Firecrawl it returns name, phone and 5
+  measured hero candidates; with `FIRECRAWL_API_KEY` unset it falls through to url_context and still
+  returns name, phone and the favicon logo (no images, as designed).
 
 - **Blocked-site fallback (url_context).** Jina's "Access Denied" scrape output is detected and
   treated as no content; when neither Jina markdown nor the direct HTML fetch got through (WAF'd

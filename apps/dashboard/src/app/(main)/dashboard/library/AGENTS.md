@@ -3,6 +3,49 @@
 > Global dev rules live in the repo root [AGENTS.md](../../../../../../../AGENTS.md). This file
 > only captures Library-specific context that isn't obvious from the code.
 
+## Product images are measured, not guessed
+
+`autofillProductFromUrl` runs candidates through `measureImageCandidates`
+(`src/server/image-probe.ts`) before the model ever sees them: each URL is rewritten toward its true
+original, probed with a ranged GET for real pixel dimensions, deduped by measured
+`(width, height, bytes)`, and ranked largest-first. `PRODUCT_CANDIDATE_LIMIT` (10) caps how many are
+offered; the model still picks up to `MAX_IMAGES` (6) for the gallery. The prompt lists each
+candidate with its measured `[WxH]`.
+
+- **Cloudinary sizing lives in a path SEGMENT** (`/image/private/t_base,c_lpad,f_auto,dpr_2,w_450,h_450/…`),
+  which no filename or query rule can see. Two traps, both measured on fergusonhome.com:
+  **removing the segment 404s** (`/image/private/` requires a transform), and **raising `w_` alone
+  UPSCALES** — `c_lpad,w_2000` returns a 2000×2000 canvas built from a 600×600 master, which would
+  have badged a padded thumbnail as full resolution. `originalVariants` rewrites to
+  `c_limit,w_3000`, keeping `t_*` and `f_auto`: `c_limit` never enlarges, so what comes back is the
+  genuine master.
+- **`dpr_2` doubles the nominal width** — a `w_450,h_450,dpr_2` URL really is 900×900. Don't read
+  size off the transform; that's what the probe is for.
+- **Model-returned URLs are mapped back onto measured candidates** by `imageDedupKey`. The prompt
+  deliberately lets it supplement the list from the page markdown, so it can hand back a smaller
+  rendition of an asset we already measured a bigger version of. Fixing that by prompt wording was
+  tried in the vendor flow and lost; substitution is the reliable form.
+
+## Blocked sites (Akamai, Cloudflare, …) — escalation chain
+
+`autofillProductFromUrl` runs: **Jina markdown → Firecrawl → url_context → error.**
+
+- **`looksBlocked` gates it on a LENGTH FLOOR plus markers, not one phrase.** The old check matched
+  only Jina's `Warning: Target URL returned error` wrapper. fergusonhome.com product pages return an
+  Akamai interstitial ("Powered and protected by …akamai…") that parses as perfectly valid markdown
+  and carries no warning line — so it sailed through and the model extracted **"Unnamed Product"**
+  from the block page. Real product pages measured thousands of markdown chars; the interstitial is
+  ~300. `MIN_USABLE_MARKDOWN` is 600, and `BLOCK_MARKERS` is shared with the vendor flow.
+- **Firecrawl (`FIRECRAWL_API_KEY`) runs before url_context** — it returns the real page, images
+  included, where url_context only gets Google's text digest. Verified on the Ferguson product page:
+  300-char block → 9254 md chars → name, SKU `63075LF-PGLHP`, manufacturer Brizo, MSRP 674.64,
+  finish, and 4 images. Request `rawHtml`, never `html` (Firecrawl's `html` drops `<head>`, taking
+  og:image and JSON-LD with it).
+- **A challenge page is HTTP 200 with a body**, so non-empty HTML is not proof of success —
+  `looksBlockedHtml` discards the direct fetch's result when it looks like a sensor stub, and
+  Firecrawl's HTML takes precedence when it fired.
+- Firecrawl is slow (~15s cold) and metered: keep it as the escalation tier, never the default.
+
 ## Maintain this file
 
 **Whenever you change Library code (this folder, or the library-related helpers in

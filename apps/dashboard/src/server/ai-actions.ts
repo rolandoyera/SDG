@@ -834,7 +834,7 @@ export async function autofillProductFromUrl(
       };
     }
 
-    const markdownText = cleanScrapedMarkdown(rawMarkdownText);
+    let markdownText = cleanScrapedMarkdown(rawMarkdownText);
     if (markdownText.trim() === "") {
       console.error(`[AI Autofill] Cleaned markdown is empty`);
       return {
@@ -870,9 +870,34 @@ export async function autofillProductFromUrl(
         };
       }
 
-      // Blocked (403) or otherwise unreadable: the page exists but a WAF rejects
-      // the scraper. Gemini's url_context fetcher often gets through where Jina
-      // (and direct fetches) are blocked.
+      // Blocked (403) or otherwise unreadable: fall through to the shared
+      // escalation below rather than going straight to url_context — Firecrawl
+      // returns the real page, url_context only Google's text digest.
+      markdownText = "";
+    }
+
+    // Bot walls that don't carry Jina's warning line land here instead: Ferguson's
+    // product pages return an Akamai interstitial ("Powered and protected by") that
+    // parses as perfectly valid markdown, so the old single-phrase check passed it
+    // through and the model dutifully extracted "Unnamed Product" from it.
+    let firecrawlHtml = "";
+    if (!markdownText || looksBlocked(markdownText)) {
+      console.warn(
+        `[AI Autofill] Blocked page detected (${markdownText.length} chars) — escalating to Firecrawl`,
+      );
+      const scraped = await fetchViaFirecrawl(normalizedUrl);
+      if (scraped?.markdown && !looksBlocked(scraped.markdown)) {
+        markdownText = cleanScrapedMarkdown(scraped.markdown);
+        firecrawlHtml = scraped.rawHtml;
+        console.log(
+          `[AI Autofill] Recovered via Firecrawl: ${markdownText.length} md chars`,
+        );
+      } else {
+        markdownText = "";
+      }
+    }
+
+    if (!markdownText) {
       const fallback = await extractProductViaUrlContext(
         apiKey,
         normalizedUrl,
@@ -882,9 +907,8 @@ export async function autofillProductFromUrl(
 
       return {
         success: false,
-        error: errorLine.includes("403")
-          ? "This website is protected against AI. Please input specifications manually."
-          : "Fetching data was blocked or could not read this website. Please input specs manually.",
+        error:
+          "This website is protected against automated access. Please input specifications manually.",
       };
     }
 
@@ -993,7 +1017,12 @@ export async function autofillProductFromUrl(
 
     // Strategy E: Standards-based extraction from raw HTML (og:image, JSON-LD, srcset).
     // These are canonical, high-resolution sources, so they lead the candidate list.
-    const rawHtml = await rawHtmlPromise;
+    // Firecrawl's HTML wins when it fired — whatever the direct fetch returned for
+    // a bot-walled site is the challenge page, not the product.
+    const directHtml = await rawHtmlPromise;
+    const rawHtml =
+      firecrawlHtml ||
+      (directHtml && !looksBlockedHtml(directHtml) ? directHtml : "");
     const htmlImages = rawHtml
       ? extractProductImagesFromHtml(rawHtml, normalizedUrl)
       : [];
@@ -1036,14 +1065,27 @@ export async function autofillProductFromUrl(
       }
     }
 
-    const filteredImages = mergedImages.slice(
-      0,
-      SCRAPER_CONFIG.maxImageCandidates,
+    // Measure, exactly as the vendor flow does: upgrade each URL to its true
+    // original, read real dimensions off the wire, drop anything that doesn't
+    // resolve, collapse duplicate renditions of one photo, and rank largest-first.
+    // Without this the model was handed whatever the page happened to serve —
+    // ferguson's four "different" product shots were all the same
+    // `w_450,h_450` rendition.
+    const measuredImages = await measureImageCandidates(
+      mergedImages.slice(0, SCRAPER_CONFIG.maxImageCandidates),
+      PRODUCT_CANDIDATE_LIMIT,
     );
+    const filteredImages = measuredImages.map((c) => c.url);
     console.log(
-      `[AI Autofill] Filtered image candidates count: ${filteredImages.length}`,
-      filteredImages,
+      `[AI Autofill] Image candidates: ${mergedImages.length} raw → ${filteredImages.length} measured`,
+      measuredImages.map((c) => `${c.width}x${c.height}`).join(", "),
     );
+
+    // Real measured dimensions, so the model can rule out anything too small to
+    // be a usable product shot rather than inferring size from the URL.
+    const candidateImageBlock = measuredImages
+      .map((c) => `${c.url} [${c.width}x${c.height}]`)
+      .join("\n");
 
     const optimizedMarkdown = markdownText.substring(
       0,
@@ -1065,8 +1107,8 @@ URL: ${normalizedUrl}
 Page Content:
 ${optimizedMarkdown}
 
-Candidate Images found on the page:
-${JSON.stringify(filteredImages)}
+Candidate Images found on the page (measured, ranked largest-first):
+${candidateImageBlock}
 
 Extract the following specifications and return them in the requested JSON structure. If a field cannot be found, use an empty string or omit it.
 Specifically:
@@ -1120,6 +1162,30 @@ ${JSON_OUTPUT_RULES}`,
 
     const data = parseGeminiJson(parsedText);
     const sanitizedData = sanitizeProductData(data);
+
+    // The prompt deliberately lets the model supplement the candidate list from
+    // the page markdown, which means it can hand back the small rendition of an
+    // image we already measured a bigger version of — ferguson returned three
+    // `w_450,h_450` URLs whose measured originals were 900x900. Rather than fight
+    // that with prompt wording (the vendor flow's lesson), map anything it returns
+    // back onto the measured candidate for the same asset.
+    const measuredByKey = new Map(
+      measuredImages.map((c) => [imageDedupKey(c.url), c.url]),
+    );
+    if (sanitizedData.imageUrls?.length) {
+      const upgraded = sanitizedData.imageUrls.map(
+        (url) => measuredByKey.get(imageDedupKey(url)) ?? url,
+      );
+      const swapped = upgraded.filter(
+        (url, i) => url !== sanitizedData.imageUrls?.[i],
+      ).length;
+      if (swapped > 0)
+        console.log(
+          `[AI Autofill] Upgraded ${swapped} model-returned image URL(s) to their measured originals`,
+        );
+      sanitizedData.imageUrls = upgraded;
+    }
+
     console.log(
       `[AI Autofill] Gemini response successfully parsed and sanitized! Data:`,
       sanitizedData,
@@ -1440,6 +1506,91 @@ function extractOgMeta(html: string, base: string): OgMeta {
 }
 
 /**
+ * Detects a scrape that "succeeded" but returned a bot wall rather than a page.
+ *
+ * Matching one exact phrase was not enough: fergusonhome.com's block page varies
+ * between Jina's `Warning: Target URL returned error` wrapper and a bare
+ * `Access Denied` body, so the escalation fired on one run and silently skipped
+ * on the next. The length floor is the reliable catch-all — real vendor homepages
+ * measured 30K-75K markdown chars, while every block page came back under 400.
+ */
+const MIN_USABLE_MARKDOWN = 600;
+
+const BLOCK_MARKERS =
+  /Warning: Target URL returned error|Access Denied|don't have permission|Pardon Our Interruption|errors\.edgesuite\.net|sec-if-cpt-container|Powered and protected by|akamai\.com\/(?:site|privacy)/i;
+
+/**
+ * The HTML equivalent. A bot challenge is served with HTTP 200 and a real body,
+ * so "we got bytes" is not the same as "we got the page": ferguson's challenge is
+ * 2.5KB of Akamai sensor script against 840KB for the real page. Every genuine
+ * vendor page measured 400KB-3.5MB.
+ */
+const MIN_USABLE_HTML = 5000;
+
+function looksBlockedHtml(html: string): boolean {
+  return html.length < MIN_USABLE_HTML || BLOCK_MARKERS.test(html);
+}
+
+function looksBlocked(markdown: string): boolean {
+  if (markdown.trim().length < MIN_USABLE_MARKDOWN) return true;
+  return BLOCK_MARKERS.test(markdown);
+}
+
+/**
+ * Full-browser scrape for sites that block plain fetchers.
+ *
+ * fergusonhome.com sits behind Akamai Bot Manager: it answers our fetch, Jina's
+ * fetcher, and Jina's HTML mode alike with a 403 challenge page (`Access Denied`,
+ * an `errors.edgesuite.net` reference, a `sec-if-cpt-container` sensor div). An
+ * API key made no difference — the block is on the fetcher, not our quota.
+ * Firecrawl drives a real browser and clears the challenge: 17.5KB of real
+ * markdown and 840KB of HTML with og:image and JSON-LD intact.
+ *
+ * `rawHtml`, never `html` — Firecrawl's `html` format is cleaned and drops
+ * `<head>`, taking og:image and JSON-LD with it (measured on both sites).
+ *
+ * Slow (~15s cold) and metered, so this is strictly the tier that fires after
+ * Jina comes back blocked — not the default fetcher.
+ */
+async function fetchViaFirecrawl(
+  targetUrl: string,
+): Promise<{ markdown: string; rawHtml: string } | null> {
+  const key = process.env.FIRECRAWL_API_KEY;
+  if (!key) return null;
+  try {
+    const res = await fetch("https://api.firecrawl.dev/v2/scrape", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        url: targetUrl,
+        formats: ["markdown", "rawHtml"],
+        onlyMainContent: false,
+      }),
+      signal: AbortSignal.timeout(60000),
+    });
+    if (!res.ok) {
+      console.warn(`[Firecrawl] HTTP ${res.status}`);
+      return null;
+    }
+    const json = (await res.json()) as {
+      success?: boolean;
+      data?: { markdown?: string; rawHtml?: string };
+    };
+    if (json.success === false || !json.data) return null;
+    return {
+      markdown: json.data.markdown ?? "",
+      rawHtml: json.data.rawHtml ?? "",
+    };
+  } catch (err) {
+    console.warn("[Firecrawl] request failed:", err);
+    return null;
+  }
+}
+
+/**
  * Asks Jina Reader for raw HTML instead of markdown. Used only as a fallback for
  * sites that block our own fetch — see the call site for the measurements.
  * Failures are non-fatal: the caller just carries on with an empty rawHtml.
@@ -1459,6 +1610,9 @@ async function fetchJinaHtml(
     return "";
   }
 }
+
+/** Measured product-image candidates offered to the model (it picks MAX_IMAGES). */
+const PRODUCT_CANDIDATE_LIMIT = 10;
 
 /** Hero URLs collected before measurement; trimmed to `HERO_CANDIDATE_LIMIT` after. */
 const RAW_HERO_CANDIDATE_LIMIT = 10;
@@ -1535,7 +1689,8 @@ function extractVendorImageCandidates(
     if (seen.has(key)) return;
     seen.add(key);
     if (logoKeyRe.test(abs)) {
-      if (logoCandidates.length < 6) logoCandidates.push(cleanImageUrlSize(abs));
+      if (logoCandidates.length < 6)
+        logoCandidates.push(cleanImageUrlSize(abs));
       return;
     }
     // Store the URL AS FOUND. Pre-stripping the size suffix here is lossy and
@@ -1930,6 +2085,45 @@ export async function autofillVendorFromUrl(
       rawHtml = await fetchJinaHtml(vendorUrl, jinaHeaders);
       htmlSource = rawHtml ? "jina-html" : "none";
     }
+    // Jina surfaces upstream WAF blocks as scraped "Access Denied" text —
+    // treat that as no content rather than feeding it to the model.
+    if (markdownText && looksBlocked(markdownText)) {
+      console.warn(
+        `[Vendor Autofill] Jina returned a block page (${markdownText.length} chars) — discarding`,
+      );
+      markdownText = "";
+    }
+
+    // A challenge page is a 200 with a body, so a non-empty rawHtml is not proof
+    // we got the page. Left in place it both poisons image extraction AND makes
+    // the `!markdownText && !rawHtml` url_context guard below unreachable — the
+    // exact sites that guard exists for are the ones that return a stub.
+    if (rawHtml && looksBlockedHtml(rawHtml)) {
+      console.warn(
+        `[Vendor Autofill] Discarding ${rawHtml.length}-byte HTML — looks like a bot challenge`,
+      );
+      rawHtml = "";
+      htmlSource = "none";
+    }
+
+    // Bot-managed sites (fergusonhome.com and friends) defeat every plain
+    // fetcher, so escalate to a real browser before giving up on the page. This
+    // runs BEFORE the url_context fallback because it returns the actual page —
+    // images included — where url_context only gets Google's text digest.
+    if (!markdownText) {
+      const scraped = await fetchViaFirecrawl(vendorUrl);
+      if (scraped?.markdown) {
+        markdownText = cleanScrapedMarkdown(scraped.markdown);
+        // Prefer Firecrawl's HTML outright. We only get here because the plain
+        // fetchers were defeated, so any rawHtml we already hold is the bot
+        // challenge itself — ferguson's direct fetch returns HTTP 200 with a
+        // 2.5KB Akamai sensor stub, which passed the non-empty check and shadowed
+        // the real 840KB page (og:image and JSON-LD included).
+        if (scraped.rawHtml) rawHtml = scraped.rawHtml;
+        htmlSource = "firecrawl";
+      }
+    }
+
     // Which HTML a run actually used decides every image signal downstream, and
     // an empty rawHtml degrades silently rather than erroring — so say it plainly.
     console.log(
@@ -1937,13 +2131,6 @@ export async function autofillVendorFromUrl(
         `og:image ${/property=["']og:image["']/i.test(rawHtml) ? "present" : "ABSENT"}, ` +
         `markdown ${markdownText.length} chars`,
     );
-
-    // Jina surfaces upstream WAF blocks as scraped "Access Denied" text —
-    // treat that as no content rather than feeding it to the model.
-    if (markdownText.includes("Warning: Target URL returned error")) {
-      console.warn("[Vendor Autofill] Jina scraped a target-site error page");
-      markdownText = "";
-    }
 
     if (!markdownText && !rawHtml) {
       const fallback = await extractVendorViaUrlContext(apiKey, vendorUrl);
@@ -1966,15 +2153,26 @@ export async function autofillVendorFromUrl(
     // the wire, drop what doesn't resolve, collapse duplicate renditions, and
     // rank largest-first. Everything downstream — the model's lettered list and
     // the user's picker — works from measured images rather than URL guesswork.
-    const measuredCandidates = await measureImageCandidates(
+    const allMeasured = await measureImageCandidates(
       rawImageCandidates,
       HERO_CANDIDATE_LIMIT,
       (url) => navUrls.has(url),
     );
 
+    // Nav imagery is excluded outright — megamenu tiles and category thumbnails
+    // are never a vendor's cover. It stays in the raw list only as a safety net:
+    // if nothing outside the nav survives measurement, showing chrome still beats
+    // showing an empty picker.
+    const contentMeasured = allMeasured.filter((c) => !c.demoted);
+    const measuredCandidates =
+      contentMeasured.length > 0 ? contentMeasured : allMeasured;
+
     console.log(`[Vendor Autofill] OG:`, ogMeta);
     console.log(
-      `[Vendor Autofill] Logo candidates: ${logoCandidates.length}, Image candidates: ${rawImageCandidates.length} raw → ${measuredCandidates.length} measured`,
+      `[Vendor Autofill] Logo candidates: ${logoCandidates.length}, Image candidates: ${rawImageCandidates.length} raw → ${allMeasured.length} measured → ${measuredCandidates.length} after nav exclusion` +
+        (contentMeasured.length === 0 && allMeasured.length > 0
+          ? " (FELL BACK to nav — no content imagery survived)"
+          : ""),
       measuredCandidates.map((c) => `${c.width}x${c.height}`).join(", "),
     );
 

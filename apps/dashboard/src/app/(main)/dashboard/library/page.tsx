@@ -171,8 +171,7 @@ function LibraryContent() {
         />
         <Button
           onClick={handleOpenAdd}
-          className="flex items-center gap-2 bg-primary text-primary-foreground hover:bg-primary/95 sm:self-start"
-        >
+          className="flex items-center gap-2 bg-primary text-primary-foreground hover:bg-primary/95 sm:self-start">
           <Plus className="size-4" />
           Add Item
         </Button>
@@ -184,8 +183,7 @@ function LibraryContent() {
           <Tabs
             value={activeCategory}
             onValueChange={(val) => setFilters(val, "All")}
-            className="w-full"
-          >
+            className="w-full">
             <TabsList className="flex max-w-full flex-wrap gap-0.5">
               <TabsTrigger value="All">All Categories</TabsTrigger>
               {CATEGORIES.map((cat) => (
@@ -202,14 +200,12 @@ function LibraryContent() {
               gridTemplateRows: isSubcategoryVisible ? "1fr" : "0fr",
               opacity: isSubcategoryVisible ? 1 : 0,
               marginTop: isSubcategoryVisible ? "1rem" : "0rem",
-            }}
-          >
+            }}>
             <div className="overflow-hidden">
               <Tabs
                 value={activeSubcategory}
                 onValueChange={(val) => setFilters(activeCategory, val)}
-                className="w-full"
-              >
+                className="w-full">
                 <TabsList className="flex max-w-full flex-wrap gap-0.5">
                   <TabsTrigger value="All">All {activeCategory}</TabsTrigger>
                   {isSubcategoryVisible &&
@@ -227,8 +223,7 @@ function LibraryContent() {
         <div className="flex 3xl:hidden w-full flex-col gap-2 md:w-auto md:flex-row md:items-center">
           <Select
             value={activeCategory}
-            onValueChange={(val) => setFilters(val, "All")}
-          >
+            onValueChange={(val) => setFilters(val, "All")}>
             <SelectTrigger className="w-full md:w-55">
               <SelectValue placeholder="Category" />
             </SelectTrigger>
@@ -245,8 +240,7 @@ function LibraryContent() {
           {activeCategory !== "All" && SUBCATEGORIES[activeCategory] && (
             <Select
               value={activeSubcategory}
-              onValueChange={(val) => setFilters(activeCategory, val)}
-            >
+              onValueChange={(val) => setFilters(activeCategory, val)}>
               <SelectTrigger className="fade-in w-full animate-in duration-200 md:w-55">
                 <SelectValue placeholder="Subcategory" />
               </SelectTrigger>
@@ -294,15 +288,14 @@ function LibraryContent() {
           {!searchQuery && (
             <Button
               onClick={handleOpenAdd}
-              className="mt-4 flex items-center gap-2"
-            >
+              className="mt-4 flex items-center gap-2">
               <Plus className="size-4" />
               Add An Item
             </Button>
           )}
         </Card>
       ) : (
-        <div className="grid 3xl:grid-cols-7 grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
+        <div className="grid xl:grid-cols-6 grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
           {filteredItems.map((item) => (
             <LibraryItemCard
               key={item.itemId}
@@ -349,8 +342,7 @@ export default function LibraryPage() {
             Loading Library
           </p>
         </div>
-      }
-    >
+      }>
       <LibraryContent />
     </Suspense>
   );

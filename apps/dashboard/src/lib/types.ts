@@ -98,7 +98,10 @@ export interface Activity {
 export type NotificationType =
   | "lead_created"
   | "contract_portal_opened"
-  | "contract_executed";
+  | "contract_executed"
+  | "task_assigned"
+  | "subtask_assigned"
+  | "task_due_today";
 
 /**
  * In-app notification in the top-level `notifications` collection. One doc per
@@ -1136,4 +1139,84 @@ export interface Trade {
   insuranceProvider?: string;
   insuranceExpirationDate?: string;
   createdAt: number;
+}
+
+// ---------------------------------------------------------------------------
+// Tasks
+// ---------------------------------------------------------------------------
+
+export type TaskPriority = "low" | "medium" | "high";
+
+/**
+ * A checklist row embedded on its parent Task. Subtasks are never queried on
+ * their own, so they live in an array on the task doc — one read to render a
+ * card, and checking a box is a single atomic update.
+ */
+export interface Subtask {
+  /** Minted at creation; only needs to be unique within the parent task. */
+  id: string;
+  title: string;
+  done: boolean;
+  /**
+   * Defaults to the task's creator at write time, reassignable after. Renders
+   * on the subtask row AND folds into the parent card's avatar cluster, so a
+   * subtask assignee is visibly "involved" without being a task assignee.
+   */
+  assigneeId: string;
+}
+
+/**
+ * What a task hangs off. A task links to a project OR a client, never both, and
+ * may link to neither. `label` is denormalized so cards render without a lookup
+ * (same reasoning as ActivitySource).
+ */
+export interface TaskAttachment {
+  type: "project" | "client";
+  id: string;
+  label: string;
+}
+
+/**
+ * Task in the top-level `tasks` collection.
+ *
+ * Visibility is participant-scoped: `participantIds` holds the creator plus
+ * every task- and subtask-assignee, and is the only field the list views filter
+ * on. That keeps "tasks involving me" a single indexed query (the alternative —
+ * OR-ing across creator/assignees/subtask assignees — costs several, breaking
+ * db.query-shape.test.ts) and lets firestore.rules decide access from the doc
+ * alone. Admins and SuperAdmins bypass it and read the whole org.
+ *
+ * Completing every subtask does NOT complete the task — the checkbox is the
+ * only thing that sets `completed`.
+ */
+export interface Task {
+  /** = doc id. */
+  taskId: string;
+  organizationId: string;
+  title: string;
+  notes?: string;
+  priority: TaskPriority;
+  /** Optional — undated tasks group under "No due date". Epoch ms. */
+  dueAt?: number;
+  /** false/absent renders date-only ("Wed"); true renders the time ("Today · 2:00pm"). */
+  dueHasTime?: boolean;
+  /** Absent when the task hangs off nothing. */
+  attachment?: TaskAttachment;
+  /** Task-level assignees. The card's cluster shows these unioned with subtask assignees. */
+  assigneeIds: string[];
+  subtasks: Subtask[];
+  /** Creator + assigneeIds + every subtask assignee. Recomputed on every write — never set by hand. */
+  participantIds: string[];
+  completed: boolean;
+  /**
+   * Set when completed. Completed tasks drop out of every view, but the field is
+   * retained so a Completed view or project history can be added later without a
+   * backfill.
+   */
+  completedAt?: number;
+  completedBy?: ActivityActor;
+  createdBy: ActivityActor;
+  createdAt: number;
+  updatedBy?: ActivityActor;
+  updatedAt: number;
 }

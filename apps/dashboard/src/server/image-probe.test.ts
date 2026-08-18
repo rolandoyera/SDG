@@ -51,6 +51,22 @@ describe("originalVariants", () => {
     ).toBe("https://example.com/photo.jpg?auto=format");
   });
 
+  it("rewrites a Cloudinary transform to c_limit rather than dropping it", () => {
+    // Dropping the segment 404s on `/image/private/`, and raising `w_` alone
+    // upscales a small master into a padded canvas. `c_limit` never enlarges.
+    const out = originalVariants(
+      "https://s3.img-b.com/image/private/t_base,c_lpad,f_auto,dpr_auto,w_1200,h_630/product/brizo/x.jpg",
+    )[0];
+    expect(out).toBe(
+      "https://s3.img-b.com/image/private/t_base,f_auto,c_limit,w_3000/product/brizo/x.jpg",
+    );
+  });
+
+  it("leaves a non-transform Cloudinary-shaped path alone", () => {
+    const url = "https://cdn.example.com/image/upload/photo.jpg";
+    expect(originalVariants(url)).toEqual([url]);
+  });
+
   it("always keeps the input as the final fallback", () => {
     const url = "https://example.com/media/photo.jpg";
     expect(originalVariants(url)).toEqual([url]);

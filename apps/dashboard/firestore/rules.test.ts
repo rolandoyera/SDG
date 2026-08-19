@@ -58,6 +58,26 @@ async function seedUser(
   });
 }
 
+async function seedTask(
+  taskId: string,
+  organizationId: string,
+  participantIds: string[],
+) {
+  await seed(`tasks/${taskId}`, {
+    taskId,
+    organizationId,
+    title: "Walk punch list",
+    priority: "medium",
+    assigneeIds: participantIds,
+    subtasks: [],
+    participantIds,
+    completed: false,
+    createdBy: { type: "user", id: participantIds[0], name: participantIds[0] },
+    createdAt: 1,
+    updatedAt: 1,
+  });
+}
+
 async function seedDraftContract(
   contractId: string,
   organizationId: string,
@@ -775,5 +795,100 @@ describe("firestore rules", () => {
     await assertFails(addDoc(collection(adminDb, "mail"), mailDoc));
     await assertFails(addDoc(collection(contributorDb, "mail"), mailDoc));
     await assertFails(addDoc(collection(anonDb, "mail"), mailDoc));
+  });
+
+  it("scopes task reads to participants, with admins seeing the whole org", async () => {
+    await seedUser("task-owner", "org-a");
+    await seedUser("task-helper", "org-a");
+    await seedUser("task-outsider", "org-a"); // same org, not on the task
+    await seedUser("task-admin", "org-a", "Admin");
+    await seedUser("task-other-org", "org-b");
+    await seedTask("task-1", "org-a", ["task-owner", "task-helper"]);
+
+    await assertSucceeds(getDoc(doc(dbFor("task-owner"), "tasks/task-1")));
+    await assertSucceeds(getDoc(doc(dbFor("task-helper"), "tasks/task-1")));
+    // Being in the org is not enough — you have to be on the task.
+    await assertFails(getDoc(doc(dbFor("task-outsider"), "tasks/task-1")));
+    // Admins read every task in their org (the All Tasks view).
+    await assertSucceeds(getDoc(doc(dbFor("task-admin"), "tasks/task-1")));
+    await assertFails(getDoc(doc(dbFor("task-other-org"), "tasks/task-1")));
+  });
+
+  it("requires member task queries to constrain on participantIds", async () => {
+    await seedUser("task-owner", "org-a");
+    await seedUser("task-admin", "org-a", "Admin");
+    await seedTask("task-1", "org-a", ["task-owner"]);
+
+    const memberDb = dbFor("task-owner");
+    const tasks = collection(memberDb, "tasks");
+
+    // An unconstrained list would return other people's tasks, so rules reject it.
+    await assertFails(
+      getDocs(query(tasks, where("organizationId", "==", "org-a"))),
+    );
+    await assertSucceeds(
+      getDocs(
+        query(
+          tasks,
+          where("organizationId", "==", "org-a"),
+          where("participantIds", "array-contains", "task-owner"),
+        ),
+      ),
+    );
+    // Admins may list the org unfiltered.
+    await assertSucceeds(
+      getDocs(
+        query(
+          collection(dbFor("task-admin"), "tasks"),
+          where("organizationId", "==", "org-a"),
+        ),
+      ),
+    );
+  });
+
+  it("lets any task participant edit or delete, and keeps creates server-only", async () => {
+    await seedUser("task-owner", "org-a");
+    await seedUser("task-helper", "org-a");
+    await seedUser("task-outsider", "org-a");
+    await seedTask("task-1", "org-a", ["task-owner", "task-helper"]);
+    await seedTask("task-2", "org-a", ["task-owner", "task-helper"]);
+
+    // A non-creator participant has the same powers as the creator.
+    await assertSucceeds(
+      updateDoc(doc(dbFor("task-helper"), "tasks/task-1"), { completed: true }),
+    );
+    await assertFails(
+      updateDoc(doc(dbFor("task-outsider"), "tasks/task-1"), {
+        completed: true,
+      }),
+    );
+
+    // Never across orgs, not even by a participant.
+    await assertFails(
+      updateDoc(doc(dbFor("task-owner"), "tasks/task-1"), {
+        organizationId: "org-b",
+      }),
+    );
+
+    // Deletes are permanent and open to participants.
+    await assertFails(deleteDoc(doc(dbFor("task-outsider"), "tasks/task-2")));
+    await assertSucceeds(deleteDoc(doc(dbFor("task-helper"), "tasks/task-2")));
+
+    // participantIds must be derived server-side, so client creates are refused.
+    await assertFails(
+      setDoc(doc(dbFor("task-owner"), "tasks/task-3"), {
+        taskId: "task-3",
+        organizationId: "org-a",
+        title: "Client-made",
+        priority: "medium",
+        assigneeIds: [],
+        subtasks: [],
+        participantIds: ["task-owner"],
+        completed: false,
+        createdBy: { type: "user", id: "task-owner", name: "task-owner" },
+        createdAt: 1,
+        updatedAt: 1,
+      }),
+    );
   });
 });

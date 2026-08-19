@@ -244,6 +244,33 @@ service cloud.firestore {
     // Storage. Created/updated server-side only (admin SDK) — e.g. the executed
     // contract PDF reference written at signing — so client writes are denied;
     // org members may read their own org's documents.
+    // Tasks. Visibility is participant-scoped: participantIds carries the
+    // creator plus every task- and subtask-assignee, so you see a task only if
+    // you're on it. Admins/SuperAdmins read the whole org — that powers the All
+    // Tasks view and is the only way to find a task whose assignees have all
+    // left. Anyone who can see a task can edit or delete it: the list is
+    // collaborative and deletes are permanent by design.
+    //
+    // Because participantIds gates reads, member list queries MUST constrain on
+    // it (array-contains their uid) or Firestore rejects the whole query.
+    match /tasks/{taskId} {
+      function onTask() {
+        return isSignedIn() && request.auth.uid in resource.data.participantIds;
+      }
+      function canSeeTask() {
+        return inOrg(resource.data.organizationId) && (onTask() || isAdmin());
+      }
+      allow read, delete: if canSeeTask();
+      // Updates stay client-side for the hot path (ticking a checkbox, marking
+      // complete). Never let one hop orgs.
+      allow update: if canSeeTask()
+        && request.resource.data.organizationId == resource.data.organizationId;
+      // Server-only (createTask, admin SDK): participantIds must be derived
+      // from the assignees, not trusted from the caller, and assignment
+      // notifications need the admin SDK.
+      allow create: if false;
+    }
+
     match /projectDocuments/{id} {
       allow read: if readsOwnOrg();
       allow write: if false;

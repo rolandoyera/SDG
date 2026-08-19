@@ -39,6 +39,8 @@ import type {
   ProjectRoom,
   ProjectRoomItem,
   Proposal,
+  Subtask,
+  Task,
   Trade,
   UserProfile,
   Vendor,
@@ -1813,4 +1815,128 @@ export async function getContracts(
     console.error("Error fetching contracts:", error);
     return [];
   }
+}
+
+// --- TASKS ---
+// Reads are participant-scoped by firestore.rules: unless you're an Admin, the
+// query MUST constrain on participantIds or Firestore rejects the whole list.
+// Creates and assignee edits go through src/server/task-actions.ts (admin SDK)
+// because participantIds is the read gate and must be derived, not trusted.
+// The writes below are the hot path rules already allow: ticking a checkbox and
+// marking a task complete.
+
+/**
+ * Open tasks for one org. Pass the viewer's uid to scope to tasks they're on;
+ * pass null only for Admins/SuperAdmins, who read the whole org (All Tasks).
+ * Completed tasks are filtered server-side — they leave every view on
+ * completion and would otherwise accumulate forever in the payload.
+ */
+export async function getTasks(
+  organizationId: string,
+  participantUid: string | null,
+): Promise<Task[]> {
+  try {
+    return await trace(
+      "tasks",
+      "READ",
+      "getTasks",
+      async () => {
+        const collRef = collection(db, "tasks");
+        const constraints = [
+          where("organizationId", "==", organizationId),
+          where("completed", "==", false),
+        ];
+        if (participantUid)
+          constraints.push(
+            where("participantIds", "array-contains", participantUid),
+          );
+        const snapshot = await getDocs(query(collRef, ...constraints));
+
+        const tasks: Task[] = [];
+        snapshot.forEach((docSnap) => {
+          tasks.push(docSnap.data() as Task);
+        });
+        return sortTasksByDue(tasks);
+      },
+      (t) => `${t.length} docs`,
+    );
+  } catch (error) {
+    console.error("Error fetching tasks:", error);
+    return [];
+  }
+}
+
+/** Soonest first, undated last — the order both task views render in. */
+export function sortTasksByDue(tasks: Task[]): Task[] {
+  return [...tasks].sort((a, b) => {
+    if (a.dueAt == null && b.dueAt == null) return b.createdAt - a.createdAt;
+    if (a.dueAt == null) return 1;
+    if (b.dueAt == null) return -1;
+    return a.dueAt - b.dueAt;
+  });
+}
+
+/**
+ * Complete / un-complete. Completed tasks disappear from every view, so the
+ * caller pairs this with an Undo toast that calls it again with `false`.
+ */
+export async function setTaskCompleted(
+  taskId: string,
+  completed: boolean,
+  actor: ActivityActor,
+): Promise<void> {
+  return trace(
+    "tasks",
+    "WRITE",
+    "setTaskCompleted",
+    async () => {
+      await updateDoc(doc(db, "tasks", taskId), {
+        completed,
+        completedAt: completed ? Date.now() : null,
+        completedBy: completed ? actor : null,
+        updatedBy: actor,
+        updatedAt: Date.now(),
+      });
+    },
+    () => taskId,
+  );
+}
+
+/**
+ * Tick a subtask. Subtasks are an embedded array, so the caller sends the whole
+ * next array — one write, and no way for two rows to race into a half-applied
+ * state. Never touches participantIds: assignee changes go through the server
+ * action, this is only the done flag.
+ */
+export async function setTaskSubtasks(
+  taskId: string,
+  subtasks: Subtask[],
+  actor: ActivityActor,
+): Promise<void> {
+  return trace(
+    "tasks",
+    "WRITE",
+    "setTaskSubtasks",
+    async () => {
+      await updateDoc(doc(db, "tasks", taskId), {
+        subtasks,
+        updatedBy: actor,
+        updatedAt: Date.now(),
+      });
+    },
+    () => taskId,
+  );
+}
+
+/** Permanent by design — any participant may delete, and nothing is retained. */
+export async function deleteTask(taskId: string): Promise<void> {
+  return trace(
+    "tasks",
+    "DELETE",
+    "deleteTask",
+    async () => {
+      await deleteDoc(doc(db, "tasks", taskId));
+    },
+    () => taskId,
+  );
 }

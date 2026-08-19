@@ -47,6 +47,7 @@ import {
   getProjectRooms,
   getProjects,
   getProposals,
+  getTasks,
   getTrades,
   getVendorLibraryItems,
   getVendors,
@@ -113,6 +114,12 @@ const listGetters: Array<{
     collectionPath: "contracts",
   },
   { name: "getTrades", run: () => getTrades("org1"), collectionPath: "trades" },
+  {
+    // Participant-scoped: the uid arg is a query constraint, not a second read.
+    name: "getTasks",
+    run: () => getTasks("org1", "user1"),
+    collectionPath: "tasks",
+  },
   {
     name: "getOrganizationUsers",
     run: () => getOrganizationUsers("org1"),

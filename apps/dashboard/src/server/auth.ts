@@ -12,6 +12,12 @@ export interface VerifiedCaller {
   uid: string;
   email?: string;
   role: UserProfile["role"];
+  /**
+   * The caller's real name from their profile — the value to freeze into an
+   * ActivityActor. Never the vanity displayName, which users can change and
+   * which would rewrite history in already-stamped audit records.
+   */
+  fullName: string;
   /** The org on the caller's own profile document. */
   homeOrganizationId: string;
   /**
@@ -68,6 +74,7 @@ export const getVerifiedCaller = cache(
       uid,
       email,
       role,
+      fullName: profile.fullName ?? email ?? uid,
       homeOrganizationId: profile.organizationId,
       organizationId,
     };

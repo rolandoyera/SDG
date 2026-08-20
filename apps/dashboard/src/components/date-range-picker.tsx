@@ -62,6 +62,7 @@ export type DateRangePresetKey =
   | "past-30-days"
   | "past-60-days"
   | "past-90-days"
+  | "this-month"
   | "previous-month";
 
 const DEFAULT_PRESET_KEYS: DateRangePresetKey[] = [
@@ -105,6 +106,13 @@ function presetFor(
     "past-90-days": {
       label: "Past 90 days",
       range: { from: daysAgo(89), to: today },
+    },
+    "this-month": {
+      label: "This month",
+      range: {
+        from: new Date(today.getFullYear(), today.getMonth(), 1),
+        to: today,
+      },
     },
     "previous-month": {
       label: "Previous month",

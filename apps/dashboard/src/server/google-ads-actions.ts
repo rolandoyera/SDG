@@ -56,9 +56,11 @@ function rangeToDates(range?: string): DateWindow {
   if (range === "last-7-days") return { start: addDays(today, -6), end: today };
   if (range === "last-3-months")
     return { start: addDays(today, -89), end: today };
+  if (range === "last-4-weeks")
+    return { start: addDays(today, -27), end: today };
   if (range === "year-to-date")
     return { start: `${today.slice(0, 4)}-01-01`, end: today };
-  return { start: addDays(today, -27), end: today }; // last-4-weeks default
+  return { start: `${today.slice(0, 7)}-01`, end: today }; // this-month default
 }
 
 function isSingleDayRange(range?: string): boolean {
@@ -98,7 +100,7 @@ function getComparisonWindow(
     return { previous, comparisonLabel: "previous 7 days" };
   if (range === "last-3-months")
     return { previous, comparisonLabel: "previous 3 months" };
-  if (!range || range === "last-4-weeks")
+  if (range === "last-4-weeks")
     return { previous, comparisonLabel: "previous 4 weeks" };
   return { previous, comparisonLabel: `previous ${days} days` };
 }
@@ -796,6 +798,7 @@ export async function fetchAdsKeywords(
        FROM keyword_view
        WHERE segments.date BETWEEN '${start}' AND '${end}'
          AND ad_group_criterion.status != 'REMOVED'
+         AND ad_group_criterion.negative = FALSE
        ORDER BY metrics.cost_micros DESC
        LIMIT 200`,
     );

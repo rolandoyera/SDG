@@ -21,9 +21,7 @@ interface PageProps {
 
 export default async function Page({ searchParams }: PageProps) {
   const resolvedSearchParams = await searchParams;
-  // Default to 4 weeks, not "today" — Ads reporting (search terms especially)
-  // lags, so a same-day default would render mostly empty tables.
-  const range = (resolvedSearchParams.range as string) || "last-4-weeks";
+  const range = (resolvedSearchParams.range as string) || "this-month";
   const connection = await testGoogleAdsConnection();
   const connected = connection.success;
 

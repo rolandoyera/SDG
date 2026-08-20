@@ -51,10 +51,13 @@ no valid session. Never accept a customer ID from the client.
   (`ACCOUNT_TIME_ZONE`, currently a constant: America/New_York). GAQL has no
   GA4-style "today" token with an implicit property timezone, so the server
   computes the dates. Single-day ranges switch the trend to `segments.hour`.
-- **The default range is `last-4-weeks`, not `today`** (page + toolbar agree
-  on this). Ads reporting lags: `search_term_view` badly undercounts recent
-  days, and metrics settle upward for ~2 days — a same-day default would look
-  broken.
+- **The default range is `this-month`** (page + toolbar + `rangeToDates` all
+  agree on this — keep them in sync). It resolves server-side as first of the
+  current month → today in the account's timezone. `last-4-weeks` is still a
+  recognized token for old URLs but is no longer offered or defaulted.
+- **`keyword_view` includes ad-group-level negative keywords** — the Keywords
+  query must keep `ad_group_criterion.negative = FALSE` or exclusions show up
+  as if they were bid-on keywords (found live: two EXACT negatives leaked in).
 - **The trend fills empty buckets** — the API omits zero days/hours entirely,
   so the action reconstructs the full axis.
 - **The KPI comparison is one query, split in JS** — current + previous

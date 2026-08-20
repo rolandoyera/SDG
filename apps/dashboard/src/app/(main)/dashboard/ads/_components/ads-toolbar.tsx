@@ -51,11 +51,16 @@ function decodeRange(param: string): AppliedDateRange {
       return { from: daysAgo(6), to: today };
     case "last-3-months":
       return { from: daysAgo(89), to: today };
+    case "last-4-weeks":
+      return { from: daysAgo(27), to: today };
     case "year-to-date":
       return { from: new Date(today.getFullYear(), 0, 1), to: today };
     default:
-      // last-4-weeks — this page's default.
-      return { from: daysAgo(27), to: today };
+      // this-month — this page's default.
+      return {
+        from: new Date(today.getFullYear(), today.getMonth(), 1),
+        to: today,
+      };
   }
 }
 
@@ -79,7 +84,7 @@ export function AdsToolbar() {
   const searchParams = useSearchParams();
   const [isRefreshing, startRefresh] = useTransition();
 
-  const currentRange = searchParams.get("range") || "last-4-weeks";
+  const currentRange = searchParams.get("range") || "this-month";
 
   const handleRangeChange = (range: AppliedDateRange) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -97,8 +102,8 @@ export function AdsToolbar() {
           "yesterday",
           "past-7-days",
           "past-30-days",
-          "past-60-days",
           "past-90-days",
+          "this-month",
           "previous-month",
         ]}
       />

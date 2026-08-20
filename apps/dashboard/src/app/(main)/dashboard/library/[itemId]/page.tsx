@@ -99,7 +99,7 @@ export default function LibraryItemDetailPage({ params }: PageProps) {
     setUpdatingCatalog(true);
     try {
       // Mirror any external (AI-sourced) images into Firebase so the item self-hosts them.
-      const { imageUrls, coverImageUrl, coverImagePath, images } =
+      const { imageUrls, coverImageUrl, coverImagePath, images, specSheet } =
         await mirrorExternalImagesToFirebase(
           item.organizationId,
           {
@@ -107,6 +107,7 @@ export default function LibraryItemDetailPage({ params }: PageProps) {
             coverImageUrl: form.formData.coverImageUrl,
             coverImagePath: form.formData.coverImagePath,
             images: form.formData.images,
+            specSheet: form.formData.specSheet,
           },
           item.itemId,
         );
@@ -116,13 +117,19 @@ export default function LibraryItemDetailPage({ params }: PageProps) {
         coverImageUrl,
         coverImagePath,
         images,
+        specSheet,
       };
 
       try {
         await deleteReplacedStorageFiles(
-          [item.coverImagePath, ...(item.images || []).map((img) => img.path)],
+          [
+            item.coverImagePath,
+            item.specSheet?.path,
+            ...(item.images || []).map((img) => img.path),
+          ],
           [
             updated.coverImagePath,
+            updated.specSheet?.path,
             ...(updated.images || []).map((img) => img.path),
           ],
         );
@@ -180,7 +187,7 @@ export default function LibraryItemDetailPage({ params }: PageProps) {
   const associatedVendor = vendors.find((v) => v.vendorId === item.vendorId);
 
   return (
-    <div className="flex w-full flex-col gap-6">
+    <div className="flex w-full flex-col">
       <ItemDetailHeader
         item={item}
         vendorName={associatedVendor?.name}
@@ -199,7 +206,12 @@ export default function LibraryItemDetailPage({ params }: PageProps) {
 
         <div className="flex flex-col gap-6 lg:col-span-8">
           <ItemPricingCard item={item} />
-          <ItemSpecMatrix item={item} />
+          <ItemSpecMatrix
+            item={item}
+            onSpecSheetSaved={(specSheet) =>
+              setItem((prev) => (prev ? { ...prev, specSheet } : prev))
+            }
+          />
           <ItemNotesCards item={item} />
         </div>
       </div>

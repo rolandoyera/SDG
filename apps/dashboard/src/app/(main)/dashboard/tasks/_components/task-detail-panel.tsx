@@ -114,7 +114,8 @@ export function TaskDetailPanel({
         <SectionLabel>Project</SectionLabel>
         <Select
           value={draft.attachment}
-          onValueChange={(value) => commit({ attachment: value })}>
+          onValueChange={(value) => commit({ attachment: value })}
+        >
           <SelectTrigger className="w-full" aria-label="Attach to">
             <SelectValue />
           </SelectTrigger>
@@ -123,7 +124,8 @@ export function TaskDetailPanel({
             {projects.map((project) => (
               <SelectItem
                 key={project.projectId}
-                value={`project:${project.projectId}`}>
+                value={`project:${project.projectId}`}
+              >
                 {project.name}
               </SelectItem>
             ))}
@@ -146,7 +148,8 @@ export function TaskDetailPanel({
             <button
               type="button"
               className="-space-x-2 flex rounded p-1 hover:bg-accent"
-              aria-label="Edit assignees">
+              aria-label="Edit assignees"
+            >
               {avatarUids.length === 0 ? (
                 <span className="px-1 text-muted-foreground text-sm">
                   Unassigned
@@ -155,7 +158,8 @@ export function TaskDetailPanel({
                 avatarUids.map((uid) => (
                   <Avatar
                     key={uid}
-                    className="size-7 border-2 border-background">
+                    className="size-7 border-2 border-background"
+                  >
                     <AvatarFallback className="text-[10px]">
                       {initialsOf(userLabel(users, uid))}
                     </AvatarFallback>
@@ -176,7 +180,8 @@ export function TaskDetailPanel({
           trigger={
             <button
               type="button"
-              className="rounded px-1 py-0.5 text-sm hover:bg-accent">
+              className="rounded px-1 py-0.5 text-sm hover:bg-accent"
+            >
               {formatDue(task)}
             </button>
           }
@@ -189,7 +194,8 @@ export function TaskDetailPanel({
           value={draft.priority}
           onValueChange={(value) =>
             commit({ priority: value as TaskFormData["priority"] })
-          }>
+          }
+        >
           <SelectTrigger className="w-full" aria-label="Priority">
             <SelectValue />
           </SelectTrigger>
@@ -234,7 +240,8 @@ export function TaskDetailPanel({
                   className={cn(
                     "flex-1 text-sm",
                     subtask.done && "text-muted-foreground line-through",
-                  )}>
+                  )}
+                >
                   {subtask.title}
                 </span>
                 <Avatar className="size-5">
@@ -257,7 +264,8 @@ export function TaskDetailPanel({
         <Button
           variant="outline"
           className="w-full text-destructive hover:text-destructive"
-          onClick={onDelete}>
+          onClick={onDelete}
+        >
           <Trash2 />
           Delete
         </Button>

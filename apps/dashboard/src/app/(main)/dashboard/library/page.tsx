@@ -103,7 +103,7 @@ function LibraryContent() {
     setSubmitting(true);
     try {
       // Mirror any external (AI-sourced) images into Firebase so the item self-hosts them.
-      const { imageUrls, coverImageUrl, coverImagePath, images } =
+      const { imageUrls, coverImageUrl, coverImagePath, images, specSheet } =
         await mirrorExternalImagesToFirebase(
           profile.organizationId,
           {
@@ -111,6 +111,7 @@ function LibraryContent() {
             coverImageUrl: form.formData.coverImageUrl,
             coverImagePath: form.formData.coverImagePath,
             images: form.formData.images,
+            specSheet: form.formData.specSheet,
           },
           form.tempItemId,
         );
@@ -121,6 +122,7 @@ function LibraryContent() {
           coverImageUrl,
           coverImagePath,
           images,
+          specSheet,
           organizationId: profile.organizationId,
         },
         form.tempItemId,

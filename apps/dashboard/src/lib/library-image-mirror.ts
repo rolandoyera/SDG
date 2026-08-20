@@ -1,15 +1,51 @@
-import { uploadLibraryImageBlob } from "@/lib/db";
+import { uploadLibraryDoc, uploadLibraryImageBlob } from "@/lib/db";
 import { isFirebaseHosted, mirrorExternalImageUrl } from "@/lib/image-mirror";
+import { fetchPdfBytes } from "@/server/ai-actions";
 
 export interface MirrorResult {
   imageUrls: string[];
   coverImageUrl: string;
   coverImagePath?: string;
   images: Array<{ url: string; path: string }>;
+  /** Mirrored (or passed-through) spec sheet; undefined when the item has none. */
+  specSheet?: { url: string; path: string };
   /** How many external images were successfully copied into Firebase Storage. */
   mirroredCount: number;
   /** How many external images could not be fetched and kept their original URL. */
   failedCount: number;
+}
+
+/**
+ * Mirrors an external spec sheet PDF into Firebase Storage (server-side fetch to
+ * bypass CORS, client-side upload — same split as images). A sheet that's already
+ * Firebase-hosted passes through; one that fails to fetch keeps its vendor URL.
+ */
+async function mirrorSpecSheet(
+  organizationId: string,
+  specSheet: { url: string; path: string } | undefined,
+  itemId: string,
+): Promise<{ url: string; path: string } | undefined> {
+  const url = specSheet?.url?.trim();
+  if (!url) return undefined;
+  if (isFirebaseHosted(url)) return { url, path: specSheet?.path ?? "" };
+
+  try {
+    const res = await fetchPdfBytes(url);
+    if (res.success && res.base64) {
+      const binary = atob(res.base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      return await uploadLibraryDoc(
+        organizationId,
+        new Blob([bytes], { type: "application/pdf" }),
+        itemId,
+      );
+    }
+    console.warn(`[Spec Sheet Mirror] Fetch failed for ${url}: ${res.error}`);
+  } catch (error) {
+    console.error(`[Spec Sheet Mirror] Failed to mirror ${url}:`, error);
+  }
+  return { url, path: "" };
 }
 
 /**
@@ -26,9 +62,15 @@ export async function mirrorExternalImagesToFirebase(
     coverImageUrl?: string;
     images?: Array<{ url: string; path: string }>;
     coverImagePath?: string;
+    specSheet?: { url: string; path: string };
   },
   itemId: string,
 ): Promise<MirrorResult> {
+  const specSheetPromise = mirrorSpecSheet(
+    organizationId,
+    input.specSheet,
+    itemId,
+  );
   const originalImages = (input.imageUrls ?? []).filter(Boolean);
   const cover = input.coverImageUrl?.trim() || "";
   const existingImages = input.images ?? [];
@@ -102,6 +144,7 @@ export async function mirrorExternalImagesToFirebase(
     coverImageUrl,
     coverImagePath,
     images,
+    specSheet: await specSheetPromise,
     mirroredCount,
     failedCount,
   };

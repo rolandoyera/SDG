@@ -510,6 +510,32 @@ export function LibraryItemFormDialog({
                     {`Fill with ${AI_ASSISTANT_NAME}`}
                   </AiButton>
                 </div>
+                {form.variantOptions.length > 0 && (
+                  <div className="mt-1 flex flex-col gap-2 rounded-lg border border-dashed p-3">
+                    <Label className={LABEL_CLASS}>
+                      This link doesn&apos;t specify a variant — which one did
+                      you select on the vendor page?
+                    </Label>
+                    <div className="flex flex-wrap gap-2">
+                      {form.variantOptions.map((option) => (
+                        <Button
+                          key={option.label}
+                          type="button"
+                          size="sm"
+                          variant={
+                            form.selectedVariantLabel === option.label
+                              ? "default"
+                              : "outline"
+                          }
+                          onClick={() => form.applyVariant(option)}
+                        >
+                          {option.label}
+                          {option.sku ? ` · ${option.sku}` : ""}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <h3 className="border-b pb-1.5 font-medium text-muted-foreground/80 text-xs uppercase tracking-wider">

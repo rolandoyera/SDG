@@ -11,7 +11,10 @@ import { startLunaProductAutofillToast } from "@/components/luna-progress-toast"
 import { AI_ASSISTANT_NAME } from "@/lib/ai-assistant";
 import { runAiActionWithRetry } from "@/lib/ai-retry";
 import { getOrganization, uploadLibraryImage } from "@/lib/db";
-import { autofillProductFromUrl } from "@/server/ai-actions";
+import {
+  autofillProductFromUrl,
+  type ProductVariantOption,
+} from "@/server/ai-actions";
 
 import {
   EMPTY_LIBRARY_ITEM_FORM,
@@ -90,6 +93,15 @@ export function useLibraryItemForm() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
 
+  // Variants the AI found on the vendor page when the URL didn't pin one
+  // (many sites keep the selection in client-side state, so the copied link
+  // always lands on the default variant). Transient UI state — never persisted;
+  // the user's pick just resolves into the existing sku/finishColor/cover fields.
+  const [variantOptions, setVariantOptions] = useState<ProductVariantOption[]>(
+    [],
+  );
+  const [selectedVariantLabel, setSelectedVariantLabel] = useState("");
+
   const reset = useCallback(
     (values?: Partial<LibraryItemFormData>, customItemId?: string) => {
       rhfForm.reset({
@@ -97,6 +109,8 @@ export function useLibraryItemForm() {
         markup: defaultMarkupRef.current ?? EMPTY_LIBRARY_ITEM_FORM.markup,
         ...values,
       });
+      setVariantOptions([]);
+      setSelectedVariantLabel("");
       setTempItemId(
         customItemId ?? `item-${Math.random().toString(36).substr(2, 9)}`,
       );
@@ -182,6 +196,8 @@ export function useLibraryItemForm() {
     }
 
     setAiLoading(true);
+    setVariantOptions([]);
+    setSelectedVariantLabel("");
     const lunaToast = startLunaProductAutofillToast();
     try {
       const res = await runAiActionWithRetry(
@@ -252,6 +268,15 @@ export function useLibraryItemForm() {
           dimensions: ext.dimensions || prev.dimensions,
           sourcingLink: prev.sourcingLink || url,
           msrp: ext.msrp !== undefined && ext.msrp > 0 ? ext.msrp : prev.msrp,
+          // Scraped spec sheet (already %PDF-verified server-side). Kept as the
+          // raw vendor URL here; the save-time mirror step self-hosts it. Never
+          // clobbers an existing sheet (same rule as the scalar fields), so a
+          // re-scrape can't replace a manually uploaded PDF.
+          specSheet: prev.specSheet?.url
+            ? prev.specSheet
+            : ext.specSheetUrl
+              ? { url: ext.specSheetUrl, path: "" }
+              : undefined,
           imageUrls: newImages,
           coverImageUrl,
           aiMetadata: {
@@ -267,6 +292,10 @@ export function useLibraryItemForm() {
           ? { ...updated, ...deriveFromMsrp(msrp, prev.markup) }
           : updated;
       });
+
+      // Only worth asking when there's an actual choice to disambiguate.
+      const variants = ext.variantOptions ?? [];
+      setVariantOptions(variants.length > 1 ? variants : []);
 
       // Blocked sites (url_context fallback) often yield specs but no images —
       // tell the user plainly instead of letting them hunt for missing photos.
@@ -299,6 +328,48 @@ export function useLibraryItemForm() {
       setAiLoading(false);
     }
   };
+
+  // Resolves the user's variant pick into the flat form fields. Clears the AI
+  // confidence for whatever it overwrites — same convention as a manual edit.
+  const applyVariant = useCallback(
+    (option: ProductVariantOption) => {
+      // Keeping the previous variant's finish after a pick is guaranteed wrong,
+      // so when the model left finishColor empty the label stands in — for
+      // finish-style variants it IS the finish, and anywhere else it's at least
+      // visibly editable rather than silently stale.
+      const finishColor = option.finishColor?.trim()
+        ? option.finishColor
+        : option.label;
+      setFormData((prev) => {
+        const confidence = { ...prev.aiMetadata?.confidence };
+        if (option.sku) delete confidence.sku;
+        if (finishColor) delete confidence.finishColor;
+
+        let imageUrls = prev.imageUrls ?? [];
+        let coverImageUrl = prev.coverImageUrl;
+        if (option.imageUrl) {
+          imageUrls = [
+            option.imageUrl,
+            ...imageUrls.filter((u) => u !== option.imageUrl),
+          ].slice(0, MAX_IMAGES);
+          coverImageUrl = option.imageUrl;
+        }
+
+        return {
+          ...prev,
+          sku: option.sku ? option.sku : prev.sku,
+          finishColor: finishColor ? finishColor : prev.finishColor,
+          imageUrls,
+          coverImageUrl,
+          aiMetadata: prev.aiMetadata
+            ? { ...prev.aiMetadata, confidence }
+            : prev.aiMetadata,
+        };
+      });
+      setSelectedVariantLabel(option.label);
+    },
+    [setFormData],
+  );
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -452,6 +523,9 @@ export function useLibraryItemForm() {
     setMsrp,
     setSellingPrice,
     autofillWithAi,
+    variantOptions,
+    selectedVariantLabel,
+    applyVariant,
     handleImageUpload,
     setAsCover,
     reorderImages,

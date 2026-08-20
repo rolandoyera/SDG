@@ -5,6 +5,7 @@ import * as cheerio from "cheerio";
 import { SCRAPER_CONFIG } from "@/config/scraper-config";
 import {
   measureImageCandidates,
+  probeIsPdf,
   type ImageCandidate,
 } from "@/server/image-probe";
 import { AI_ASSISTANT_NAME } from "@/lib/ai-assistant";
@@ -119,6 +120,19 @@ async function fetchGeminiWithFallback(
   return { response: res, modelUsed: primaryModel };
 }
 
+/**
+ * One selectable variant (finish/color/size) of a product whose URL does not
+ * pin the selection — many vendor sites (e.g. BigCommerce) keep the variant
+ * choice in client-side state, so the copied link alone can't tell us which
+ * one the user picked. The form asks them instead.
+ */
+export interface ProductVariantOption {
+  label: string;
+  sku?: string;
+  finishColor?: string;
+  imageUrl?: string;
+}
+
 export interface AutofillResult {
   success: boolean;
   error?: string;
@@ -137,6 +151,9 @@ export interface AutofillResult {
     dimensions?: string;
     msrp?: number;
     imageUrls?: string[];
+    variantOptions?: ProductVariantOption[];
+    /** Verified-PDF spec sheet link found on the page (spec sheet labels win over reference drawings). */
+    specSheetUrl?: string;
     confidence?: Record<string, number>;
     rawExtraction?: string;
   };
@@ -358,6 +375,8 @@ ${Object.entries(SUBCATEGORIES)
 - msrp: The retail price/selling price listed on the page. Parse as a clean float number (e.g. 1299.00). Do not include currency symbols.
 - sku: The model number, article number, model name, or inventory SKU of the product if listed (e.g. "42801140").
 - imageUrls: ${imageUrlsInstruction}
+- variantOptions: If the product is offered in multiple selectable variants (finishes, colors, sizes, configurations) AND the URL does NOT already identify one exact variant (e.g. a variant/option id in the query string, or the option name in the URL slug), list EVERY selectable variant as an object with ALL of these fields: label (the option name a shopper picks, e.g. "Outdoor Bronze"), sku (that exact variant's model/SKU number, else empty string), finishColor (the variant's finish/color, else empty string), and imageUrl (the absolute http(s) URL of the image depicting that exact variant, else empty string). Gallery image alt text and file names frequently encode each variant — e.g. an image with alt "Waterfall 100152-8 - Outdoor Bronze" whose URL contains "100152-8" gives you that variant's sku (100152-8), finish (Outdoor Bronze), and imageUrl in one place; when the variants are finishes/colors, the finish name from the label MUST also be copied into finishColor, and when a variant-specific image exists its URL MUST be returned in imageUrl (prefer the largest rendition when several sizes of the same image appear). If the URL clearly identifies a single variant, or the product has no selectable variants, return an empty array. The top-level fields above must still describe the default/currently-shown variant.
+- specSheetUrl: The absolute http(s) URL of the product's downloadable spec sheet PDF, if the page links one. Look for links labeled "Spec Sheet", "Specification Sheet", "Specifications", "Cut Sheet", or "Tear Sheet"; if none exists, a link labeled "Reference Drawings" (or "Dimensional Drawing"/"Line Drawing") counts instead — a spec-sheet-labeled link always takes priority over a drawing. The URL should point directly at a PDF file (usually ending in .pdf). Empty string when the page links neither.
 - confidence: An object with keys matching each of the parsed text/numeric fields above (name, sku, category, subcategory, description, finishColor, manufacturer, materials, dimensions, msrp, imageUrls). For each field, return a float confidence value between 0.0 (completely uncertain) and 1.0 (absolutely certain) based on how clearly and unambiguously the information was stated in the page content.`;
 }
 
@@ -378,6 +397,22 @@ const PRODUCT_RESPONSE_SCHEMA = {
       type: "ARRAY",
       items: { type: "STRING" },
     },
+    variantOptions: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          label: { type: "STRING" },
+          sku: { type: "STRING" },
+          finishColor: { type: "STRING" },
+          imageUrl: { type: "STRING" },
+        },
+        // All required so the model must emit each key (empty string when truly
+        // absent) instead of silently omitting finish/image per variant.
+        required: ["label", "sku", "finishColor", "imageUrl"],
+      },
+    },
+    specSheetUrl: { type: "STRING" },
     confidence: {
       type: "OBJECT",
       properties: {
@@ -690,6 +725,14 @@ ${JSON_OUTPUT_RULES}`;
       sanitizedData,
     );
 
+    // Same %PDF verification as the markdown path.
+    if (
+      sanitizedData.specSheetUrl &&
+      !(await probeIsPdf(sanitizedData.specSheetUrl))
+    ) {
+      sanitizedData = { ...sanitizedData, specSheetUrl: "" };
+    }
+
     // url_context strips markup, so imageUrls is usually empty here. When a SKU
     // was extracted, try recovering images from Google's search index instead.
     const hasImages = (sanitizedData.imageUrls ?? []).some(
@@ -768,10 +811,15 @@ export async function autofillProductFromUrl(
       `[AI Autofill] Starting scraping via Jina Reader for: ${normalizedUrl}`,
     );
 
-    // 1. Fetch the raw page contents converted to clean Markdown via Jina Reader
+    // 1. Fetch the raw page contents converted to clean Markdown via Jina Reader.
+    // Beyond nav/footer chrome, strip related-product carousels and newsletter
+    // blocks: on finearthl.com they were 63% of the scrape and fed four competing
+    // SKUs/prices into the extraction context (#tab-related is BigCommerce,
+    // product-recommendations is Shopify's element; the rest are common theme
+    // classes). Measured 18.2K → 5.6K chars with all product signals intact.
     const jinaHeaders: Record<string, string> = {
       "X-Remove-Selector":
-        "nav, header, footer, .navigation, .menu, .nav, .minicart, .mega-menu, .megamenu, #header, #footer, #nav, #menu, .header, .footer, .js-mini-cart, .global-header, .global-footer, .newsletter-signup",
+        "nav, header, footer, .navigation, .menu, .nav, .minicart, .mega-menu, .megamenu, #header, #footer, #nav, #menu, .header, .footer, .js-mini-cart, .global-header, .global-footer, .newsletter-signup, .newsletter, #newsletter, .footer-newsletter, #tab-related, .productCarousel, .productView-related, .related-products, #related-products, .product-recommendations, product-recommendations, .you-may-also-like, .upsell, .cross-sell",
       "X-No-Cache": "true",
     };
     if (process.env.JINA_API_KEY) {
@@ -1185,6 +1233,29 @@ ${JSON_OUTPUT_RULES}`,
         );
       sanitizedData.imageUrls = upgraded;
     }
+    if (sanitizedData.variantOptions?.length) {
+      sanitizedData.variantOptions = sanitizedData.variantOptions.map((opt) =>
+        opt.imageUrl
+          ? {
+              ...opt,
+              imageUrl:
+                measuredByKey.get(imageDedupKey(opt.imageUrl)) ?? opt.imageUrl,
+            }
+          : opt,
+      );
+    }
+
+    // A model-extracted "spec sheet" link is only trusted once the bytes say
+    // %PDF — otherwise a link to an HTML page would get stored as the sheet.
+    if (
+      sanitizedData.specSheetUrl &&
+      !(await probeIsPdf(sanitizedData.specSheetUrl))
+    ) {
+      console.warn(
+        `[AI Autofill] Dropping spec sheet URL that is not a PDF: ${sanitizedData.specSheetUrl}`,
+      );
+      sanitizedData.specSheetUrl = "";
+    }
 
     console.log(
       `[AI Autofill] Gemini response successfully parsed and sanitized! Data:`,
@@ -1357,6 +1428,65 @@ export async function fetchImageBytes(url: string): Promise<FetchedImage> {
         error instanceof Error
           ? error.message
           : "Unexpected error fetching the image.",
+    };
+  }
+}
+
+/**
+ * Server Action: fetches an external PDF (spec sheet) server-side, bypassing
+ * browser CORS, and returns its bytes as base64 for the client to re-upload to
+ * Firebase Storage — the PDF counterpart of `fetchImageBytes`. No proxy retry
+ * (images.weserv.nl is an image transformer); the body must start with %PDF.
+ */
+export async function fetchPdfBytes(
+  url: string,
+): Promise<{ success: boolean; base64?: string; error?: string }> {
+  try {
+    if (!url || !/^https?:\/\//i.test(url)) {
+      return { success: false, error: "Invalid PDF URL." };
+    }
+
+    let referer: string | undefined;
+    try {
+      referer = `${new URL(url).origin}/`;
+    } catch {
+      referer = undefined;
+    }
+
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        Accept: "application/pdf,application/octet-stream,*/*;q=0.8",
+        ...(referer ? { Referer: referer } : {}),
+      },
+      cache: "no-store",
+      signal: AbortSignal.timeout(20000),
+    });
+
+    if (!res.ok) {
+      return {
+        success: false,
+        error: `PDF fetch failed (status ${res.status}).`,
+      };
+    }
+
+    const buffer = Buffer.from(await res.arrayBuffer());
+    if (!buffer.subarray(0, 5).toString("ascii").startsWith("%PDF")) {
+      return { success: false, error: "That URL did not return a PDF." };
+    }
+    if (buffer.byteLength > MAX_MIRROR_BYTES) {
+      return { success: false, error: "The PDF is too large to mirror." };
+    }
+
+    return { success: true, base64: buffer.toString("base64") };
+  } catch (error: unknown) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Unexpected error fetching the PDF.",
     };
   }
 }
@@ -2534,8 +2664,32 @@ function sanitizeProductData(
   const materials = sanitizeField(product.materials, 150, "materials");
   const dimensions = sanitizeField(product.dimensions, 100, "dimensions");
 
+  const variantOptions = (
+    Array.isArray(product.variantOptions) ? product.variantOptions : []
+  )
+    .map((entry): ProductVariantOption | null => {
+      if (!entry || typeof entry !== "object") return null;
+      const opt = entry as Record<string, unknown>;
+      const label = sanitizeField(opt.label, 80, "variantLabel");
+      if (!label) return null;
+      const rawImageUrl =
+        typeof opt.imageUrl === "string" ? opt.imageUrl.trim() : "";
+      return {
+        label,
+        sku: sanitizeField(opt.sku, 50, "variantSku"),
+        finishColor: sanitizeField(opt.finishColor, 80, "variantFinishColor"),
+        imageUrl: /^https?:\/\//i.test(rawImageUrl) ? rawImageUrl : "",
+      };
+    })
+    .filter((opt): opt is ProductVariantOption => opt !== null)
+    .slice(0, 12);
+
+  const rawSpecSheetUrl =
+    typeof product.specSheetUrl === "string" ? product.specSheetUrl.trim() : "";
+
   return {
     ...product,
+    specSheetUrl: /^https?:\/\//i.test(rawSpecSheetUrl) ? rawSpecSheetUrl : "",
     name: name || "Unnamed Product",
     sku,
     category,
@@ -2544,6 +2698,7 @@ function sanitizeProductData(
     manufacturer,
     materials,
     dimensions,
+    variantOptions,
   };
 }
 

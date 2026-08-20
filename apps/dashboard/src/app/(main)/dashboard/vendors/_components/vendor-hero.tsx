@@ -1,7 +1,5 @@
 "use client";
 
-import { Tag } from "lucide-react";
-
 import { DashboardImage } from "@/components/dashboard-image";
 import {
   FacebookIcon,
@@ -12,13 +10,11 @@ import {
   YoutubeIcon,
 } from "@/components/icons/icons";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { H1 } from "@/components/ui/typography";
 import type { Vendor } from "@/lib/types";
 
 import { vendorGradient } from "./vendor-gradient";
@@ -69,7 +65,7 @@ export function VendorHero({ vendor }: VendorHeroProps) {
   return (
     <Card className="overflow-hidden pt-0">
       {/* Banner: hero image → gradient fallback */}
-      <div className="relative flex h-90 w-full items-end overflow-hidden">
+      <div className="relative flex aspect-5/4 w-full items-end overflow-hidden">
         {vendor.heroImageUrl ? (
           <DashboardImage
             priority
@@ -92,31 +88,9 @@ export function VendorHero({ vendor }: VendorHeroProps) {
       </div>
 
       {/* Name row */}
-      <CardContent className="flex flex-col gap-4 pb-5 sm:flex-row sm:items-end sm:justify-between">
+      <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex flex-col gap-1 w-full">
-          <div className="flex flex-wrap items-center gap-5">
-            <H1>{vendor.name}</H1>
-            {vendor.logoUrl && (
-              <div className="relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded border border-border bg-background shadow-xs">
-                <DashboardImage
-                  priority
-                  src={vendor.logoUrl}
-                  alt={vendor.name}
-                  sizes="32px"
-                  className="object-contain"
-                />
-              </div>
-            )}
-          </div>
-          <div>
-            {vendor.category && (
-              <div className="flex items-center gap-1.5">
-                <Tag className="size-2.5 text-primary" />
-                <Label> {vendor.category}</Label>
-              </div>
-            )}
-          </div>
-          <div className="grid grid-cols-2 gap-4 mt-8 space-y-4">
+          <div className="grid grid-cols-2 gap-4 space-y-2">
             <DataField label="Account Number" empty="Not provided">
               {vendor.accountNumber}
             </DataField>

@@ -13,8 +13,9 @@ rules_version = '2';
 // org (users/{uid}.organizationId, read via a cross-service firestore.get).
 // Branding lives at `organizations/{orgId}/branding/...`; library/vendor images at
 // `library/{orgId}/{itemId}/...` and `vendors/{orgId}/{vendorId}/...`. Every upload
-// must be an image under the size cap; deletes are allowed (request.resource is
-// null on delete). The old flat `library/{p}` / `vendors/{p}` blocks were removed
+// must be an image under the size cap (the library docs/ segment additionally
+// accepts PDF spec sheets); deletes are allowed (request.resource is null on
+// delete). The old flat `library/{p}` / `vendors/{p}` blocks were removed
 // once all legacy flat-path files were cleared, so cross-org isolation is fully
 // enforced.
 
@@ -60,6 +61,17 @@ service firebase.storage {
     match /library/{orgId}/{allPaths=**} {
       allow read: if isSignedIn();
       allow write: if isSignedIn() && inOrg(orgId) && validUpload();
+    }
+
+    // Library item spec sheets (scrape-mirrored or manually uploaded PDFs).
+    // The only non-image uploads allowed anywhere; scoped to the docs/ segment
+    // so the image-only rule keeps holding everywhere else.
+    match /library/{orgId}/{itemId}/docs/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && inOrg(orgId)
+        && (request.resource == null
+            || (request.resource.contentType == 'application/pdf'
+                && request.resource.size < 15 * 1024 * 1024));
     }
 
     match /vendors/{orgId}/{allPaths=**} {

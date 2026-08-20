@@ -46,7 +46,8 @@ export function TaskCard({
       className={cn(
         "rounded border bg-card transition-colors",
         selected ? "border-primary" : "hover:border-muted-foreground/30",
-      )}>
+      )}
+    >
       <div className="flex items-start gap-3 p-4">
         <Checkbox
           checked={task.completed}
@@ -58,7 +59,8 @@ export function TaskCard({
         <button
           type="button"
           onClick={onSelect}
-          className="min-w-0 flex-1 text-left">
+          className="min-w-0 flex-1 text-left"
+        >
           <span className="font-medium text-sm">{task.title}</span>
           <span className="mt-1.5 flex flex-wrap items-center gap-2 text-muted-foreground text-xs">
             {task.attachment && (
@@ -120,7 +122,8 @@ export function TaskCard({
                 className={cn(
                   "flex-1 text-sm",
                   subtask.done && "text-muted-foreground line-through",
-                )}>
+                )}
+              >
                 {subtask.title}
               </span>
               <Avatar className="size-5">

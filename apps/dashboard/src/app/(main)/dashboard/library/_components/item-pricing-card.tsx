@@ -1,12 +1,6 @@
 import { Calculator, TrendingDown, TrendingUp } from "lucide-react";
 
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import type { LibraryItem } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
@@ -27,12 +21,18 @@ export function ItemPricingCard({ item }: ItemPricingCardProps) {
           <Calculator className="icons" />
           Cost & Pricing
         </CardTitle>
+        {item.msrp && item.msrp > 0 ? (
+          <div className="flex items-center justify-end gap-4 text-sm">
+            <span className="text-muted-foreground">MSRP:</span>
+            <span className="font-medium">{formatCurrency(item.msrp)}</span>
+          </div>
+        ) : null}
       </CardHeader>
       <CardContent className="flex flex-col gap-4 py-3">
         {/* Four-cell pricing row — gap-px/bg-border produces hairline dividers */}
-        <div className="grid grid-cols-4 gap-px overflow-hidden rounded border border-border/50 bg-border text-center">
+        <div className="grid grid-cols-4 overflow-hidden rounded border text-center">
           {/* Sourcing Cost */}
-          <div className="flex flex-col items-center justify-center gap-1 bg-card bg-linear-to-t from-primary/10 to-card p-3.5 shadow-xs">
+          <div className="flex flex-col items-center justify-center gap-1 border-r bg-card bg-linear-to-t from-primary/10 to-card p-3.5">
             <Label className="uppercase">Cost</Label>
             <span className="font-medium text-base text-foreground">
               {formatCurrency(item.unitCost)}
@@ -40,7 +40,7 @@ export function ItemPricingCard({ item }: ItemPricingCardProps) {
           </div>
 
           {/* Markup */}
-          <div className="flex flex-col items-center justify-center gap-1 bg-card bg-linear-to-t from-primary/10 to-card p-3.5 shadow-xs">
+          <div className="flex flex-col items-center justify-center gap-1 border-r bg-card bg-linear-to-t from-primary/10 to-card p-3.5">
             <Label className="uppercase">Markup</Label>
             <span className="font-medium text-base text-foreground">
               {Math.round(item.markup)}%
@@ -48,7 +48,7 @@ export function ItemPricingCard({ item }: ItemPricingCardProps) {
           </div>
 
           {/* Selling Price */}
-          <div className="flex flex-col items-center justify-center gap-1 bg-card bg-linear-to-t from-primary/10 to-card p-3.5 shadow-xs">
+          <div className="flex flex-col items-center justify-center gap-1 border-r bg-card bg-linear-to-t from-primary/10 to-card p-3.5">
             <Label className="uppercase">Selling Price</Label>
             <span className="font-medium text-base text-foreground">
               {formatCurrency(item.sellingPrice)}
@@ -59,8 +59,8 @@ export function ItemPricingCard({ item }: ItemPricingCardProps) {
           <div
             className={
               profitable
-                ? "flex flex-col gap-1 bg-card bg-linear-to-t from-emerald-600/10 to-card p-3.5 shadow-xs"
-                : "flex flex-col gap-1 bg-card bg-linear-to-t from-red-500/10 to-card p-3.5 shadow-xs"
+                ? "flex flex-col gap-1 bg-card bg-linear-to-t from-emerald-600/10 to-card p-3.5"
+                : "flex flex-col gap-1 bg-card bg-linear-to-t from-red-500/10 to-card p-3.5"
             }
           >
             <span
@@ -89,15 +89,6 @@ export function ItemPricingCard({ item }: ItemPricingCardProps) {
           </div>
         </div>
       </CardContent>
-      <CardFooter className="h-14">
-        {/* Optional MSRP */}
-        {item.msrp && item.msrp > 0 ? (
-          <div className="flex w-full items-center justify-end gap-4 text-sm">
-            <span className="text-muted-foreground">Suggested Retail:</span>
-            <span className="font-medium">{formatCurrency(item.msrp)}</span>
-          </div>
-        ) : null}
-      </CardFooter>
     </Card>
   );
 }

@@ -191,6 +191,67 @@ describe("storage rules", () => {
     );
   });
 
+  it("allows PDF spec sheets only in the library docs/ segment, own org only", async () => {
+    await seedUser("user-a", "org-a");
+    const storage = storageFor("user-a");
+    const PDF = { contentType: "application/pdf" };
+
+    await assertSucceeds(
+      uploadBytes(
+        ref(storage, "library/org-a/item-1/docs/doc-1.pdf"),
+        SMALL_IMAGE,
+        PDF,
+      ),
+    );
+    // Cross-org docs uploads stay denied.
+    await assertFails(
+      uploadBytes(
+        ref(storage, "library/org-b/item-1/docs/doc-1.pdf"),
+        SMALL_IMAGE,
+        PDF,
+      ),
+    );
+    // PDFs outside docs/ (images segment, vendors root) stay denied.
+    await assertFails(
+      uploadBytes(
+        ref(storage, "library/org-a/item-1/images/doc-1.pdf"),
+        SMALL_IMAGE,
+        PDF,
+      ),
+    );
+    await assertFails(
+      uploadBytes(
+        ref(storage, "vendors/org-a/vendor-1/docs/doc-1.pdf"),
+        SMALL_IMAGE,
+        PDF,
+      ),
+    );
+    // Non-PDF content types don't sneak into docs/ under a .pdf name — though
+    // images are still fine there via the general library image rule.
+    await assertFails(
+      uploadBytes(
+        ref(storage, "library/org-a/item-1/docs/doc-1.pdf"),
+        SMALL_IMAGE,
+        {
+          contentType: "application/zip",
+        },
+      ),
+    );
+    // Docs obey the same 15 MiB cap.
+    await assertFails(
+      uploadBytes(
+        ref(storage, "library/org-a/item-1/docs/too-big.pdf"),
+        new Uint8Array(CAP_BYTES),
+        PDF,
+      ),
+    );
+    // Own-org delete of a doc succeeds.
+    await seedFile("library/org-a/item-1/docs/doc-2.pdf");
+    await assertSucceeds(
+      deleteObject(ref(storage, "library/org-a/item-1/docs/doc-2.pdf")),
+    );
+  });
+
   it("denies uploads at the 15 MiB cap and allows just under it", async () => {
     await seedUser("user-a", "org-a");
     const storage = storageFor("user-a");

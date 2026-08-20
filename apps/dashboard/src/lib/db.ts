@@ -1046,6 +1046,7 @@ export async function deleteLibraryItem(
 
       const paths = [
         item.coverImagePath,
+        item.specSheet?.path,
         ...(item.images || []).map((img) => img.path),
       ].filter(
         (p): p is string => typeof p === "string" && p.trim().length > 0,
@@ -1221,6 +1222,28 @@ export async function uploadLibraryImageBlob(
 
   const snapshot = await uploadBytes(storageRef, blob, {
     contentType: blob.type || `image/${extension}`,
+    cacheControl: IMMUTABLE_MEDIA_CACHE,
+  });
+  const url = await getDownloadURL(snapshot.ref);
+  return { url, path: storagePath };
+}
+
+/**
+ * Uploads a spec sheet PDF for a library item. `application/pdf` is what makes
+ * the download URL open inline in the browser's PDF viewer, and it's the only
+ * non-image content type storage.rules accepts (docs/ segment only).
+ */
+export async function uploadLibraryDoc(
+  organizationId: string,
+  file: File | Blob,
+  itemId: string,
+): Promise<{ url: string; path: string }> {
+  const id = `doc-${Math.random().toString(36).substr(2, 9)}`;
+  const storagePath = `library/${organizationId}/${itemId}/docs/${id}.pdf`;
+  const storageRef = ref(storage, storagePath);
+
+  const snapshot = await uploadBytes(storageRef, file, {
+    contentType: "application/pdf",
     cacheControl: IMMUTABLE_MEDIA_CACHE,
   });
   const url = await getDownloadURL(snapshot.ref);

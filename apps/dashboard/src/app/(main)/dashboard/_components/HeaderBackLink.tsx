@@ -39,8 +39,8 @@ export default function HeaderBackLink({
         // (mirroring handleBack) instead of pushing the static href.
         data-back-link=""
       >
-        <Button className="flex cursor-pointer items-center gap-1.5 bg-transparent text-muted-foreground text-sm hover:bg-transparent hover:text-primary">
-          <ArrowLeft className="size-3.5" />
+        <Button className="flex cursor-pointer items-center gap-1.5 bg-transparent text-muted-foreground text-xs hover:bg-transparent hover:text-primary">
+          <ArrowLeft className="size-2.5" />
           Go Back
         </Button>
       </Link>

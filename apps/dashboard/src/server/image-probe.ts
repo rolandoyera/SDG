@@ -78,6 +78,21 @@ export function originalVariants(url: string): string[] {
     add(rewritten.href);
   }
 
+  // BigCommerce: the rendition size is a PATH SEGMENT
+  // (`/images/stencil/50x50/products/…` vs `/1400x1400/…`), which no filename
+  // or query rule can see — a scraped 50x50 gallery thumb would otherwise be
+  // probed as-is and stay 50px. `original` serves the untransformed master
+  // (measured on cdn11.bigcommerce.com: bigger than the largest sized
+  // rendition); `2560w` is the fallback guess for stores that block it.
+  const stencil = /\/images\/stencil\/[^/]+\//i.exec(path);
+  if (stencil && !/\/images\/stencil\/original\//i.test(path)) {
+    for (const size of ["original", "2560w"]) {
+      const rewritten = new URL(parsed.href);
+      rewritten.pathname = path.replace(stencil[0], `/images/stencil/${size}/`);
+      add(rewritten.href);
+    }
+  }
+
   // Shopify / WordPress: the size is a filename suffix (`_1920x`, `_180x180`,
   // `-1024x768`). Dropping it reaches the master upload.
   const suffixed = path.replace(
@@ -240,6 +255,21 @@ export function parseDimensions(
   }
 
   return null;
+}
+
+/**
+ * Confirms a URL actually serves a PDF (magic bytes or content-type), so a
+ * model-extracted "spec sheet" link that lands on an HTML page gets dropped
+ * instead of stored. Same bounded ranged-GET as the image probe.
+ */
+export async function probeIsPdf(url: string): Promise<boolean> {
+  try {
+    const head = await readHeadBytes(url, 1024);
+    if (!head) return false;
+    return head.buf.subarray(0, 5).toString("ascii").startsWith("%PDF");
+  } catch {
+    return false;
+  }
 }
 
 async function probe(url: string): Promise<ImageCandidate | null> {

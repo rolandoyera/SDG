@@ -470,6 +470,8 @@ export interface LibraryItem {
   coverImageUrl?: string;
   coverImagePath?: string;
   images?: Array<{ url: string; path: string }>;
+  /** Spec sheet PDF (scrape-mirrored or manually uploaded). `path` is empty when the URL is still an external vendor link. */
+  specSheet?: { url: string; path: string };
   updatedAt: number;
   aiMetadata?: AiMetadata;
 }

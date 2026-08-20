@@ -12,6 +12,12 @@ original, probed with a ranged GET for real pixel dimensions, deduped by measure
 offered; the model still picks up to `MAX_IMAGES` (6) for the gallery. The prompt lists each
 candidate with its measured `[WxH]`.
 
+- **BigCommerce sizing also lives in a path SEGMENT** (`/images/stencil/50x50/products/…` vs
+  `/1400x1400/…`), invisible to filename/query rules. `originalVariants` rewrites the segment to
+  `original` (the untransformed master — measured larger than `2560w` on cdn11.bigcommerce.com),
+  with `2560w` as the second guess. Without this, a page whose gallery markdown only carries `50x50`
+  thumbs (finearthl.com variant swatches) shipped 50px images as gallery entries.
+
 - **Cloudinary sizing lives in a path SEGMENT** (`/image/private/t_base,c_lpad,f_auto,dpr_2,w_450,h_450/…`),
   which no filename or query rule can see. Two traps, both measured on fergusonhome.com:
   **removing the segment 404s** (`/image/private/` requires a transform), and **raising `w_` alone
@@ -171,6 +177,39 @@ state** — nothing is saved until the user submits, and the mirror step (above)
   images") instead of the success toast — that's deliberate; never attach unverified images.
   Two hard constraints: the REST field must be camelCase `urlContext` (snake_case silently
   no-ops), and the model must stay Gemini 3.x (2.5-era models 400 on tools + JSON response mode).
+
+- **Spec sheet PDFs — one slot, spec-sheet labels beat reference drawings.** Extraction returns
+  `specSheetUrl` (links labeled Spec/Specification Sheet/Specifications/Cut/Tear Sheet; "Reference
+  Drawings" only counts when no spec-sheet label exists — some vendors, e.g. Fine Art, use it as
+  their spec sheet). The URL is only trusted after `probeIsPdf` (`image-probe.ts`) confirms `%PDF`
+  bytes. It lands on the form as `specSheet: { url, path: "" }` (never clobbering an existing
+  sheet), and the save-time mirror (`mirrorSpecSheet` inside `library-image-mirror.ts`, via the
+  `fetchPdfBytes` server action — no weserv retry, PDFs only) self-hosts it at
+  `library/{orgId}/{itemId}/docs/{docId}.pdf` with `contentType: application/pdf` (what makes the
+  URL open inline in the browser viewer). **storage.rules carves out the `docs/` segment as the
+  only non-image upload path** (PDF-only, 15 MiB) — rules changes there must pass
+  `npm run test:rules:emulator`. Manual upload lives in `item-spec-matrix.tsx` ("Upload Spec Sheet"
+  → "View Spec Sheet"), which updates the item directly and GCs a replaced sheet; item deletion and
+  the edit-save cleanup both include `specSheet.path`.
+
+- **Jina's `X-Remove-Selector` strips related-product carousels, not just chrome.** Related/"you
+  may also like" sections put competing SKUs and prices right next to the real ones (on
+  finearthl.com they were 63% of the scrape), so the header removes them (`#tab-related` for
+  BigCommerce, `product-recommendations` for Shopify, plus common theme classes) along with
+  newsletter blocks. If extraction ever returns a _neighboring_ product's SKU/price, check whether
+  that vendor's related section uses a class the list misses.
+
+- **Variant disambiguation when the URL doesn't pin one.** Many vendor sites (e.g. BigCommerce —
+  finearthl.com) keep the variant selection in client-side state, so a copied product link always
+  lands on the default variant. The extraction prompt (shared by the Jina/Firecrawl and url_context
+  tiers via `productFieldInstructions` + `PRODUCT_RESPONSE_SCHEMA`) returns `variantOptions`
+  (`ProductVariantOption[]`: label, sku, finishColor, imageUrl) **only when the URL doesn't already
+  identify a variant**; variant image URLs get the same measured-original upgrade as gallery images.
+  When more than one comes back, the hook exposes `variantOptions`/`selectedVariantLabel`/
+  `applyVariant` and the dialog shows a "which one did you select?" chip picker under the sourcing
+  link. A pick resolves into the existing flat fields (sku, finishColor, image promoted to cover)
+  and clears the confidence entries it overwrites, same as a manual edit. The options are transient
+  UI state — never persisted to `LibraryItem`, cleared on `reset` and on every re-scrape.
 
 - **AI re-scrape preserves manual uploads.** `manualImageUrls` tracks user-uploaded images (always
   Firebase-hosted). A re-scrape **replaces only the AI portion** of `imageUrls` and keeps the manual

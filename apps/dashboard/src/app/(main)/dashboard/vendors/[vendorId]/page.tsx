@@ -77,7 +77,7 @@ export default function VendorDetailPage({ params }: PageProps) {
     setAddingItem(true);
     try {
       // Mirror any external (AI-sourced) images into Firebase so the item self-hosts them.
-      const { imageUrls, coverImageUrl, coverImagePath, images } =
+      const { imageUrls, coverImageUrl, coverImagePath, images, specSheet } =
         await mirrorExternalImagesToFirebase(
           vendor.organizationId,
           {
@@ -85,6 +85,7 @@ export default function VendorDetailPage({ params }: PageProps) {
             coverImageUrl: itemForm.formData.coverImageUrl,
             coverImagePath: itemForm.formData.coverImagePath,
             images: itemForm.formData.images,
+            specSheet: itemForm.formData.specSheet,
           },
           itemForm.tempItemId,
         );
@@ -95,6 +96,7 @@ export default function VendorDetailPage({ params }: PageProps) {
           coverImageUrl,
           coverImagePath,
           images,
+          specSheet,
           organizationId: vendor.organizationId,
         },
         itemForm.tempItemId,
@@ -205,7 +207,7 @@ export default function VendorDetailPage({ params }: PageProps) {
   if (!vendor) return null;
 
   return (
-    <div className="mx-auto flex flex-col gap-6">
+    <div className="mx-auto flex flex-col">
       <VendorHeader
         vendor={vendor}
         onEdit={() => setIsEditOpen(true)}

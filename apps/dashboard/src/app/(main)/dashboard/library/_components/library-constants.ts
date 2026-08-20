@@ -34,6 +34,7 @@ export const libraryItemSchema = z.object({
   coverImageUrl: z.string().optional(),
   coverImagePath: z.string().optional(),
   images: z.array(z.object({ url: z.string(), path: z.string() })).optional(),
+  specSheet: z.object({ url: z.string(), path: z.string() }).optional(),
   aiMetadata: z.any().optional(),
 });
 export const CATEGORIES = [
@@ -181,6 +182,7 @@ export const EMPTY_LIBRARY_ITEM_FORM: LibraryItemFormData = {
   coverImageUrl: "",
   coverImagePath: "",
   images: [],
+  specSheet: undefined,
   aiMetadata: undefined,
 };
 
@@ -212,6 +214,7 @@ export function libraryItemToForm(item: LibraryItem): LibraryItemFormData {
     coverImageUrl: item.coverImageUrl ?? "",
     coverImagePath: item.coverImagePath ?? "",
     images: item.images ?? [],
+    specSheet: item.specSheet,
     aiMetadata: item.aiMetadata,
   };
 }

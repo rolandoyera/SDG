@@ -23,6 +23,14 @@ export interface DomainScrapeHint {
    * degrades gracefully if the wall ever drops or the Firecrawl quota runs out.
    */
   preferFirecrawl?: boolean;
+  /**
+   * Query param that pins ONE exact variant on this domain. Ferguson uses
+   * `uid`, which matches the page's own `Item: bci{uid}` id — but `uid` is far
+   * too generic to add to the shared urlPinsVariant regex, where it would
+   * collide with user/session ids on other sites and wrongly suppress a variant
+   * picker the buyer needs.
+   */
+  variantParam?: string;
 }
 
 /**
@@ -36,7 +44,7 @@ export interface DomainScrapeHint {
 export const DOMAIN_SCRAPE_HINTS: Record<string, DomainScrapeHint> = {
   // Akamai blocks both Jina Reader and the direct HTML fetch (the interstitial
   // parses as valid ~300-char markdown); Firecrawl returns the real page.
-  "fergusonhome.com": { preferFirecrawl: true },
+  "fergusonhome.com": { preferFirecrawl: true, variantParam: "uid" },
 };
 
 /** Look up the scrape hint for a URL's domain (matches any subdomain depth). */

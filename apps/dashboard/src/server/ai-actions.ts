@@ -197,9 +197,22 @@ function cleanImageUrlSize(url: string): string {
  * can't map an opaque id to an option — so this is enforced deterministically.
  */
 function urlPinsVariant(url: string): boolean {
-  return /[?&#](variant(_?id)?|sku(_?id)?|selected_?sku|attribute_[^=&]+)=[^&#]+/i.test(
-    url,
-  );
+  if (
+    /[?&#](variant(_?id)?|sku(_?id)?|selected_?sku|attribute_[^=&]+)=[^&#]+/i.test(
+      url,
+    )
+  ) {
+    return true;
+  }
+  // Sites whose variant id has a name too generic to match globally declare it
+  // per-domain instead (see DOMAIN_SCRAPE_HINTS).
+  const variantParam = domainScrapeHint(url)?.variantParam;
+  if (!variantParam) return false;
+  try {
+    return Boolean(new URL(url).searchParams.get(variantParam));
+  } catch {
+    return false;
+  }
 }
 
 function imageDedupKey(url: string): string {
@@ -762,10 +775,31 @@ ${
 
     // url_context strips markup, so imageUrls is usually empty here. When a SKU
     // was extracted, try recovering images from Google's search index instead.
-    const hasImages = (sanitizedData.imageUrls ?? []).some(
-      (u) => typeof u === "string" && u.trim(),
+    // The model sometimes answers with the PRODUCT PAGE url when the digest
+    // carries no images. That is a non-empty array, so it used to satisfy the
+    // check below, suppress the rescue, and render as a broken thumbnail. Probe
+    // what it returned and keep only what is genuinely an image.
+    const claimedImages = (sanitizedData.imageUrls ?? []).filter(
+      (url): url is string => typeof url === "string" && Boolean(url.trim()),
     );
-    let rescueNote = "not needed (model returned images)";
+    const verifiedImages = claimedImages.length
+      ? (await measureImageCandidates(claimedImages, MAX_IMAGES)).map(
+          (candidate) => candidate.url,
+        )
+      : [];
+    const droppedImages = claimedImages.length - verifiedImages.length;
+    if (droppedImages > 0) {
+      console.warn(
+        `[AI Autofill] url_context images: ${claimedImages.length} returned → ${verifiedImages.length} verified (${droppedImages} not an image)`,
+      );
+    }
+    sanitizedData = { ...sanitizedData, imageUrls: verifiedImages };
+
+    const hasImages = verifiedImages.length > 0;
+    let rescueNote =
+      droppedImages > 0
+        ? `not needed (${verifiedImages.length} of ${claimedImages.length} returned URLs verified as images)`
+        : "not needed (model returned images)";
     if (!hasImages) {
       if (sanitizedData.sku) {
         const rescued = await searchProductImagesViaSerp(
@@ -900,16 +934,21 @@ export async function autofillProductFromUrl(
     let firecrawlTried = false;
 
     // Domains whose WAF always blocks Jina (per DOMAIN_SCRAPE_HINTS) go to
-    // Firecrawl FIRST, skipping a round-trip that's known to fail. A miss here
-    // still falls through to the normal Jina path below, so the chain degrades
-    // gracefully if the wall drops or the Firecrawl quota runs out.
+    // Firecrawl FIRST, skipping a round-trip that's known to fail. A miss falls
+    // through to Jina below, but for these domains Jina is precisely what's
+    // blocked — so past a miss the real safety net is url_context plus the SERP
+    // image rescue, not Jina.
     if (domainScrapeHint(normalizedUrl)?.preferFirecrawl) {
       console.log(
         `[AI Autofill] Domain hint: scraping via Firecrawl first for ${normalizedUrl}`,
       );
-      firecrawlTried = true;
       const scraped = await fetchViaFirecrawl(normalizedUrl, organizationId);
-      if (scraped?.markdown && !looksBlocked(scraped.markdown)) {
+      // Only a completed attempt disarms the escalation retry below. If
+      // Firecrawl was unavailable the retry stays armed, because for a hinted
+      // domain Jina is blocked by definition and url_context is the only thing
+      // left — exactly the silent degradation this hint exists to prevent.
+      if (scraped.status !== "unavailable") firecrawlTried = true;
+      if (scraped.status === "ok" && !looksBlocked(scraped.markdown)) {
         markdownText = cleanScrapedMarkdown(scraped.markdown);
         firecrawlHtml = scraped.rawHtml;
       }
@@ -1008,7 +1047,7 @@ export async function autofillProductFromUrl(
         `[AI Autofill] Blocked page detected (${markdownText.length} chars) — escalating to Firecrawl`,
       );
       const scraped = await fetchViaFirecrawl(normalizedUrl, organizationId);
-      if (scraped?.markdown && !looksBlocked(scraped.markdown)) {
+      if (scraped.status === "ok" && !looksBlocked(scraped.markdown)) {
         markdownText = cleanScrapedMarkdown(scraped.markdown);
         firecrawlHtml = scraped.rawHtml;
         console.log(
@@ -1782,15 +1821,31 @@ function looksBlocked(markdown: string): boolean {
  * Slow (~15s cold) and metered, so this is strictly the tier that fires after
  * Jina comes back blocked — not the default fetcher.
  */
+/**
+ * "unavailable" means Firecrawl never actually looked at the page — no key, out
+ * of credits, throttled, or a transport error. "miss" means it looked and came
+ * back with nothing usable. Callers must not treat the two alike: a miss should
+ * stop us retrying, an unavailable should not, since retrying may succeed and
+ * hinted domains have no other route (Jina is blocked on them by definition).
+ */
+type FirecrawlResult =
+  | { status: "ok"; markdown: string; rawHtml: string }
+  | { status: "miss" }
+  | { status: "unavailable" };
+
 async function fetchViaFirecrawl(
   targetUrl: string,
   organizationId: string,
-): Promise<{ markdown: string; rawHtml: string } | null> {
+): Promise<FirecrawlResult> {
   const key = process.env.FIRECRAWL_API_KEY;
-  if (!key) return null;
-  // Metered here rather than at the three call sites: Firecrawl bills per page
-  // (~1 credit, 1000/month on the current plan) and this is the only door.
-  void recordOrgUsage(organizationId, { firecrawlPages: 1 });
+  if (!key) {
+    // Loud on purpose: a missing key silently downgrades every hinted domain to
+    // the url_context fallback, which is hard to spot from the outside.
+    console.warn(
+      "[Firecrawl] FIRECRAWL_API_KEY is not set — hinted domains will fall through to url_context.",
+    );
+    return { status: "unavailable" };
+  }
   try {
     const res = await fetch("https://api.firecrawl.dev/v2/scrape", {
       method: "POST",
@@ -1806,21 +1861,33 @@ async function fetchViaFirecrawl(
       signal: AbortSignal.timeout(60000),
     });
     if (!res.ok) {
-      console.warn(`[Firecrawl] HTTP ${res.status}`);
-      return null;
+      // 402/429 are account-level, not page-level: out of credits or throttled.
+      // Calling that a "miss" would blame the page and hide the real cause.
+      const accountLimited = res.status === 402 || res.status === 429;
+      console.warn(
+        `[Firecrawl] HTTP ${res.status}${accountLimited ? " — out of credits or rate limited" : ""}`,
+      );
+      return { status: "unavailable" };
     }
     const json = (await res.json()) as {
       success?: boolean;
       data?: { markdown?: string; rawHtml?: string };
     };
-    if (json.success === false || !json.data) return null;
+    if (json.success === false || !json.data) {
+      console.warn("[Firecrawl] responded with success:false or no data");
+      return { status: "miss" };
+    }
+    // Metered only once a scrape actually completes — Firecrawl does not charge
+    // a credit for the failures above, so counting attempts would overstate it.
+    void recordOrgUsage(organizationId, { firecrawlPages: 1 });
     return {
+      status: "ok",
       markdown: json.data.markdown ?? "",
       rawHtml: json.data.rawHtml ?? "",
     };
   } catch (err) {
     console.warn("[Firecrawl] request failed:", err);
-    return null;
+    return { status: "unavailable" };
   }
 }
 
@@ -2368,7 +2435,7 @@ export async function autofillVendorFromUrl(
     // images included — where url_context only gets Google's text digest.
     if (!markdownText) {
       const scraped = await fetchViaFirecrawl(vendorUrl, organizationId);
-      if (scraped?.markdown) {
+      if (scraped.status === "ok" && scraped.markdown) {
         markdownText = cleanScrapedMarkdown(scraped.markdown);
         // Prefer Firecrawl's HTML outright. We only get here because the plain
         // fetchers were defeated, so any rawHtml we already hold is the bot

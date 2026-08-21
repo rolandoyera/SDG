@@ -973,14 +973,31 @@ export interface DiagnosticRun {
   createdAt: number;
 }
 
+/**
+ * Per-vendor usage for one ET calendar month. Units differ on purpose: Firecrawl
+ * bills per page, Jina per token, Gemini per token. Collapsing them into a single
+ * "requests" number would hide which quota is about to run out.
+ */
+export interface OrgUsageCounters {
+  /** Tenant-facing unit: one user-initiated autofill, whatever path it takes. */
+  autofills?: number;
+  geminiRequests?: number;
+  geminiTokens?: number;
+  /** Firecrawl credits, ~1 per page. */
+  firecrawlPages?: number;
+  /** Markdown characters returned by Jina Reader; ~4 chars per billed token. */
+  jinaChars?: number;
+}
+
 export interface OrganizationConfig {
   gaPropertyId?: string;
   gscSiteUrl?: string;
   googleAdsCustomerId?: string;
   googleDriveFolderId?: string;
-  customGeminiKey?: string;
+  /** Autofills allowed per ET calendar month. 0 disables AI autofill. */
   aiMonthlyLimit?: number;
-  aiUsedCount?: number;
+  /** Vendor counters keyed by ET month, "YYYY-MM". */
+  usage?: Record<string, OrgUsageCounters>;
   metaIntegration?: MetaIntegrationConfig;
   dropboxIntegration?: DropboxIntegrationConfig;
 }

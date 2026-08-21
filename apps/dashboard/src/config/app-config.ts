@@ -72,6 +72,16 @@ export const APP_CONFIG = {
   hostOrgs: Record<string, string>;
 };
 
+/**
+ * Orgs exempt from per-tenant usage caps, by home organization.
+ *
+ * `org-demo` is the sales sandbox used to demo the product to prospects — a
+ * "monthly limit reached" wall mid-demo is the worst possible time to hit one.
+ * Add the platform owner's own org here once it exists; until then operators
+ * are covered by the SuperAdmin exemption in `checkAutofillQuota`.
+ */
+export const UNCAPPED_ORG_IDS: ReadonlySet<string> = new Set(["org-demo"]);
+
 export function resolveAppBrand(host?: string | null): AppBrand {
   const normalizedHost = host?.split(":")[0]?.toLowerCase();
   const hostBrands: Record<string, AppBrand> = APP_CONFIG.hostBrands;

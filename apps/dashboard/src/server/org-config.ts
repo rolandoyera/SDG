@@ -1,5 +1,7 @@
 import { cache } from "react";
 
+import type { OrgUsageCounters } from "@/lib/types";
+
 import { getActiveOrgId } from "./auth";
 import { getAdminDb } from "./firebase-admin";
 
@@ -7,6 +9,10 @@ interface OrgConfig {
   gaPropertyId?: string;
   gscSiteUrl?: string;
   googleAdsCustomerId?: string;
+  /** Autofills allowed per ET calendar month. 0 disables AI autofill. */
+  aiMonthlyLimit?: number;
+  /** Vendor counters keyed by ET month, "YYYY-MM". */
+  usage?: Record<string, OrgUsageCounters>;
 }
 
 /**

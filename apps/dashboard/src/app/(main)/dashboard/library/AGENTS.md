@@ -50,7 +50,12 @@ candidate with its measured `[WxH]`.
 - **A challenge page is HTTP 200 with a body**, so non-empty HTML is not proof of success —
   `looksBlockedHtml` discards the direct fetch's result when it looks like a sensor stub, and
   Firecrawl's HTML takes precedence when it fired.
-- Firecrawl is slow (~15s cold) and metered: keep it as the escalation tier, never the default.
+- Firecrawl is slow (~15s cold) and metered: keep it as the escalation tier, not the default —
+  with one carve-out: `DOMAIN_SCRAPE_HINTS` in `src/config/scraper-config.ts` routes domains whose
+  WAF blocks Jina **every time** (fergusonhome.com/Akamai) to Firecrawl first, skipping the
+  guaranteed-to-fail Jina round-trip. Jina stays as that path's fallback, and the escalation block
+  won't retry Firecrawl after a hint already ran it. Entries are earned by observed failures in the
+  diagnostic runs, never curated speculatively; scraping mechanics stay in generic platform rules.
 
 ## Maintain this file
 
@@ -201,15 +206,18 @@ state** — nothing is saved until the user submits, and the mirror step (above)
 
 - **Variant disambiguation when the URL doesn't pin one.** Many vendor sites (e.g. BigCommerce —
   finearthl.com) keep the variant selection in client-side state, so a copied product link always
-  lands on the default variant. The extraction prompt (shared by the Jina/Firecrawl and url_context
+  lands on the default variant. The extraction prompt (shared by the Jina/Firecrawl and url*context
   tiers via `productFieldInstructions` + `PRODUCT_RESPONSE_SCHEMA`) returns `variantOptions`
   (`ProductVariantOption[]`: label, sku, finishColor, imageUrl) **only when the URL doesn't already
-  identify a variant**; variant image URLs get the same measured-original upgrade as gallery images.
-  When more than one comes back, the hook exposes `variantOptions`/`selectedVariantLabel`/
-  `applyVariant` and the dialog shows a "which one did you select?" chip picker under the sourcing
-  link. A pick resolves into the existing flat fields (sku, finishColor, image promoted to cover)
-  and clears the confidence entries it overwrites, same as a manual edit. The options are transient
-  UI state — never persisted to `LibraryItem`, cleared on `reset` and on every re-scrape.
+  identify a variant** — and that condition is enforced deterministically by `urlPinsVariant()`
+  (Shopify `?variant=`, WooCommerce `attribute*\*`, sku params), not just by the prompt: the model
+hedges and returns the full list when it can't map an opaque variant id to an option (seen on
+arhaus.com). Variant image URLs get the same measured-original upgrade as gallery images.
+When more than one comes back, the hook exposes `variantOptions`/`selectedVariantLabel`/
+`applyVariant`and the dialog shows a "which one did you select?" chip picker under the sourcing
+link. A pick resolves into the existing flat fields (sku, finishColor, image promoted to cover)
+and clears the confidence entries it overwrites, same as a manual edit. The options are transient
+UI state — never persisted to`LibraryItem`, cleared on `reset` and on every re-scrape.
 
 - **AI re-scrape preserves manual uploads.** `manualImageUrls` tracks user-uploaded images (always
   Firebase-hosted). A re-scrape **replaces only the AI portion** of `imageUrls` and keeps the manual

@@ -384,7 +384,10 @@ export default function TenantsPage() {
                                   <ArrowUpDown className="h-4.5 w-4.5 rotate-90 opacity-60" />
                                 </Button>
                               </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
+                              <DropdownMenuContent
+                                className="w-fit"
+                                align="end"
+                              >
                                 <DropdownMenuLabel>
                                   Manage Tenant
                                 </DropdownMenuLabel>

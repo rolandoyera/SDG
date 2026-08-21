@@ -10,7 +10,6 @@ import {
   Building2,
   CreditCard,
   Folder,
-  Key,
   LineChart,
   Loader2,
   Megaphone,
@@ -39,7 +38,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Field, FieldError, FieldLabel } from "@/components/ui/field";
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -64,7 +68,6 @@ const tenantConfigSchema = z.object({
   gscSiteUrl: z.string().trim().optional().or(z.literal("")),
   googleAdsCustomerId: z.string().trim().optional().or(z.literal("")),
   googleDriveFolderId: z.string().trim().optional().or(z.literal("")),
-  customGeminiKey: z.string().trim().optional().or(z.literal("")),
   aiMonthlyLimit: z.number().min(0, "Limit must be 0 or greater."),
 });
 
@@ -95,7 +98,6 @@ export default function TenantDetailPage({ params }: PageProps) {
       gscSiteUrl: "",
       googleAdsCustomerId: "",
       googleDriveFolderId: "",
-      customGeminiKey: "",
       aiMonthlyLimit: 100,
     },
   });
@@ -136,7 +138,6 @@ export default function TenantDetailPage({ params }: PageProps) {
         gscSiteUrl: orgData.config?.gscSiteUrl || "",
         googleAdsCustomerId: orgData.config?.googleAdsCustomerId || "",
         googleDriveFolderId: orgData.config?.googleDriveFolderId || "",
-        customGeminiKey: orgData.config?.customGeminiKey || "",
         aiMonthlyLimit: orgData.config?.aiMonthlyLimit ?? 100,
       });
     } catch (error) {
@@ -166,9 +167,7 @@ export default function TenantDetailPage({ params }: PageProps) {
         gscSiteUrl: data.gscSiteUrl?.trim() || "",
         googleAdsCustomerId: data.googleAdsCustomerId?.trim() || "",
         googleDriveFolderId: data.googleDriveFolderId?.trim() || "",
-        customGeminiKey: data.customGeminiKey?.trim() || "",
         aiMonthlyLimit: data.aiMonthlyLimit,
-        aiUsedCount: org.config?.aiUsedCount || 0,
       };
 
       await updateOrganization(tenantId, {
@@ -221,12 +220,28 @@ export default function TenantDetailPage({ params }: PageProps) {
 
   if (!org) return null;
 
-  const aiUsed = org.config?.aiUsedCount || 0;
+  // Counters are keyed by ET month, the same boundary the server increments on.
+  const usagePeriod = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+  }).format(new Date());
+  const periodUsage = org.config?.usage?.[usagePeriod] ?? {};
+  const aiUsed = periodUsage.autofills ?? 0;
   const aiLimit = org.config?.aiMonthlyLimit ?? 100;
-  const usagePercentage = Math.min(
-    100,
-    aiLimit > 0 ? (aiUsed / aiLimit) * 100 : 0,
-  );
+  // 0 is the off switch, not "unlimited" — show it as full, never as empty.
+  const aiDisabled = aiLimit === 0;
+  const usagePercentage = aiDisabled
+    ? 100
+    : Math.min(100, (aiUsed / aiLimit) * 100);
+  // Vendor units differ (Firecrawl per page, Jina per token, Gemini per token),
+  // so they are shown as-is rather than folded into the autofill count.
+  const vendorUsage = [
+    { label: "Gemini requests", value: periodUsage.geminiRequests ?? 0 },
+    { label: "Gemini tokens", value: periodUsage.geminiTokens ?? 0 },
+    { label: "Firecrawl pages", value: periodUsage.firecrawlPages ?? 0 },
+    { label: "Jina characters", value: periodUsage.jinaChars ?? 0 },
+  ];
 
   return (
     <>
@@ -462,42 +477,6 @@ export default function TenantDetailPage({ params }: PageProps) {
                     )}
                   />
 
-                  {/* Custom Gemini Key */}
-                  <Controller
-                    control={control}
-                    name="customGeminiKey"
-                    render={({ field, fieldState }) => (
-                      <Field
-                        className="gap-1.5"
-                        data-invalid={fieldState.invalid}
-                      >
-                        <FieldLabel
-                          htmlFor="gemini-key"
-                          className="flex items-center gap-1.5"
-                        >
-                          <Key className="size-3.5 text-muted-foreground" />
-                          Custom Gemini API Key
-                        </FieldLabel>
-                        <Input
-                          {...field}
-                          type="password"
-                          id="gemini-key"
-                          placeholder="••••••••••••••••••••••••••••••••••••"
-                          disabled={saving}
-                          aria-invalid={fieldState.invalid}
-                          autoComplete="new-password"
-                        />
-                        <p className="text-[10px] text-muted-foreground/80 leading-normal">
-                          If provided, the AI scraping agent will consume
-                          requests using this developer API key.
-                        </p>
-                        {fieldState.invalid && (
-                          <FieldError errors={[fieldState.error]} />
-                        )}
-                      </Field>
-                    )}
-                  />
-
                   {/* AI Scraping limit setting */}
                   <Controller
                     control={control}
@@ -514,6 +493,10 @@ export default function TenantDetailPage({ params }: PageProps) {
                           <CreditCard className="size-3.5 text-muted-foreground" />
                           Monthly AI Scraping Limit
                         </FieldLabel>
+                        <FieldDescription>
+                          Autofills allowed per month. Set to 0 to turn AI
+                          autofill off for this tenant.
+                        </FieldDescription>
                         <Input
                           {...field}
                           type="number"
@@ -573,7 +556,9 @@ export default function TenantDetailPage({ params }: PageProps) {
                     {aiUsed}
                   </span>
                   <span className="text-muted-foreground text-sm">
-                    of {aiLimit} requests
+                    {aiDisabled
+                      ? "AI autofill disabled"
+                      : `of ${aiLimit} requests`}
                   </span>
                 </div>
 
@@ -587,6 +572,22 @@ export default function TenantDetailPage({ params }: PageProps) {
                 <div className="flex justify-between font-semibold text-[10px] text-muted-foreground uppercase tracking-wider">
                   <span>0% used</span>
                   <span>{usagePercentage.toFixed(0)}% used</span>
+                </div>
+
+                <div className="space-y-1.5 border-t pt-3">
+                  {vendorUsage.map((item) => (
+                    <div
+                      key={item.label}
+                      className="flex items-baseline justify-between text-sm"
+                    >
+                      <span className="text-muted-foreground">
+                        {item.label}
+                      </span>
+                      <span className="font-medium tabular-nums">
+                        {item.value.toLocaleString()}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>

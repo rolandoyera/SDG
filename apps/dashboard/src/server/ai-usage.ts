@@ -2,21 +2,18 @@
 // aiUsage/{YYYY-MM-DD} (America/New_York days, like positionSnapshots) —
 // token history can't be recomputed, so this is a deliberate Firestore write.
 // Admin-SDK-only; no rules changes.
+//
+// Each doc carries project-wide totals plus the same counters split per model
+// under `byModel`. Cloud Monitoring's API metrics have no model dimension
+// (`method` is just …GenerativeService.GenerateContent) and billing SKUs name
+// the model but lag ~a day, so this write is the only source of realtime
+// per-model usage.
 
 import { FieldValue } from "firebase-admin/firestore";
 
+import { recordOrgUsage } from "./ai-quota";
 import { getAdminDb } from "./firebase-admin";
 import { easternDateKey } from "./position-tracking";
-
-/**
- * Flat cost-estimate rates, USD per million tokens. Everything is priced at the
- * primary model's (gemini-3.1-flash-lite) rates — the fallback is too rare to
- * track separately. Update alongside SCRAPER_CONFIG model changes.
- */
-export const AI_TOKEN_PRICING = {
-  inputPerMillion: 0.25,
-  outputPerMillion: 1.5,
-};
 
 /** The `usageMetadata` object on every generateContent response. */
 interface GeminiUsageMetadata {
@@ -32,9 +29,18 @@ interface GeminiUsageMetadata {
 /**
  * Fire-and-forget (`void recordAiUsage(...)`) after each successful Gemini
  * call. Never throws — losing a data point must not fail the user's autofill.
+ *
+ * `model` is the model that actually served the response — pass
+ * `fetchGeminiWithFallback`'s `modelUsed`, not the configured primary, so a
+ * fallback is attributed to the model that ran it.
+ *
+ * `organizationId` is the caller's ACTIVE org, so a SuperAdmin working inside a
+ * tenant meters against that tenant rather than against themselves.
  */
 export async function recordAiUsage(
   usage: GeminiUsageMetadata | undefined,
+  model: string,
+  organizationId: string,
 ): Promise<void> {
   try {
     if (!usage) return;
@@ -59,9 +65,26 @@ export async function recordAiUsage(
           inputTokens: FieldValue.increment(input),
           outputTokens: FieldValue.increment(output),
           requests: FieldValue.increment(1),
+          // A nested map, not a dotted field path: model ids contain dots
+          // ("gemini-3.1-flash-lite"), which Firestore would read as path
+          // separators. set({ merge: true }) merges map keys literally.
+          byModel: {
+            [model]: {
+              inputTokens: FieldValue.increment(input),
+              outputTokens: FieldValue.increment(output),
+              requests: FieldValue.increment(1),
+            },
+          },
         },
         { merge: true },
       );
+
+    // Same numbers, different consumer: the daily doc above drives the Usage
+    // page's platform-wide charts, this drives the tenant's monthly counters.
+    void recordOrgUsage(organizationId, {
+      geminiRequests: 1,
+      geminiTokens: input + output,
+    });
   } catch (error) {
     console.error("[AI Usage] Failed to record token usage:", error);
   }

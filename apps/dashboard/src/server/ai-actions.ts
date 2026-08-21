@@ -2,7 +2,7 @@
 
 import * as cheerio from "cheerio";
 
-import { SCRAPER_CONFIG } from "@/config/scraper-config";
+import { domainScrapeHint, SCRAPER_CONFIG } from "@/config/scraper-config";
 import {
   measureImageCandidates,
   probeIsPdf,
@@ -17,7 +17,9 @@ import {
   withProtocol,
 } from "../app/(main)/dashboard/library/_components/library-constants";
 import { VENDOR_CATEGORIES } from "../app/(main)/dashboard/vendors/_components/vendor-constants";
+import { checkAutofillQuota, recordOrgUsage } from "./ai-quota";
 import { recordAiUsage } from "./ai-usage";
+import { getVerifiedCaller } from "./auth";
 import { saveDiagnosticRun } from "./diagnostics";
 
 /**
@@ -184,6 +186,20 @@ function cleanImageUrlSize(url: string): string {
     );
   }
   return url;
+}
+
+/**
+ * True when the product URL itself pins a specific variant (Shopify
+ * `?variant=…`, WooCommerce `?attribute_pa_color=…`, sku params, etc.). The
+ * fetched page then renders that exact variant, so the top-level extraction
+ * already describes it and the variant picker would be redundant. The prompt
+ * asks the model to return no variants in this case, but it hedges when it
+ * can't map an opaque id to an option — so this is enforced deterministically.
+ */
+function urlPinsVariant(url: string): boolean {
+  return /[?&#](variant(_?id)?|sku(_?id)?|selected_?sku|attribute_[^=&]+)=[^&#]+/i.test(
+    url,
+  );
 }
 
 function imageDedupKey(url: string): string {
@@ -648,6 +664,7 @@ async function extractProductViaUrlContext(
   apiKey: string,
   normalizedUrl: string,
   imageCandidates: string[],
+  organizationId: string,
 ): Promise<AutofillResult | null> {
   const model = SCRAPER_CONFIG.urlContextModel;
   console.log(
@@ -699,7 +716,7 @@ ${JSON_OUTPUT_RULES}`;
     }
 
     const geminiJson = await res.json();
-    void recordAiUsage(geminiJson?.usageMetadata);
+    void recordAiUsage(geminiJson?.usageMetadata, model, organizationId);
 
     const candidate = geminiJson.candidates?.[0];
     const retrievalStatus =
@@ -731,6 +748,11 @@ ${JSON_OUTPUT_RULES}`;
       !(await probeIsPdf(sanitizedData.specSheetUrl))
     ) {
       sanitizedData = { ...sanitizedData, specSheetUrl: "" };
+    }
+
+    // Same variant-pinning guard as the markdown path.
+    if (sanitizedData.variantOptions?.length && urlPinsVariant(normalizedUrl)) {
+      sanitizedData = { ...sanitizedData, variantOptions: [] };
     }
 
     // url_context strips markup, so imageUrls is usually empty here. When a SKU
@@ -806,6 +828,26 @@ export async function autofillProductFromUrl(
       };
     }
 
+    // Identity and org come from the VERIFIED caller — these actions spend real
+    // vendor credits, so they cannot run for an unauthenticated request, and the
+    // org that gets metered is never client-supplied.
+    const caller = await getVerifiedCaller();
+    if (!caller) {
+      return { success: false, error: "Please sign in to use AI autofill." };
+    }
+    const quota = await checkAutofillQuota(caller);
+    if (!quota.allowed) {
+      return {
+        success: false,
+        error: `Monthly AI autofill limit reached (${quota.used} of ${quota.limit}). It resets on the 1st.`,
+      };
+    }
+    const organizationId = caller.organizationId;
+    // Consumed on ATTEMPT, not on success: a failed run still spends Jina,
+    // Firecrawl and Gemini credits, so charging only successes would let a
+    // retry loop burn the quota's worth of real money for free.
+    void recordOrgUsage(organizationId, { autofills: 1 });
+
     const normalizedUrl = withProtocol(url.trim());
     console.log(
       `[AI Autofill] Starting scraping via Jina Reader for: ${normalizedUrl}`,
@@ -848,92 +890,119 @@ export async function autofillProductFromUrl(
         .slice(0, SCRAPER_CONFIG.maxImageCandidates);
     };
 
-    const jinaRes = await fetch(
-      `${SCRAPER_CONFIG.jinaReaderUrl}${normalizedUrl}`,
-      {
-        headers: jinaHeaders,
-        next: { revalidate: 0 }, // Prevent Next.js from caching pages so it grabs fresh pricing
-        signal: AbortSignal.timeout(20000), // 20 seconds timeout to prevent infinite hanging
-      },
-    );
+    let markdownText = "";
+    let firecrawlHtml = "";
+    let firecrawlTried = false;
 
-    if (!jinaRes.ok) {
-      console.error(
-        `[AI Autofill] Jina Reader failed with status ${jinaRes.status}`,
+    // Domains whose WAF always blocks Jina (per DOMAIN_SCRAPE_HINTS) go to
+    // Firecrawl FIRST, skipping a round-trip that's known to fail. A miss here
+    // still falls through to the normal Jina path below, so the chain degrades
+    // gracefully if the wall drops or the Firecrawl quota runs out.
+    if (domainScrapeHint(normalizedUrl)?.preferFirecrawl) {
+      console.log(
+        `[AI Autofill] Domain hint: scraping via Firecrawl first for ${normalizedUrl}`,
       );
-      const fallback = await extractProductViaUrlContext(
-        apiKey,
-        normalizedUrl,
-        await htmlImageCandidates(),
-      );
-      if (fallback) return fallback;
-      return {
-        success: false,
-        error: `Could not reach the website via AI Scraper (Jina Reader status: ${jinaRes.status}).`,
-      };
+      firecrawlTried = true;
+      const scraped = await fetchViaFirecrawl(normalizedUrl, organizationId);
+      if (scraped?.markdown && !looksBlocked(scraped.markdown)) {
+        markdownText = cleanScrapedMarkdown(scraped.markdown);
+        firecrawlHtml = scraped.rawHtml;
+      }
     }
 
-    const rawMarkdownText = await jinaRes.text();
-    if (!rawMarkdownText || rawMarkdownText.trim() === "") {
-      console.error(`[AI Autofill] Jina Reader returned empty markdown`);
-      return {
-        success: false,
-        error: "The scraper was unable to read any content from that webpage.",
-      };
-    }
-
-    let markdownText = cleanScrapedMarkdown(rawMarkdownText);
-    if (markdownText.trim() === "") {
-      console.error(`[AI Autofill] Cleaned markdown is empty`);
-      return {
-        success: false,
-        error:
-          "The scraper was unable to extract readable content from that webpage.",
-      };
-    }
-
-    // Intercept Jina Reader upstream block/HTTP errors hidden in successful text responses
-    if (markdownText.includes("Warning: Target URL returned error")) {
-      const errorLine =
-        markdownText
-          .split("\n")
-          .find((line) =>
-            line.includes("Warning: Target URL returned error"),
-          ) || "";
-      console.error(
-        `[AI Autofill] Jina Reader scraped a target site error: ${errorLine}`,
+    if (!markdownText) {
+      const jinaRes = await fetch(
+        `${SCRAPER_CONFIG.jinaReaderUrl}${normalizedUrl}`,
+        {
+          headers: jinaHeaders,
+          next: { revalidate: 0 }, // Prevent Next.js from caching pages so it grabs fresh pricing
+          signal: AbortSignal.timeout(20000), // 20 seconds timeout to prevent infinite hanging
+        },
       );
 
-      if (errorLine.includes("404")) {
+      if (!jinaRes.ok) {
+        console.error(
+          `[AI Autofill] Jina Reader failed with status ${jinaRes.status}`,
+        );
+        const fallback = await extractProductViaUrlContext(
+          apiKey,
+          normalizedUrl,
+          await htmlImageCandidates(),
+          organizationId,
+        );
+        if (fallback) return fallback;
         return {
           success: false,
-          error: "This product page was not found. Please verify the link.",
+          error: `Could not reach the website via AI Scraper (Jina Reader status: ${jinaRes.status}).`,
         };
       }
-      if (errorLine.includes("503") || errorLine.includes("502")) {
+
+      const rawMarkdownText = await jinaRes.text();
+      void recordOrgUsage(organizationId, {
+        jinaChars: rawMarkdownText.length,
+      });
+      if (!rawMarkdownText || rawMarkdownText.trim() === "") {
+        console.error(`[AI Autofill] Jina Reader returned empty markdown`);
         return {
           success: false,
           error:
-            "The website is temporarily unavailable. Please try again later or type details manually.",
+            "The scraper was unable to read any content from that webpage.",
         };
       }
 
-      // Blocked (403) or otherwise unreadable: fall through to the shared
-      // escalation below rather than going straight to url_context — Firecrawl
-      // returns the real page, url_context only Google's text digest.
-      markdownText = "";
+      markdownText = cleanScrapedMarkdown(rawMarkdownText);
+      if (markdownText.trim() === "") {
+        console.error(`[AI Autofill] Cleaned markdown is empty`);
+        return {
+          success: false,
+          error:
+            "The scraper was unable to extract readable content from that webpage.",
+        };
+      }
+
+      // Intercept Jina Reader upstream block/HTTP errors hidden in successful text responses
+      if (markdownText.includes("Warning: Target URL returned error")) {
+        const errorLine =
+          markdownText
+            .split("\n")
+            .find((line) =>
+              line.includes("Warning: Target URL returned error"),
+            ) || "";
+        console.error(
+          `[AI Autofill] Jina Reader scraped a target site error: ${errorLine}`,
+        );
+
+        if (errorLine.includes("404")) {
+          return {
+            success: false,
+            error: "This product page was not found. Please verify the link.",
+          };
+        }
+        if (errorLine.includes("503") || errorLine.includes("502")) {
+          return {
+            success: false,
+            error:
+              "The website is temporarily unavailable. Please try again later or type details manually.",
+          };
+        }
+
+        // Blocked (403) or otherwise unreadable: fall through to the shared
+        // escalation below rather than going straight to url_context — Firecrawl
+        // returns the real page, url_context only Google's text digest.
+        markdownText = "";
+      }
     }
 
     // Bot walls that don't carry Jina's warning line land here instead: Ferguson's
     // product pages return an Akamai interstitial ("Powered and protected by") that
     // parses as perfectly valid markdown, so the old single-phrase check passed it
     // through and the model dutifully extracted "Unnamed Product" from it.
-    let firecrawlHtml = "";
-    if (!markdownText || looksBlocked(markdownText)) {
+    // (Skipped when the domain hint already ran Firecrawl above.)
+    if ((!markdownText || looksBlocked(markdownText)) && !firecrawlTried) {
       console.warn(
         `[AI Autofill] Blocked page detected (${markdownText.length} chars) — escalating to Firecrawl`,
       );
-      const scraped = await fetchViaFirecrawl(normalizedUrl);
+      const scraped = await fetchViaFirecrawl(normalizedUrl, organizationId);
       if (scraped?.markdown && !looksBlocked(scraped.markdown)) {
         markdownText = cleanScrapedMarkdown(scraped.markdown);
         firecrawlHtml = scraped.rawHtml;
@@ -943,6 +1012,10 @@ export async function autofillProductFromUrl(
       } else {
         markdownText = "";
       }
+    } else if (looksBlocked(markdownText)) {
+      // Firecrawl already ran (hint path) and Jina's result still looks like a
+      // wall — hand off to url_context below rather than retrying Firecrawl.
+      markdownText = "";
     }
 
     if (!markdownText) {
@@ -950,6 +1023,7 @@ export async function autofillProductFromUrl(
         apiKey,
         normalizedUrl,
         await htmlImageCandidates(),
+        organizationId,
       );
       if (fallback) return fallback;
 
@@ -1198,7 +1272,7 @@ ${JSON_OUTPUT_RULES}`,
     }
 
     const geminiJson = await geminiRes.json();
-    void recordAiUsage(geminiJson?.usageMetadata);
+    void recordAiUsage(geminiJson?.usageMetadata, modelUsed, organizationId);
     const parsedText = geminiJson.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!parsedText) {
       return {
@@ -1243,6 +1317,16 @@ ${JSON_OUTPUT_RULES}`,
             }
           : opt,
       );
+    }
+
+    // A variant-pinning URL means the page rendered that exact variant and the
+    // fields above already describe it — asking the user to pick again would be
+    // redundant (and the picker's "link doesn't specify a variant" copy wrong).
+    if (sanitizedData.variantOptions?.length && urlPinsVariant(normalizedUrl)) {
+      console.log(
+        `[AI Autofill] URL pins a variant — dropping ${sanitizedData.variantOptions.length} extracted variant option(s)`,
+      );
+      sanitizedData.variantOptions = [];
     }
 
     // A model-extracted "spec sheet" link is only trusted once the bytes say
@@ -1684,9 +1768,13 @@ function looksBlocked(markdown: string): boolean {
  */
 async function fetchViaFirecrawl(
   targetUrl: string,
+  organizationId: string,
 ): Promise<{ markdown: string; rawHtml: string } | null> {
   const key = process.env.FIRECRAWL_API_KEY;
   if (!key) return null;
+  // Metered here rather than at the three call sites: Firecrawl bills per page
+  // (~1 credit, 1000/month on the current plan) and this is the only door.
+  void recordOrgUsage(organizationId, { firecrawlPages: 1 });
   try {
     const res = await fetch("https://api.firecrawl.dev/v2/scrape", {
       method: "POST",
@@ -2025,6 +2113,7 @@ function faviconLogoUrl(siteUrl: string): string | undefined {
 async function extractVendorViaUrlContext(
   apiKey: string,
   vendorUrl: string,
+  organizationId: string,
 ): Promise<VendorAutofillResult | null> {
   const model = SCRAPER_CONFIG.urlContextModel;
   console.log(
@@ -2088,7 +2177,7 @@ CRITICAL: Return 100% valid JSON only. Use empty string "" for fields not found.
     }
 
     const geminiJson = await res.json();
-    void recordAiUsage(geminiJson?.usageMetadata);
+    void recordAiUsage(geminiJson?.usageMetadata, model, organizationId);
 
     const candidate = geminiJson.candidates?.[0];
     const retrievalStatus =
@@ -2174,6 +2263,26 @@ export async function autofillVendorFromUrl(
       return { success: false, error: "GEMINI_API_KEY is not configured." };
     }
 
+    // Identity and org come from the VERIFIED caller — these actions spend real
+    // vendor credits, so they cannot run for an unauthenticated request, and the
+    // org that gets metered is never client-supplied.
+    const caller = await getVerifiedCaller();
+    if (!caller) {
+      return { success: false, error: "Please sign in to use AI autofill." };
+    }
+    const quota = await checkAutofillQuota(caller);
+    if (!quota.allowed) {
+      return {
+        success: false,
+        error: `Monthly AI autofill limit reached (${quota.used} of ${quota.limit}). It resets on the 1st.`,
+      };
+    }
+    const organizationId = caller.organizationId;
+    // Consumed on ATTEMPT, not on success: a failed run still spends Jina,
+    // Firecrawl and Gemini credits, so charging only successes would let a
+    // retry loop burn the quota's worth of real money for free.
+    void recordOrgUsage(organizationId, { autofills: 1 });
+
     const vendorUrl = normalizeVendorUrl(url);
     console.log(`[Vendor Autofill] Fetching: ${vendorUrl}`);
 
@@ -2198,6 +2307,7 @@ export async function autofillVendorFromUrl(
     let rawHtml = htmlSettled.status === "fulfilled" ? htmlSettled.value : "";
     const rawMarkdownText =
       jinaSettled.status === "fulfilled" ? jinaSettled.value : "";
+    void recordOrgUsage(organizationId, { jinaChars: rawMarkdownText.length });
     let markdownText = cleanScrapedMarkdown(rawMarkdownText);
 
     // Storefronts that throttle our direct fetch (arhaus.com answers 430) leave
@@ -2241,7 +2351,7 @@ export async function autofillVendorFromUrl(
     // runs BEFORE the url_context fallback because it returns the actual page —
     // images included — where url_context only gets Google's text digest.
     if (!markdownText) {
-      const scraped = await fetchViaFirecrawl(vendorUrl);
+      const scraped = await fetchViaFirecrawl(vendorUrl, organizationId);
       if (scraped?.markdown) {
         markdownText = cleanScrapedMarkdown(scraped.markdown);
         // Prefer Firecrawl's HTML outright. We only get here because the plain
@@ -2263,7 +2373,11 @@ export async function autofillVendorFromUrl(
     );
 
     if (!markdownText && !rawHtml) {
-      const fallback = await extractVendorViaUrlContext(apiKey, vendorUrl);
+      const fallback = await extractVendorViaUrlContext(
+        apiKey,
+        vendorUrl,
+        organizationId,
+      );
       if (fallback) return fallback;
       return {
         success: false,
@@ -2399,7 +2513,7 @@ CRITICAL: Return 100% valid JSON only. Never return base64 data: URLs. Use empty
     }
 
     const geminiJson = await geminiRes.json();
-    void recordAiUsage(geminiJson?.usageMetadata);
+    void recordAiUsage(geminiJson?.usageMetadata, modelUsed, organizationId);
     const parsedText = geminiJson.candidates?.[0]?.content?.parts?.[0]?.text as
       | string
       | undefined;

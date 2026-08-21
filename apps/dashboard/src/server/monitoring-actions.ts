@@ -1,6 +1,6 @@
 "use server";
 
-import { GoogleAuth } from "google-auth-library";
+import { type TimeSeries, listTimeSeries } from "./monitoring-client";
 
 export type UsageRange = "60m" | "24h" | "7d" | "30d";
 
@@ -68,8 +68,6 @@ const RANGE_SPECS: Record<
 // misleading dip to zero at the right edge of every chart.
 const INGEST_DELAY_MS = 240_000;
 
-const MONITORING_BASE = "https://monitoring.googleapis.com/v3";
-
 const COUNT_METRICS = {
   "firestore.googleapis.com/document/read_count": "reads",
   "firestore.googleapis.com/document/write_count": "writes",
@@ -88,75 +86,6 @@ const GAUGE_METRICS = {
   "firestore.googleapis.com/network/snapshot_listeners": "listeners",
   "firestore.googleapis.com/network/active_connections": "connections",
 } as const;
-
-interface TimeSeries {
-  metric: { type: string; labels?: Record<string, string> };
-  points?: {
-    interval: { endTime: string };
-    value: { int64Value?: string; doubleValue?: number };
-  }[];
-}
-
-function parseServiceAccountKey(raw: string): Record<string, string> {
-  const trimmed = raw.trim();
-  const json = trimmed.startsWith("{")
-    ? trimmed
-    : Buffer.from(trimmed, "base64").toString("utf8");
-  return JSON.parse(json) as Record<string, string>;
-}
-
-let monitoringAuth: { auth: GoogleAuth; projectId: string } | null = null;
-
-function getMonitoringAuth() {
-  if (monitoringAuth) return monitoringAuth;
-
-  const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-  if (!serviceAccountKey) {
-    throw new Error(
-      "Missing FIREBASE_SERVICE_ACCOUNT_KEY in environment variables.",
-    );
-  }
-
-  const serviceAccount = parseServiceAccountKey(serviceAccountKey);
-  monitoringAuth = {
-    auth: new GoogleAuth({
-      credentials: serviceAccount,
-      scopes: ["https://www.googleapis.com/auth/monitoring.read"],
-    }),
-    projectId: serviceAccount.project_id,
-  };
-  return monitoringAuth;
-}
-
-async function listTimeSeries(params: {
-  filter: string;
-  startMs: number;
-  endMs: number;
-  alignmentSeconds: number;
-  perSeriesAligner: "ALIGN_SUM" | "ALIGN_MAX";
-  crossSeriesReducer: "REDUCE_SUM" | "REDUCE_MAX";
-  groupByFields: string[];
-}): Promise<TimeSeries[]> {
-  const { auth, projectId } = getMonitoringAuth();
-
-  const search = new URLSearchParams({
-    filter: params.filter,
-    "interval.startTime": new Date(params.startMs).toISOString(),
-    "interval.endTime": new Date(params.endMs).toISOString(),
-    "aggregation.alignmentPeriod": `${params.alignmentSeconds}s`,
-    "aggregation.perSeriesAligner": params.perSeriesAligner,
-    "aggregation.crossSeriesReducer": params.crossSeriesReducer,
-  });
-  for (const field of params.groupByFields) {
-    search.append("aggregation.groupByFields", field);
-  }
-
-  const client = await auth.getClient();
-  const response = await client.request<{ timeSeries?: TimeSeries[] }>({
-    url: `${MONITORING_BASE}/projects/${projectId}/timeSeries?${search}`,
-  });
-  return response.data.timeSeries ?? [];
-}
 
 function pointValue(point: NonNullable<TimeSeries["points"]>[number]): number {
   const { int64Value, doubleValue } = point.value;

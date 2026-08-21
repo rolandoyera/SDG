@@ -18,6 +18,8 @@ interface UsageTotalsCardProps {
   /** "sum" totals over the period (counts); "peak" is the max (gauges). */
   mode: "sum" | "peak";
   loading: boolean;
+  /** Grid span override; a full-width summary row passes "xl:col-span-12". */
+  className?: string;
 }
 
 export function UsageTotalsCard({
@@ -27,9 +29,10 @@ export function UsageTotalsCard({
   values,
   mode,
   loading,
+  className = "xl:col-span-6",
 }: UsageTotalsCardProps) {
   return (
-    <Card variant="panel" className="xl:col-span-6">
+    <Card variant="panel" className={className}>
       <CardHeader>
         <CardTitle>{title}</CardTitle>
       </CardHeader>

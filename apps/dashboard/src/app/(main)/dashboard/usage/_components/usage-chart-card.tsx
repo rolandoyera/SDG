@@ -32,6 +32,10 @@ interface UsageChartCardProps {
   /** Window span, to pick time-only vs date tick labels. */
   rangeMs: number;
   loading: boolean;
+  /** Grid span override; three-up rows pass "xl:col-span-4". */
+  className?: string;
+  /** Counts render as integers; currency renders USD and allows decimal ticks. */
+  valueFormat?: "count" | "currency";
 }
 
 const DAY_MS = 86_400_000;
@@ -44,6 +48,8 @@ export function UsageChartCard({
   totalMode,
   rangeMs,
   loading,
+  className = "xl:col-span-6",
+  valueFormat = "count",
 }: UsageChartCardProps) {
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const idPrefix = useId();
@@ -80,9 +86,18 @@ export function UsageChartCard({
   };
 
   const tickFormat = rangeMs > DAY_MS ? "MMM d" : "h:mm a";
+  const isCurrency = valueFormat === "currency";
+  const formatValue = (value: number) =>
+    isCurrency
+      ? value.toLocaleString(undefined, {
+          style: "currency",
+          currency: "USD",
+          minimumFractionDigits: 2,
+        })
+      : value.toLocaleString();
 
   return (
-    <Card variant="panel" className="xl:col-span-6">
+    <Card variant="panel" className={className}>
       <CardHeader>
         <CardTitle>{title}</CardTitle>
       </CardHeader>
@@ -113,7 +128,7 @@ export function UsageChartCard({
                     <Skeleton className="h-6 w-12" />
                   ) : (
                     <span className="font-semibold text-xl tabular-nums">
-                      {totalOf(s.key).toLocaleString()}
+                      {formatValue(totalOf(s.key))}
                     </span>
                   )}
                   <span className="text-muted-foreground text-xs">
@@ -146,8 +161,13 @@ export function UsageChartCard({
                     tickLine={false}
                     axisLine={false}
                     tickMargin={4}
-                    width={40}
-                    allowDecimals={false}
+                    width={isCurrency ? 56 : 40}
+                    allowDecimals={isCurrency}
+                    tickFormatter={
+                      isCurrency
+                        ? (value: number) => formatValue(value)
+                        : undefined
+                    }
                   />
                   <ChartTooltip
                     cursor={false}

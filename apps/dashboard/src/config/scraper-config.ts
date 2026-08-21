@@ -14,3 +14,41 @@ export const SCRAPER_CONFIG = {
   urlContextModel: "gemini-3.1-flash-lite",
   jinaReaderUrl: "https://r.jina.ai/",
 };
+
+export interface DomainScrapeHint {
+  /**
+   * Scrape via Firecrawl FIRST instead of after a failed Jina attempt — for
+   * domains whose WAF is known to block Jina every time. Jina remains the
+   * fallback if Firecrawl comes back empty/blocked, so the chain still
+   * degrades gracefully if the wall ever drops or the Firecrawl quota runs out.
+   */
+  preferFirecrawl?: boolean;
+}
+
+/**
+ * Per-domain scrape routing hints, keyed by registrable domain (subdomains
+ * match). Scraping MECHANICS belong in generic platform rules (image-probe
+ * rewrites, `urlPinsVariant`, junk selectors) — an entry here is only for
+ * domain-specific knowledge those can't express, and is only earned by an
+ * observed failure or slowness (check the saved diagnostic runs), never
+ * curated speculatively.
+ */
+export const DOMAIN_SCRAPE_HINTS: Record<string, DomainScrapeHint> = {
+  // Akamai blocks both Jina Reader and the direct HTML fetch (the interstitial
+  // parses as valid ~300-char markdown); Firecrawl returns the real page.
+  "fergusonhome.com": { preferFirecrawl: true },
+};
+
+/** Look up the scrape hint for a URL's domain (matches any subdomain depth). */
+export function domainScrapeHint(url: string): DomainScrapeHint | undefined {
+  try {
+    const parts = new URL(url).hostname.toLowerCase().split(".");
+    for (let i = 0; i < parts.length - 1; i++) {
+      const hint = DOMAIN_SCRAPE_HINTS[parts.slice(i).join(".")];
+      if (hint) return hint;
+    }
+  } catch {
+    // Not a parseable URL — no hint.
+  }
+  return undefined;
+}

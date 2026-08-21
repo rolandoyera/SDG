@@ -2785,7 +2785,24 @@ function cleanScrapedMarkdown(text: string): string {
     "",
   );
 
-  // 5. Drop repeat renderings of the same spec table. A page that ships both a
+  // 5. Cut the recommendation rails. "You May Also Like", "Complete Your Room"
+  // and friends always sit BELOW the product, and on a site like Arhaus they run
+  // to twenty-odd products with swatch images each — more bytes than the product
+  // itself, all of it competing SKUs and prices in the extraction context.
+  // Matching the heading rather than a CSS class deliberately: the selector list
+  // handed to Jina only catches the class names we have already met, misses the
+  // next site, and does nothing at all on the Firecrawl path. A heading works
+  // everywhere. The length guard means a page whose real content somehow sits
+  // below such a heading is never gutted.
+  const recommendationHeading =
+    /^#{1,4}[ \t]*(?:you[ \t]+m(?:ay|ight)[ \t]+also[ \t]+(?:like|need)|customers[ \t]+also[ \t]+(?:like[ds]?|bought|viewed)|complete[ \t]+(?:your[ \t]+room|the[ \t]+look)|shop[ \t]+the[ \t]+look|recently[ \t]+viewed|related[ \t]+products?|frequently[ \t]+bought[ \t]+together|pairs[ \t]+well[ \t]+with)\b.*$/im;
+  const MIN_CONTENT_BEFORE_RAIL = 500;
+  const rail = recommendationHeading.exec(cleaned);
+  if (rail && rail.index > MIN_CONTENT_BEFORE_RAIL) {
+    cleaned = cleaned.slice(0, rail.index);
+  }
+
+  // 6. Drop repeat renderings of the same spec table. A page that ships both a
   // desktop and a mobile DOM emits every table twice — "### Dimensions and
   // Measurements" then "#### Dimensions and Measurements" with byte-identical
   // rows. Keyed on the table body, so a heading level change doesn't hide it.
@@ -2800,13 +2817,15 @@ function cleanScrapedMarkdown(text: string): string {
     },
   );
 
-  // 6. Collapse repeated identical image URLs. Lazy-loading ships one 1x1
+  // 7. Collapse repeated identical image URLs. Lazy-loading ships one 1x1
   // transparent placeholder dozens of times; keeping the first occurrence
   // preserves gallery order, and genuine renditions differ by URL so they are
-  // untouched. Also spares the image probe a pile of junk candidates.
+  // untouched. Also spares the image probe a pile of junk candidates. Matches a
+  // leading list marker too — galleries are usually list items, and Arhaus emits
+  // its entire gallery twice that way.
   const seenImages = new Set<string>();
   cleaned = cleaned.replace(
-    /^!\[[^\]]*\]\((\S+?)(?:\s+"[^"]*")?\)\s*$/gm,
+    /^[ \t]*(?:[-*+][ \t]+)?!\[[^\]]*\]\((\S+?)(?:\s+"[^"]*")?\)[ \t]*$/gm,
     (line, url: string) => {
       if (seenImages.has(url)) return "";
       seenImages.add(url);
@@ -2814,7 +2833,7 @@ function cleanScrapedMarkdown(text: string): string {
     },
   );
 
-  // 7. Remove consecutive empty line spaces left behind by stripped chunks
+  // 8. Remove consecutive empty line spaces left behind by stripped chunks
   cleaned = cleaned.replace(/\n{3,}/g, "\n\n");
 
   return cleaned.trim();

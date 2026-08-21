@@ -676,19 +676,24 @@ async function extractProductViaUrlContext(
       ? `Select the top 1 to ${MAX_IMAGES} direct product image URLs from the 'Candidate Images' array (pre-ranked best-first), and add any additional absolute product image URLs found in the retrieved page content up to ${MAX_IMAGES} total. CRITICAL: You must NEVER return base64-encoded data: URLs. Only return absolute HTTP or HTTPS URLs.`
       : `Extract up to ${MAX_IMAGES} absolute product image URLs (best/primary first) if any appear in the retrieved page content; otherwise return an empty array. CRITICAL: You must NEVER return base64-encoded data: URLs. Only return absolute HTTP or HTTPS URLs.`;
 
-  const prompt = `You are an expert product data extractor. Use the url_context tool to retrieve the product page at the URL below, then extract the exact product specifications to populate a library item form.
+  // Static block first, URL last — same cache-prefix reasoning as the markdown
+  // path in autofillProductFromUrl.
+  const prompt = `You are an expert product data extractor. Use the url_context tool to retrieve the product page at the URL supplied after these instructions, then extract the exact product specifications to populate a library item form.
+
+Return the following specifications in the requested JSON structure. If a field cannot be found, use an empty string or omit it.
+Specifically:
+${productFieldInstructions(imageInstruction)}
+
+${JSON_OUTPUT_RULES}
+
+----- PRODUCT PAGE -----
 
 URL: ${normalizedUrl}
 ${
   imageCandidates.length > 0
     ? `\nCandidate Images found on the page:\n${JSON.stringify(imageCandidates)}\n`
     : ""
-}
-Extract the following specifications and return them in the requested JSON structure. If a field cannot be found, use an empty string or omit it.
-Specifically:
-${productFieldInstructions(imageInstruction)}
-
-${JSON_OUTPUT_RULES}`;
+}`;
 
   try {
     const res = await fetch(
@@ -1223,22 +1228,33 @@ export async function autofillProductFromUrl(
           role: "user",
           parts: [
             {
-              text: `You are an expert product data extractor. Parse the product page details below, which is a Markdown snapshot of an e-commerce website. Extract the exact product specifications to populate a library item form.
+              // ORDER MATTERS: every static token comes FIRST, page content
+              // LAST. Gemini's implicit cache only matches a common PREFIX, so
+              // leading with the URL (as this prompt used to) capped the shared
+              // prefix at ~30 tokens — far under the ~1k minimum — and the
+              // ~1.6k-token instruction block below could never be cached.
+              // Front-loaded, it bills at the cached input rate (~10x cheaper)
+              // on repeat calls, and any field added to it later inherits that
+              // discount instead of adding full-price tokens to every scrape.
+              // Do not move variable content back above the static block.
+              text: `You are an expert product data extractor. Extract the exact product specifications to populate a library item form, from the product page supplied after these instructions (a Markdown snapshot of an e-commerce website).
+
+Return the following specifications in the requested JSON structure. If a field cannot be found, use an empty string or omit it.
+Specifically:
+${productFieldInstructions(
+  `The 'Candidate Images' array below is pre-ranked best-first. Select the top 1 to ${MAX_IMAGES} direct product image URLs from that array, keeping the very first suitable product image as the primary cover. If the 'Candidate Images' array is incomplete (contains fewer than ${MAX_IMAGES} valid product gallery images) or empty, you MUST also extract valid absolute product image URLs directly from the Markdown page content to complete the list up to ${MAX_IMAGES} images. Strongly prefer images that represent different views/details of the product. CRITICAL: You must NEVER under any circumstances return base64-encoded image data URLs (e.g. data:image/jpeg;base64,...). Only return absolute HTTP or HTTPS URLs.`,
+)}
+
+${JSON_OUTPUT_RULES}
+
+----- PRODUCT PAGE -----
 
 URL: ${normalizedUrl}
 Page Content:
 ${optimizedMarkdown}
 
 Candidate Images found on the page (measured, ranked largest-first):
-${candidateImageBlock}
-
-Extract the following specifications and return them in the requested JSON structure. If a field cannot be found, use an empty string or omit it.
-Specifically:
-${productFieldInstructions(
-  `The 'Candidate Images' array above is pre-ranked best-first. Select the top 1 to ${MAX_IMAGES} direct product image URLs from that array, keeping the very first suitable product image as the primary cover. If the 'Candidate Images' array is incomplete (contains fewer than ${MAX_IMAGES} valid product gallery images) or empty, you MUST also extract valid absolute product image URLs directly from the Markdown page content to complete the list up to ${MAX_IMAGES} images. Strongly prefer images that represent different views/details of the product. CRITICAL: You must NEVER under any circumstances return base64-encoded image data URLs (e.g. data:image/jpeg;base64,...). Only return absolute HTTP or HTTPS URLs.`,
-)}
-
-${JSON_OUTPUT_RULES}`,
+${candidateImageBlock}`,
             },
           ],
         },

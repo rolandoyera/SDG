@@ -55,35 +55,31 @@ export function NotificationsCard() {
                 return (
                   <div
                     key={n.notificationId}
-                    className="flex flex-col rounded bg-muted p-2"
-                  >
-                    <p className="mb-2 text-muted-foreground text-xs">
-                      {formatDistanceToNow(n.createdAt, { addSuffix: true })}
-                    </p>
+                    className="flex flex-col rounded bg-muted/50 p-2">
                     <div className="flex flex-col">
                       <div className="flex items-center gap-2">
                         <span
                           className={cn(
                             "size-2 shrink-0 rounded-full",
-                            unread ? "bg-primary" : "bg-transparent",
+                            unread ? "bg-primary" : "bg-border",
                           )}
                         />
                         <p
                           className={cn(
                             "text-sm",
-                            unread ? "font-medium" : "text-muted-foreground",
-                          )}
-                        >
+                            unread ? "font-medium" : "text-foreground",
+                          )}>
                           {n.title}
                         </p>
                       </div>
                       {n.body && (
-                        <p className="ml-4 text-muted-foreground text-xs">
-                          {n.body}
-                        </p>
+                        <p className="ml-4 text-foreground text-xs">{n.body}</p>
                       )}
                     </div>
-                    <div className="flex justify-end">
+                    <div className="flex items-center justify-end gap-1">
+                      <p className="pr-2 text-foreground text-xs">
+                        {formatDistanceToNow(n.createdAt, { addSuffix: true })}
+                      </p>
                       {unread && (
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -93,8 +89,7 @@ export function NotificationsCard() {
                               aria-label="Mark as read"
                               onClick={() =>
                                 void markNotificationRead(n.notificationId, uid)
-                              }
-                            >
+                              }>
                               <Check />
                             </Button>
                           </TooltipTrigger>
@@ -108,8 +103,7 @@ export function NotificationsCard() {
                               variant="ghost"
                               size="icon-xs"
                               aria-label="View"
-                              onClick={() => handleView(n)}
-                            >
+                              onClick={() => handleView(n)}>
                               <ExternalLink />
                             </Button>
                           </TooltipTrigger>
@@ -124,8 +118,7 @@ export function NotificationsCard() {
                             aria-label="Delete"
                             onClick={() =>
                               void dismissNotification(n.notificationId, uid)
-                            }
-                          >
+                            }>
                             <Trash2 />
                           </Button>
                         </TooltipTrigger>

@@ -11,6 +11,8 @@ import { PageTitle } from "@/components/page-title-updater";
 import { addLead, getLeads, getOrganizationUsers } from "@/lib/db";
 import type { ActivityActor, Lead, UserProfile } from "@/lib/types";
 
+import { PipelineActivity } from "../crm/_components/pipeline-activity";
+import { TaskReminders } from "../crm/_components/task-reminders";
 import { QuickCreateTrigger } from "../_components/quick-create-trigger";
 import {
   type LeadFormData,
@@ -18,6 +20,7 @@ import {
 } from "./_components/lead-constants";
 import { LeadFormDialog } from "./_components/lead-form-dialog";
 import { LeadsTable } from "./_components/leads-table";
+import { KpiCards } from "./_components/kpi-cards";
 
 export default function LeadsPage() {
   const { uid, profile, organizationId, loading: authLoading } = useAuth();
@@ -93,6 +96,7 @@ export default function LeadsPage() {
             description="Capture, qualify, and convert your pipeline."
           />
         </div>
+        <KpiCards />
 
         {loading ? (
           <div className="flex min-h-75 flex-col items-center justify-center gap-3">
@@ -109,6 +113,8 @@ export default function LeadsPage() {
             onAddLead={() => setIsAddOpen(true)}
           />
         )}
+        <TaskReminders />
+        <PipelineActivity />
 
         <QuickCreateTrigger onTrigger={() => setIsAddOpen(true)} />
         <LeadFormDialog

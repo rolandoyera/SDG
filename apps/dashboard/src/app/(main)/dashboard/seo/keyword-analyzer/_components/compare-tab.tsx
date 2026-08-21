@@ -478,7 +478,9 @@ export function CompareTab({ single = false }: { single?: boolean }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+    // storageKeys picks between two module constants off the static `single`
+    // prop, so this still runs once per mount.
+  }, [storageKeys]);
 
   // Load the sitemap for any selected source that needs one, once per source.
   useEffect(() => {

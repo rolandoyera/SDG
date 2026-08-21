@@ -67,6 +67,8 @@ SuperAdmin exposure, but nothing surfaces it. To switch accounts, reconnect (the
 - **Fallback pattern:** `fetchInstagramKpis` tries live, and on Graph failure serves the latest
   snapshot with `source: "fallback"` + `asOf`. The strip shows an "As of {date}" label then.
   Only the strip has this — other live reads have no snapshot equivalent.
+- **KPI zero baselines use the shared `New` convention.** A positive current value compared with
+  zero returns `change: "New"`; zero → zero stays `"0.0%"`. `meta-actions.test.ts` protects both.
 - **Range comes from `?range=`**, default `last-30-days`. The toolbar is the shared
   `DateRangePicker` (`@/components/date-range-picker`); it always encodes selections as
   `YYYY-MM-DD_YYYY-MM-DD`, while the legacy `last-N-days` names stay accepted (old links, the

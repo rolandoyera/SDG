@@ -17,21 +17,37 @@ const POLL_INTERVAL_MS = 30_000;
 
 /**
  * Live realtime-visitors card. Seeded by the server with `initialData`, then
- * polls `fetchRealtimeData` (one GA4 realtime report) every 30s so the "Live"
- * indicator actually reflects fresh data. Polling pauses while the tab is hidden
- * and refetches immediately on refocus to avoid burning GA4 realtime quota.
+ * polls `fetchRealtimeData` (two GA4 realtime reports: per-minute + country)
+ * every 30s so the "Live" indicator actually reflects fresh data. A failed
+ * poll (quota, expired session, network) flips the badge to "Stale" until the
+ * next success — never keep showing old numbers as "Live". Polling pauses
+ * while the tab is hidden and refetches immediately on refocus to avoid
+ * burning GA4 realtime quota.
  */
 export function RealtimeCard({ initialData }: { initialData: RealtimeData }) {
   const [data, setData] = useState(initialData);
+  const [stale, setStale] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
+    let inFlight = false;
 
     const tick = async () => {
-      if (document.visibilityState !== "visible") return;
-      const result = await fetchRealtimeData();
-      if (!cancelled && result.success && result.data) {
-        setData(result.data);
+      if (document.visibilityState !== "visible" || inFlight) return;
+      inFlight = true;
+      try {
+        const result = await fetchRealtimeData();
+        if (cancelled) return;
+        if (result.success && result.data) {
+          setData(result.data);
+          setStale(false);
+        } else {
+          setStale(true);
+        }
+      } catch {
+        if (!cancelled) setStale(true);
+      } finally {
+        inFlight = false;
       }
     };
 
@@ -69,10 +85,17 @@ export function RealtimeCard({ initialData }: { initialData: RealtimeData }) {
           </div>
           <div className="flex items-center gap-2 text-muted-foreground text-sm">
             <span className="relative flex size-2">
-              <span className="absolute inline-flex size-full animate-ping rounded-full bg-green-500 opacity-75" />
-              <span className="relative inline-flex size-2 rounded-full bg-green-500" />
+              {!stale && (
+                <span className="absolute inline-flex size-full animate-ping rounded-full bg-green-500 opacity-75" />
+              )}
+              <span
+                className={cn(
+                  "relative inline-flex size-2 rounded-full",
+                  stale ? "bg-red-500" : "bg-green-500",
+                )}
+              />
             </span>
-            <span>Live</span>
+            <span>{stale ? "Stale" : "Live"}</span>
           </div>
         </div>
         <RealtimeChart data={perMinute} />

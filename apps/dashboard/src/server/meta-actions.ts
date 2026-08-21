@@ -79,7 +79,7 @@ function rangeToWindows(range?: string): {
 export interface KpiMetric {
   value: number;
   previousValue: number;
-  /** Absolute percent change, e.g. "12.3%". */
+  /** Absolute percent change, e.g. "12.3%" — or "New" when growing from 0. */
   change: string;
   isPositive: boolean;
 }
@@ -90,7 +90,7 @@ function compareMetric(current: number, previous: number): KpiMetric {
     return {
       value: current,
       previousValue: previous,
-      change: "0.0%",
+      change: current === 0 ? "0.0%" : "New",
       isPositive: true,
     };
   }

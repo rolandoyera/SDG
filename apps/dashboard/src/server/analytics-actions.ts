@@ -1,5 +1,7 @@
 ﻿"use server";
 
+import { cache } from "react";
+
 import type { protos } from "@google-analytics/data";
 
 import { getGA4Client, hasGA4Credentials } from "./ga4";
@@ -99,7 +101,9 @@ export interface TopPageItem {
   bounceRate: number;
 }
 
-export async function fetchTopPagesData(
+// Overview and Engagement both render Top Pages with the same args;
+// React.cache collapses the duplicate into one GA4 report per request.
+const fetchTopPagesCached = cache(async function fetchTopPagesUncached(
   range?: string,
   campaign?: string,
 ): Promise<{ success: boolean; data: TopPageItem[]; error?: string }> {
@@ -166,6 +170,13 @@ export async function fetchTopPagesData(
       error: getErrorMessage(error, "Failed to load GA4 top pages."),
     };
   }
+});
+
+export async function fetchTopPagesData(
+  range?: string,
+  campaign?: string,
+): Promise<{ success: boolean; data: TopPageItem[]; error?: string }> {
+  return fetchTopPagesCached(range, campaign);
 }
 
 export interface KpiCardData {
@@ -444,7 +455,10 @@ export async function fetchKpiData(
         return {
           value: currentStr,
           previousValue: previousStr,
-          change: "0.0%",
+          // A 0 baseline has no defined percent change: "New" when there is
+          // movement (parseFloat("New") is NaN, so the strips render it in
+          // the trend badge), "0.0%" ("No change") only when both are 0.
+          change: current === 0 ? "0.0%" : "New",
           isPositive: true,
         };
       }
@@ -1332,7 +1346,8 @@ export async function fetchWebsiteVisits(): Promise<WebsiteVisitsResult> {
     const comparison: KpiMetric = {
       value: current,
       previousValue: previous,
-      change: `${Math.abs(pct).toFixed(1)}%`,
+      change:
+        previous === 0 && current > 0 ? "New" : `${Math.abs(pct).toFixed(1)}%`,
       isPositive: pct >= 0,
     };
 

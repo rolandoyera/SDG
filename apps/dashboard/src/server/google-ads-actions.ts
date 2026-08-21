@@ -200,7 +200,9 @@ function buildKpi(
     value: format(current),
     previousValue: format(previous),
   };
-  if (previous === 0) return { ...base, change: "0.0%", isPositive: true };
+  if (previous === 0) {
+    return { ...base, change: current === 0 ? "0.0%" : "New", isPositive: true };
+  }
 
   const pct = ((current - previous) / previous) * 100;
   return {

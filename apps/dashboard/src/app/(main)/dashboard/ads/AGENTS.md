@@ -65,6 +65,7 @@ accept a customer ID from the client.
 - **The KPI comparison is one query, split in JS** — current + previous
   windows can be disjoint (year-to-date compares to last year), so rows are
   bucketed per `segments.date`, not assumed contiguous.
+  `google-ads-actions.test.ts` protects the `New` sentinel for a zero baseline.
 - **`?range=` is shared vocabulary with Analytics** (named tokens +
   `YYYY-MM-DD_YYYY-MM-DD`), but there is no `?campaign=` here — Ads campaigns
   are entities, not GA4 session dimensions.

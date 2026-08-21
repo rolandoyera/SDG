@@ -46,7 +46,10 @@ action argument — that would let a client spoof another tenant. The Admin SDK 
 - **All tab sections render server-side every request, even inactive tabs.** Sections passed as
   `children` into the client `<Tabs>`/`<TabsContent>` (see [page.tsx](./page.tsx)) are still
   executed on the server to build the RSC payload. So one page load fans out **every** section's
-  actions, not just the visible tab's — ~21 GA4 reports total.
+  actions, not just the visible tab's — ~21 GA4 reports total. This is a deliberate tradeoff for
+  instant tab switching — don't "fix" it by making the active tab URL-backed. Top Pages renders on
+  both Overview and Engagement, but `fetchTopPagesData` is `React.cache`-wrapped so the same-args
+  duplicate collapses to one report per request.
 - **GA4 has a concurrent-request cap.** That ~19-report fan-out (plus dev Fast Refresh re-firing
   it on every save) blows the quota → `RESOURCE_EXHAUSTED`. The limiter in `ga4.ts`
   (`MAX_CONCURRENT_GA4_REQUESTS = 5`) is the guard: it queues excess calls instead of failing.
@@ -72,6 +75,18 @@ action argument — that would let a client spoof another tenant. The Admin SDK 
   turnstile_pending / server / network; `reason`/`status` params are visible in GA4's UI but not
   queried here — `reason` isn't a registered dimension). Failed isn't a funnel stage, so its
   tooltip rate reads vs Started, not the previous step; zero is the healthy state.
+- **The Realtime card's badge is honest.** `fetchRealtimeData` runs **two** realtime reports
+  (per-minute + country). The client card polls every 30s with an in-flight guard; a failed poll
+  flips "Live" to a red "Stale" dot until the next success (refocus refetches immediately). Never
+  let a failed poll keep rendering old numbers under the green "Live" badge.
+  `realtime-card.test.tsx` protects the Live → Stale → Live transition and the in-flight guard.
+- **KPI `change` strings carry a "New" sentinel.** When the comparison baseline is 0 and the
+  current value isn't, `getKpiMetrics` (and its siblings in `google-ads-actions`/`meta-actions`/
+  `fetchWebsiteVisits`) return `change: "New"` instead of a fake "0.0%" — `parseFloat("New")` is
+  NaN, so the strips' `parseFloat(change) === 0` "No change" branch doesn't swallow it and the
+  trend badge renders "New". Keep that invariant if you touch the comparison math.
+  Server-action tests cover both 0 → positive and 0 → 0, invalid range fallback, and the
+  request-scoped Top Pages cache contract.
 - **Analytics tables are TanTable + raw numbers.** All tab tables (Top Pages, Landing Pages,
   Leads by Channel, Acquisition, Google Search, and the shared `GeoTable`) render through
   `@/components/ui/tan-table` (`TanTable` + `SortableHeader`) with client-side sorting and a

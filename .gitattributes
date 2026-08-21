@@ -1,0 +1,21 @@
+# Line endings are decided by the repo, not by each machine's core.autocrlf.
+# Prettier is configured with endOfLine "lf", so anything Git writes into the
+# working tree — checkout, restore, stash pop, a fresh clone — must be LF too,
+# or `prettier --check` fails on files nobody edited.
+* text=auto eol=lf
+
+# Binary assets Git must never touch.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.avif binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.mp4 binary
+*.webm binary

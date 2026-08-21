@@ -1856,7 +1856,12 @@ async function fetchViaFirecrawl(
       body: JSON.stringify({
         url: targetUrl,
         formats: ["markdown", "rawHtml"],
-        onlyMainContent: false,
+        // Firecrawl's counterpart to Jina's X-Remove-Selector. Hinted domains
+        // never reach Jina, so without this they were the ONLY pages shipping
+        // full site chrome — nav, department menu, cart, breadcrumbs — to the
+        // model, and they are also the largest pages we scrape. rawHtml is the
+        // unprocessed payload either way, so og:image and JSON-LD survive.
+        onlyMainContent: true,
       }),
       signal: AbortSignal.timeout(60000),
     });
@@ -2780,7 +2785,36 @@ function cleanScrapedMarkdown(text: string): string {
     "",
   );
 
-  // 5. Remove consecutive empty line spaces left behind by stripped chunks
+  // 5. Drop repeat renderings of the same spec table. A page that ships both a
+  // desktop and a mobile DOM emits every table twice — "### Dimensions and
+  // Measurements" then "#### Dimensions and Measurements" with byte-identical
+  // rows. Keyed on the table body, so a heading level change doesn't hide it.
+  const seenTables = new Set<string>();
+  cleaned = cleaned.replace(
+    /(^#{2,6} .+\n+)((?:\|.*\n)+)/gm,
+    (block, _heading, table: string) => {
+      const key = table.trim();
+      if (seenTables.has(key)) return "";
+      seenTables.add(key);
+      return block;
+    },
+  );
+
+  // 6. Collapse repeated identical image URLs. Lazy-loading ships one 1x1
+  // transparent placeholder dozens of times; keeping the first occurrence
+  // preserves gallery order, and genuine renditions differ by URL so they are
+  // untouched. Also spares the image probe a pile of junk candidates.
+  const seenImages = new Set<string>();
+  cleaned = cleaned.replace(
+    /^!\[[^\]]*\]\((\S+?)(?:\s+"[^"]*")?\)\s*$/gm,
+    (line, url: string) => {
+      if (seenImages.has(url)) return "";
+      seenImages.add(url);
+      return line;
+    },
+  );
+
+  // 7. Remove consecutive empty line spaces left behind by stripped chunks
   cleaned = cleaned.replace(/\n{3,}/g, "\n\n");
 
   return cleaned.trim();

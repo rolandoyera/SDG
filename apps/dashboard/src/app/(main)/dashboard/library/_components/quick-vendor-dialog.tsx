@@ -85,13 +85,12 @@ export function QuickVendorDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xs">
+      <DialogContent className="sm:max-w-sm">
         <form onSubmit={handleSubmit(onSubmit)} noValidate>
           <DialogHeader>
-            <DialogTitle className="text-base">Quick Create Vendor</DialogTitle>
-            <DialogDescription className="text-xs">
-              Register a trade supplier vendor instantly to connect with this
-              catalog item.
+            <DialogTitle>Quick Create Vendor</DialogTitle>
+            <DialogDescription className="text-xs mb-4">
+              Add a new vendor for this catalog item instantly.
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-3 py-2 text-xs">
@@ -141,15 +140,6 @@ export function QuickVendorDialog({
             />
           </div>
           <DialogFooter className="mt-3">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => onOpenChange(false)}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
             <Button
               type="submit"
               size="sm"

@@ -320,7 +320,7 @@ function LibraryContent() {
         open={isModalOpen}
         onOpenChange={setIsModalOpen}
         title="Add Item"
-        submitLabel="Add Catalog Item"
+        submitLabel="Add Item"
         submitting={submitting}
         onSubmit={handleSubmit}
         form={form}

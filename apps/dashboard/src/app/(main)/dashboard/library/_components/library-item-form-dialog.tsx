@@ -61,6 +61,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Field, FieldError } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { InputGroupAddon, InputGroupButton } from "@/components/ui/input-group";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -70,6 +71,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { AI_ASSISTANT_NAME } from "@/lib/ai-assistant";
 import type { Vendor } from "@/lib/types";
 import { cn, formatCurrency, formatCurrencyInput } from "@/lib/utils";
@@ -754,19 +760,9 @@ export function LibraryItemFormDialog({
                           className="flex flex-col gap-1.5"
                           data-invalid={fieldState.invalid}
                         >
-                          <Label
-                            className={`${LABEL_CLASS} flex items-center justify-between`}
-                          >
-                            <span>
-                              Vendor <span className="text-destructive">*</span>
-                            </span>
-                            <button
-                              type="button"
-                              onClick={onQuickAddVendor}
-                              className="flex items-center gap-0.5 font-medium text-primary text-xs hover:cursor-pointer hover:underline"
-                            >
-                              <Plus className="size-3" /> Quick Add
-                            </button>
+                          <Label className={`${LABEL_CLASS} flex items-center`}>
+                            Vendor{" "}
+                            <span className="ml-0.5 text-destructive">*</span>
                           </Label>
                           <Combobox
                             value={selected}
@@ -802,12 +798,36 @@ export function LibraryItemFormDialog({
                                 </button>
                               }
                             />
-                            <ComboboxContent container={comboboxContainer}>
+                            <ComboboxContent
+                              container={comboboxContainer}
+                              className="min-h-20"
+                            >
                               <ComboboxInput
+                                className="border border-input bg-background!"
                                 showTrigger={false}
                                 placeholder="Search vendors..."
-                              />
-                              <ComboboxEmpty>No vendor found.</ComboboxEmpty>
+                              >
+                                <InputGroupAddon align="inline-end">
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <InputGroupButton
+                                        className="bg-primary rounded-full text-white hover:bg-primary/80 hover:text-white"
+                                        size="icon-xs"
+                                        aria-label="Quick add vendor"
+                                        onClick={onQuickAddVendor}
+                                      >
+                                        <Plus />
+                                      </InputGroupButton>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      Quick add vendor
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </InputGroupAddon>
+                              </ComboboxInput>
+                              <ComboboxEmpty className="py-4 text-center">
+                                No vendor found.
+                              </ComboboxEmpty>
                               <ComboboxList>
                                 {(item) => (
                                   <ComboboxItem

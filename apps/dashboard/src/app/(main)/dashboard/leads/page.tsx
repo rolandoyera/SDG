@@ -11,8 +11,8 @@ import { PageTitle } from "@/components/page-title-updater";
 import { addLead, getLeads, getOrganizationUsers } from "@/lib/db";
 import type { ActivityActor, Lead, UserProfile } from "@/lib/types";
 
-import { PipelineActivity } from "../crm/_components/pipeline-activity";
-import { TaskReminders } from "../crm/_components/task-reminders";
+import { PipelineActivity } from "./_components/pipeline-activity";
+import { TaskReminders } from "./_components/task-reminders";
 import { QuickCreateTrigger } from "../_components/quick-create-trigger";
 import {
   type LeadFormData,

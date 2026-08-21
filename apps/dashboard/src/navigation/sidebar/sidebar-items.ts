@@ -1,7 +1,6 @@
 import {
   Activity,
   Building2,
-  ChartBar,
   ChartLine,
   Cog,
   FileSignature,
@@ -65,9 +64,9 @@ export const sidebarItems: NavGroup[] = [
         icon: LayoutDashboard,
       },
       {
-        title: "CRM",
-        url: "/dashboard/crm",
-        icon: ChartBar,
+        title: "Leads",
+        url: "/dashboard/leads",
+        icon: UserPlus,
       },
       {
         title: "Tasks",
@@ -81,11 +80,6 @@ export const sidebarItems: NavGroup[] = [
     id: 2,
     label: "Design Studio",
     items: [
-      {
-        title: "Leads",
-        url: "/dashboard/leads",
-        icon: UserPlus,
-      },
       {
         title: "Clients",
         url: "/dashboard/clients",

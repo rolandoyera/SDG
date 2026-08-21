@@ -86,7 +86,11 @@ action argument — that would let a client spoof another tenant. The Admin SDK 
   the named tokens `today`/`yesterday` (GA4 resolves those in the property's timezone) and
   everything else as `YYYY-MM-DD_YYYY-MM-DD`. The legacy named values (`last-7-days`,
   `last-4-weeks`, `last-3-months`, `year-to-date`) are still accepted server-side so old links
-  keep working. Single-day ranges (named or custom) switch GA4 trend dimensions to hourly
+  keep working. `parseCustomRange` validates beyond shape — real calendar days and
+  start ≤ end — because a hand-typed `2026-99-99` used to throw from `toISOString()` inside
+  `fetchKpiData`'s date math (which runs before its try/catch) and, with no `error.tsx`
+  boundary anywhere, crashed the whole route. Malformed custom ranges now fall back to the
+  default range; don't add date math on `?range=` outside that validated path. Single-day ranges (named or custom) switch GA4 trend dimensions to hourly
   (`dateHour`); there is no rolling "last 24 hours" — GA4 date ranges are whole calendar days.
   KPI comparisons for custom ranges use the equal-length window immediately before. Search
   Console clamps a custom range's end to its ~3-day data lag and falls back to its 28-day

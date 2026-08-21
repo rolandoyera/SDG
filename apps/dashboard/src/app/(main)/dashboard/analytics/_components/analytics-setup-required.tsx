@@ -1,8 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-import { AnalyticsErrorToast } from "./analytics-error-toast";
-
 function isConfigMissing(error?: string) {
   if (!error) return true;
   const lower = error.toLowerCase();
@@ -16,26 +14,35 @@ interface AnalyticsSetupRequiredProps {
 }
 
 /**
- * Uniform failure state for analytics widgets: a centered warning badge.
- * Real API errors (anything beyond missing configuration) also surface
- * their detail via the shared error toast.
+ * Uniform failure state for analytics widgets. Missing configuration renders
+ * the "Setup required" badge; real API errors (quota, permissions, timeouts)
+ * render a distinct badge with the error detail durably in-card, so a
+ * transient Google failure never masquerades as a setup problem.
  */
 export function AnalyticsSetupRequired({
   error,
   title,
   className,
 }: AnalyticsSetupRequiredProps) {
+  const configMissing = isConfigMissing(error);
+
   return (
     <div
       className={cn(
-        "flex min-h-48 flex-1 items-center justify-center",
+        "flex min-h-48 flex-1 flex-col items-center justify-center gap-2",
         className,
       )}
     >
-      {!isConfigMissing(error) && (
-        <AnalyticsErrorToast error={error} title={title} />
+      {configMissing ? (
+        <Badge variant="warning">Setup required</Badge>
+      ) : (
+        <>
+          <Badge variant="destructive">{title ?? "Data unavailable"}</Badge>
+          <p className="max-w-md text-center text-xs text-muted-foreground">
+            {error}
+          </p>
+        </>
       )}
-      <Badge variant="warning">Setup required</Badge>
     </div>
   );
 }

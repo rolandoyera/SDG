@@ -199,7 +199,19 @@ function parseCustomRange(
   range?: string,
 ): { startDate: string; endDate: string } | null {
   const match = range ? CUSTOM_RANGE_PATTERN.exec(range) : null;
-  return match ? { startDate: match[1], endDate: match[2] } : null;
+  if (!match) return null;
+  const [, startDate, endDate] = match;
+  // Shape alone isn't enough: "2026-99-99" parses to an Invalid Date whose
+  // toISOString() throws mid-render (and there's no error boundary). Reject
+  // non-calendar dates and reversed windows so a garbage URL falls back to
+  // the default range instead of crashing the page.
+  const isCalendarDay = (value: string) => {
+    const date = parseDay(value);
+    return !Number.isNaN(date.getTime()) && formatDay(date) === value;
+  };
+  if (!isCalendarDay(startDate) || !isCalendarDay(endDate)) return null;
+  if (startDate > endDate) return null;
+  return { startDate, endDate };
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;

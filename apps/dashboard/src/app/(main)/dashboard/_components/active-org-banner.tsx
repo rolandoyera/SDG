@@ -13,14 +13,20 @@ import { getOrganization } from "@/lib/db";
 /**
  * Shown only to a SuperAdmin whose active org differs from their home org, so
  * working inside another tenant is always visually explicit. Everyone else
- * never has an override, so the banner never renders for them.
+ * never has an override, so the banner never renders for them. White-label
+ * hosts are pinned to their tenant — the domain itself is the signal and there
+ * is nothing to "return" to, so the banner stays hidden there.
  */
 export function ActiveOrgBanner() {
-  const { profile, role, organizationId, setActiveOrganization } = useAuth();
+  const { profile, role, organizationId, hostPinnedOrgId, setActiveOrganization } =
+    useAuth();
   const router = useRouter();
   const homeOrgId = profile?.organizationId ?? null;
   const isOverridden =
-    role === "SuperAdmin" && !!organizationId && organizationId !== homeOrgId;
+    role === "SuperAdmin" &&
+    !hostPinnedOrgId &&
+    !!organizationId &&
+    organizationId !== homeOrgId;
 
   const [orgName, setOrgName] = useState<string | null>(null);
 

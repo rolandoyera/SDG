@@ -1,7 +1,8 @@
 import { cache } from "react";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 
+import { resolveHostOrg } from "@/config/app-config";
 import { AUTH_TOKEN_COOKIE } from "@/lib/auth-cookie";
 import { ACTIVE_ORG_COOKIE } from "@/lib/org-cookie";
 import type { UserProfile } from "@/lib/types";
@@ -22,7 +23,8 @@ export interface VerifiedCaller {
   homeOrganizationId: string;
   /**
    * The org this request operates on. Equal to homeOrganizationId for everyone
-   * except SuperAdmins, who may select any org via the active-org cookie.
+   * except SuperAdmins, who may select any org via the active-org cookie — and
+   * on a white-label host are always pinned to that host's org, cookie or not.
    */
   organizationId: string;
 }
@@ -33,9 +35,10 @@ export interface VerifiedCaller {
  * Identity comes from the Firebase ID token cookie (verified with
  * firebase-admin — an unverifiable/expired token is treated as signed out) and
  * authorization from the caller's users/{uid} profile, read server-side. The
- * active-org cookie is ONLY honored as an org selector for SuperAdmins; for
- * everyone else the org is always the profile's own organizationId, so a forged
- * cookie can never reach another tenant.
+ * active-org cookie is ONLY honored as an org selector for SuperAdmins (and on
+ * white-label hosts the host's org overrides even that); for everyone else the
+ * org is always the profile's own organizationId, so a forged cookie can never
+ * reach another tenant.
  *
  * Wrapped in React.cache so the token verification + profile read happen once
  * per request no matter how many actions/helpers ask.
@@ -64,10 +67,17 @@ export const getVerifiedCaller = cache(
     if (!profile?.organizationId || profile.status === "Pending") return null;
 
     const role = profile.role ?? "Contributor";
+    // A white-label host pins the SuperAdmin's active org to that host's
+    // tenant, overriding the cookie selector — the domain decides what you
+    // see. This must live server-side too: pages fetch during SSR on the
+    // first request after sign-in, before any client code can set a cookie.
+    // It only ever NARROWS a SuperAdmin to a tenant they could already
+    // select; non-SuperAdmins stay pinned to their profile org regardless.
+    const hostOrg = resolveHostOrg((await headers()).get("host"));
     const requestedOrg = cookieStore.get(ACTIVE_ORG_COOKIE)?.value;
     const organizationId =
-      role === "SuperAdmin" && requestedOrg
-        ? requestedOrg
+      role === "SuperAdmin"
+        ? (hostOrg ?? requestedOrg ?? profile.organizationId)
         : profile.organizationId;
 
     return {

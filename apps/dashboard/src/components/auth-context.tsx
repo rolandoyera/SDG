@@ -16,6 +16,7 @@ import {
 } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
 
+import { resolveHostOrg } from "@/config/app-config";
 import { AUTH_TOKEN_COOKIE } from "@/lib/auth-cookie";
 import {
   deleteClientCookie,
@@ -37,16 +38,23 @@ interface AuthContextType {
    *
    * `organizationId` is the ACTIVE org for this session — the profile's own org
    * for Admins/Contributors, or the selected org for a SuperAdmin working in
-   * another tenant.
+   * another tenant. On a white-label host it is always that host's org.
    */
   organizationId: string | null;
   uid: string | null;
   role: UserProfile["role"] | null;
   loading: boolean;
+  /**
+   * The org this domain is pinned to via `hostOrgs` (white-label hosts), or
+   * null on open domains. When set, the active org is always this org and
+   * `setActiveOrganization` is a no-op — switch tenants from an open domain.
+   */
+  hostPinnedOrgId: string | null;
   signOut: () => Promise<void>;
   /**
    * SuperAdmin-only: switch the org this session operates on. The server
    * re-validates the role on every request, so for anyone else this is a no-op.
+   * Also a no-op on white-label hosts, which are pinned to their tenant.
    */
   setActiveOrganization: (organizationId: string) => void;
 }
@@ -58,6 +66,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [activeOrgId, setActiveOrgId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  // The host never changes within a page lifetime; resolve once. Null during
+  // SSR is fine — everything below AuthGuard renders client-side after loading.
+  const [hostPinnedOrgId] = useState<string | null>(() =>
+    typeof window === "undefined" ? null : resolveHostOrg(window.location.host),
+  );
 
   useEffect(() => {
     let unsubscribeProfile: (() => void) | null = null;
@@ -110,13 +123,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 location: data.location,
                 phone: data.phone,
               });
-              // SuperAdmins may keep a previously selected org across reloads;
+              // SuperAdmins may keep a previously selected org across reloads,
+              // except on white-label hosts, where the host's org always wins;
               // everyone else is pinned to their profile org. The server
               // re-validates the role either way, so a tampered cookie can't
-              // grant a non-SuperAdmin another tenant.
+              // grant a non-SuperAdmin another tenant. Mirrors the precedence
+              // in src/server/auth.ts — keep the two in sync.
               const rawOverride =
                 role === "SuperAdmin"
-                  ? getClientCookie(ACTIVE_ORG_COOKIE)
+                  ? (hostPinnedOrgId ?? getClientCookie(ACTIVE_ORG_COOKIE))
                   : null;
               const nextActiveOrg = rawOverride
                 ? rawOverride
@@ -167,7 +182,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       unsubscribeAuth();
       if (unsubscribeProfile) unsubscribeProfile();
     };
-  }, []);
+    // hostPinnedOrgId never changes after mount, so this still runs once.
+  }, [hostPinnedOrgId]);
 
   const handleSignOut = useCallback(async () => {
     setLoading(true);
@@ -184,10 +200,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const setActiveOrganization = useCallback(
     (organizationId: string) => {
       if (!isSuperAdmin || !organizationId) return;
+      // White-label hosts are pinned to their tenant — a switch here would
+      // silently revert on the next profile snapshot, so refuse it outright.
+      if (hostPinnedOrgId) return;
       setClientCookie(ACTIVE_ORG_COOKIE, organizationId, 30);
       setActiveOrgId(organizationId);
     },
-    [isSuperAdmin],
+    [isSuperAdmin, hostPinnedOrgId],
   );
 
   return (
@@ -199,6 +218,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         uid: profile?.uid ?? null,
         role: profile?.role ?? null,
         loading,
+        hostPinnedOrgId,
         signOut: handleSignOut,
         setActiveOrganization,
       }}

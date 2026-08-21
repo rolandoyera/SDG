@@ -77,6 +77,7 @@ export default function TenantsPage() {
     uid,
     role,
     organizationId: activeOrgId,
+    hostPinnedOrgId,
     setActiveOrganization,
     loading: authLoading,
   } = useAuth();
@@ -393,9 +394,14 @@ export default function TenantsPage() {
                                 </DropdownMenuLabel>
                                 <DropdownMenuSeparator />
 
-                                {/* Switch the session's active org to this tenant */}
+                                {/* Switch the session's active org to this tenant.
+                                    White-label hosts are pinned to their tenant, so
+                                    switching is disabled there — use an open domain. */}
                                 <DropdownMenuItem
-                                  disabled={org.organizationId === activeOrgId}
+                                  disabled={
+                                    org.organizationId === activeOrgId ||
+                                    !!hostPinnedOrgId
+                                  }
                                   onClick={() => {
                                     setActiveOrganization(org.organizationId);
                                     toast.success(
@@ -409,7 +415,9 @@ export default function TenantsPage() {
                                   <span>
                                     {org.organizationId === activeOrgId
                                       ? "Currently active tenant"
-                                      : "Work in this tenant"}
+                                      : hostPinnedOrgId
+                                        ? "This domain is pinned to its tenant"
+                                        : "Work in this tenant"}
                                   </span>
                                 </DropdownMenuItem>
 

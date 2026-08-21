@@ -59,8 +59,11 @@ export const APP_CONFIG = {
     "app.sarviandg.local": sarvianBrand,
   },
   // White-label domains are tenant-exclusive: only members of the mapped org
-  // (and SuperAdmins) may sign in there. Hosts not listed (the default Lenis
-  // domain, localhost) accept members of any org.
+  // (and SuperAdmins) may sign in there, and the session's ACTIVE org is
+  // pinned to the mapped org — for SuperAdmins the host overrides the org
+  // selector cookie (see src/server/auth.ts and auth-context.tsx). Hosts not
+  // listed (the default Lenis domain, localhost) accept members of any org
+  // and honor the selector.
   hostOrgs: {
     "studio.sarviandg.com": "org-sarvian",
     "app.sarviandg.local": "org-sarvian",

@@ -6,6 +6,8 @@ const ACTIVE_ORG_COOKIE = "active-org";
 function mockRequest(options?: {
   token?: string;
   activeOrg?: string;
+  host?: string;
+  hostOrgs?: Record<string, string>;
   decoded?: { uid: string; email?: string };
   verifyError?: Error;
   profile?: Record<string, unknown>;
@@ -19,6 +21,11 @@ function mockRequest(options?: {
       const value = values.get(name);
       return value ? { value } : undefined;
     }),
+  }));
+  const headers = vi.fn(async () => ({
+    get: vi.fn((name: string) =>
+      name === "host" ? (options?.host ?? null) : null,
+    ),
   }));
   const verifyIdToken = options?.verifyError
     ? vi.fn(async () => {
@@ -34,9 +41,13 @@ function mockRequest(options?: {
     const actual = await vi.importActual<typeof import("react")>("react");
     return { ...actual, cache: <T>(fn: T) => fn };
   });
-  vi.doMock("next/headers", () => ({ cookies }));
+  vi.doMock("next/headers", () => ({ cookies, headers }));
   vi.doMock("@/lib/auth-cookie", () => ({ AUTH_TOKEN_COOKIE: AUTH_COOKIE }));
   vi.doMock("@/lib/org-cookie", () => ({ ACTIVE_ORG_COOKIE }));
+  vi.doMock("@/config/app-config", () => ({
+    resolveHostOrg: (host?: string | null) =>
+      (host ? options?.hostOrgs?.[host] : null) ?? null,
+  }));
   vi.doMock("./firebase-admin", () => ({
     getAdminAuth: () => ({ verifyIdToken }),
     getAdminDb: () => ({ doc }),
@@ -135,6 +146,46 @@ describe("verified caller resolution", () => {
       fullName: "super@example.com",
       homeOrganizationId: "org-home",
       organizationId: "org-selected",
+    });
+  });
+
+  it("pins a SuperAdmin to the white-label host org over the cookie selector", async () => {
+    mockRequest({
+      token: "valid",
+      activeOrg: "org-selected",
+      host: "studio.white-label.test",
+      hostOrgs: { "studio.white-label.test": "org-host" },
+      decoded: { uid: "super-1", email: "super@example.com" },
+      profile: {
+        organizationId: "org-home",
+        role: "SuperAdmin",
+        status: "Active",
+      },
+    });
+    const { getVerifiedCaller } = await import("./auth");
+
+    await expect(getVerifiedCaller()).resolves.toMatchObject({
+      homeOrganizationId: "org-home",
+      organizationId: "org-host",
+    });
+  });
+
+  it("leaves non-SuperAdmins on their profile org even on a white-label host", async () => {
+    mockRequest({
+      token: "valid",
+      host: "studio.white-label.test",
+      hostOrgs: { "studio.white-label.test": "org-host" },
+      decoded: { uid: "user-1", email: "member@example.com" },
+      profile: {
+        organizationId: "org-home",
+        role: "Admin",
+        status: "Active",
+      },
+    });
+    const { getVerifiedCaller } = await import("./auth");
+
+    await expect(getVerifiedCaller()).resolves.toMatchObject({
+      organizationId: "org-home",
     });
   });
 });

@@ -91,7 +91,12 @@ export default function TenantDetailPage({ params }: PageProps) {
   const [togglingStatus, setTogglingStatus] = React.useState(false);
 
   // Form setup
-  const { control, handleSubmit, reset } = useForm<TenantConfigFormData>({
+  const {
+    control,
+    handleSubmit,
+    reset,
+    formState: { isDirty },
+  } = useForm<TenantConfigFormData>({
     resolver: zodResolver(tenantConfigSchema),
     defaultValues: {
       gaPropertyId: "",
@@ -175,6 +180,15 @@ export default function TenantDetailPage({ params }: PageProps) {
       });
 
       setOrg((prev) => (prev ? { ...prev, config: updatedConfig } : null));
+      // Re-seed the form with what was saved (values are trimmed above) so it
+      // reads as pristine again and the save button disables until a new edit.
+      reset({
+        gaPropertyId: updatedConfig.gaPropertyId,
+        gscSiteUrl: updatedConfig.gscSiteUrl,
+        googleAdsCustomerId: updatedConfig.googleAdsCustomerId,
+        googleDriveFolderId: updatedConfig.googleDriveFolderId,
+        aiMonthlyLimit: updatedConfig.aiMonthlyLimit,
+      });
       toast.success("Tenant settings updated successfully!");
     } catch (error) {
       console.error("Failed to update organization config:", error);
@@ -313,7 +327,7 @@ export default function TenantDetailPage({ params }: PageProps) {
               <CardContent>
                 <form
                   onSubmit={handleSubmit(handleSaveConfig)}
-                  className="flex flex-col gap-4"
+                  className="grid grid-cols-1 gap-4 space-y-6 lg:grid-cols-2"
                   autoComplete="off"
                 >
                   {/* Dummy inputs to prevent Chrome autofill */}
@@ -516,10 +530,10 @@ export default function TenantDetailPage({ params }: PageProps) {
                     )}
                   />
 
-                  <div className="mt-4 flex justify-end">
+                  <div className="mt-4 flex items-end justify-end">
                     <Button
                       type="submit"
-                      disabled={saving}
+                      disabled={saving || !isDirty}
                       className="flex items-center gap-2"
                     >
                       {saving ? (
@@ -530,7 +544,7 @@ export default function TenantDetailPage({ params }: PageProps) {
                       ) : (
                         <>
                           <Save className="size-4" />
-                          Save Integration Keys
+                          Save Configuration
                         </>
                       )}
                     </Button>

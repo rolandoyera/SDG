@@ -41,9 +41,11 @@ export function AuthGuard({ children }: { children: ReactNode }) {
   }, [user, loading, isAuthRoute, isInviteRoute, router]);
 
   // White-label domains are tenant-exclusive: members of other orgs get signed
-  // out (SuperAdmins may enter any tenant). This is a UX gate — real isolation
-  // lives in the server's verified-caller org resolution and Firestore rules,
-  // which never depend on the domain.
+  // out (SuperAdmins may enter any tenant, and are pinned to the host's org by
+  // the active-org resolution). This is a UX gate — real isolation lives in
+  // the server's verified-caller org resolution and Firestore rules; the
+  // domain only ever narrows a SuperAdmin to the host's tenant, it never
+  // widens anyone's access.
   const profileOrgId = profile?.organizationId ?? null;
   useEffect(() => {
     if (loading || !profileOrgId || role === "SuperAdmin") return;

@@ -366,8 +366,7 @@ export default function UsagePage() {
             Usage
           </H1>
           <p className="text-muted-foreground text-sm">
-            Firestore activity and Gemini token usage across the whole project
-            (all tenants). Firestore metrics arrive with a ~4 minute delay.
+            Firestore activity and Gemini token usage across all tenants.
           </p>
         </div>
 
@@ -441,20 +440,6 @@ export default function UsagePage() {
                 </Select>
               </div>
 
-              <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
-                <UsageChartCard
-                  title="Gemini spend"
-                  caption={spendCaption}
-                  totalMode="sum"
-                  rangeMs={aiRangeMs}
-                  loading={spendLoading}
-                  className="xl:col-span-12"
-                  valueFormat="currency"
-                  data={spend?.daily ?? []}
-                  series={SPEND_SERIES}
-                />
-              </div>
-
               {/* Two-up: input / output on the first row, requests / errors on
                   the second. Cards default to xl:col-span-6. */}
               <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
@@ -466,11 +451,23 @@ export default function UsagePage() {
                 ) : (
                   <>
                     <UsageChartCard
+                      title="Gemini spend"
+                      caption={spendCaption}
+                      totalMode="sum"
+                      rangeMs={aiRangeMs}
+                      loading={spendLoading}
+                      className="xl:col-span-4"
+                      valueFormat="currency"
+                      data={spend?.daily ?? []}
+                      series={SPEND_SERIES}
+                    />
+                    <UsageChartCard
                       title="Input tokens per model"
                       caption="Per ET day"
                       totalMode="sum"
                       rangeMs={aiRangeMs}
                       loading={aiLoading}
+                      className="xl:col-span-4"
                       data={modelPoints(aiDaily, "inputTokens", modelKeys)}
                       series={visibleModelSeries}
                     />
@@ -480,6 +477,7 @@ export default function UsagePage() {
                       totalMode="sum"
                       rangeMs={aiRangeMs}
                       loading={aiLoading}
+                      className="xl:col-span-4"
                       data={modelPoints(aiDaily, "outputTokens", modelKeys)}
                       series={visibleModelSeries}
                     />

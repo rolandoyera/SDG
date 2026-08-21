@@ -140,9 +140,9 @@ export function UsageChartCard({
           </div>
           <div className="min-w-0 flex-1">
             {loading ? (
-              <Skeleton className="h-56 w-full" />
+              <Skeleton className="h-50 w-full" />
             ) : (
-              <ChartContainer config={chartConfig} className="h-56 w-full">
+              <ChartContainer config={chartConfig} className="h-50 w-full">
                 <LineChart
                   accessibilityLayer
                   data={data}

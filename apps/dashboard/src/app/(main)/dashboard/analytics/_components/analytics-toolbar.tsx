@@ -153,15 +153,6 @@ export function AnalyticsToolbar({
       <DateRangePicker
         value={decodeRange(currentRange)}
         onChange={handleRangeChange}
-        presetKeys={[
-          "today",
-          "yesterday",
-          "past-7-days",
-          "past-30-days",
-          "past-60-days",
-          "past-90-days",
-          "previous-month",
-        ]}
       />
 
       <TooltipDropdownMenu>

@@ -83,7 +83,7 @@ function defaultRange(): AppliedDateRange {
   const to = new Date();
   to.setHours(0, 0, 0, 0);
   const from = new Date(to);
-  from.setDate(from.getDate() - 29);
+  from.setDate(from.getDate() - 6);
   return { from, to };
 }
 

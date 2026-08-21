@@ -63,13 +63,6 @@ export function InstagramToolbar() {
     <DateRangePicker
       value={decodeRange(currentRange)}
       onChange={handleRangeChange}
-      presetKeys={[
-        "past-7-days",
-        "past-30-days",
-        "past-60-days",
-        "past-90-days",
-        "previous-month",
-      ]}
     />
   );
 }

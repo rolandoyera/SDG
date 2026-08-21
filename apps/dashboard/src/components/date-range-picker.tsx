@@ -57,20 +57,19 @@ export function formatDateRange({ from, to }: AppliedDateRange): string {
 export type DateRangePresetKey =
   | "today"
   | "yesterday"
-  | "past-2-days"
   | "past-7-days"
   | "past-30-days"
-  | "past-60-days"
   | "past-90-days"
   | "this-month"
   | "previous-month";
 
 const DEFAULT_PRESET_KEYS: DateRangePresetKey[] = [
-  "past-2-days",
+  "today",
+  "yesterday",
   "past-7-days",
   "past-30-days",
-  "past-60-days",
   "past-90-days",
+  "this-month",
   "previous-month",
 ];
 
@@ -87,10 +86,6 @@ function presetFor(
       label: "Yesterday",
       range: { from: daysAgo(1), to: daysAgo(1) },
     },
-    "past-2-days": {
-      label: "Past 2 days",
-      range: { from: daysAgo(1), to: today },
-    },
     "past-7-days": {
       label: "Past 7 days",
       range: { from: daysAgo(6), to: today },
@@ -98,10 +93,6 @@ function presetFor(
     "past-30-days": {
       label: "Past 30 days",
       range: { from: daysAgo(29), to: today },
-    },
-    "past-60-days": {
-      label: "Past 60 days",
-      range: { from: daysAgo(59), to: today },
     },
     "past-90-days": {
       label: "Past 90 days",
@@ -142,7 +133,7 @@ export function DateRangePicker({
   value: AppliedDateRange;
   onChange: (range: AppliedDateRange) => void;
   earliest?: Date;
-  /** Which quick presets to offer, in order. Defaults to the past-N-days set. */
+  /** Which quick presets to offer, in order. Defaults to the full set. */
   presetKeys?: DateRangePresetKey[];
   align?: "start" | "center" | "end";
   className?: string;

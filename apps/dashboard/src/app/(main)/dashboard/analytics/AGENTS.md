@@ -97,7 +97,7 @@ action argument — that would let a client spoof another tenant. The Admin SDK 
   uncapped data and does its own formatting.
 - **Range comes from `?range=` search param**, default `today`, threaded as a `range` prop
   into sections. The toolbar is the shared `DateRangePicker` (`@/components/date-range-picker`,
-  with `presetKeys` adding Today/Yesterday and dropping Past 2 days); it encodes single days as
+  default presets); it encodes single days as
   the named tokens `today`/`yesterday` (GA4 resolves those in the property's timezone) and
   everything else as `YYYY-MM-DD_YYYY-MM-DD`. The legacy named values (`last-7-days`,
   `last-4-weeks`, `last-3-months`, `year-to-date`) are still accepted server-side so old links

@@ -12,7 +12,8 @@ function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
 
-const CONFIG_MISSING_ERROR = "Google Ads is not configured in .env.local yet.";
+const CONFIG_MISSING_ERROR =
+  "Google Ads is not configured for this organization yet.";
 
 // GAQL dates resolve against explicit calendar days, so named ranges
 // ("today", "last-7-days") must be turned into dates in the ads account's
@@ -108,22 +109,19 @@ function getComparisonWindow(
 /**
  * Resolves the Google Ads customer for the current request's tenant.
  *
- * With an active-organization cookie, only that org's
- * `config.googleAdsCustomerId` counts — no env fallback, so one tenant can
- * never see another's data. Without org context, the global
- * GOOGLE_ADS_CUSTOMER_ID env var applies.
+ * Only the verified caller's org `config.googleAdsCustomerId` counts — no env
+ * fallback, so an unauthenticated request (Server Actions are publicly
+ * reachable endpoints) can never read or mutate any account, and one tenant
+ * can never see another's data.
  */
 async function getConfiguredCustomerId(): Promise<string | null> {
   if (!hasGoogleAdsCredentials()) return null;
 
-  const digits = (value?: string) => {
-    const id = value?.replace(/\D/g, "");
-    return id?.length ? id : null;
-  };
-
   const orgConfig = await getActiveOrgConfig();
-  if (orgConfig) return digits(orgConfig.googleAdsCustomerId);
-  return digits(process.env.GOOGLE_ADS_CUSTOMER_ID);
+  if (!orgConfig) return null;
+
+  const id = orgConfig.googleAdsCustomerId?.replace(/\D/g, "");
+  return id?.length ? id : null;
 }
 
 // REST int64s arrive as strings; doubles as numbers.

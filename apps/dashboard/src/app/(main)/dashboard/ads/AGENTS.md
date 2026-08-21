@@ -31,9 +31,11 @@ update this file in the same change.** A stale AGENTS.md is worse than none.
 Same model as Analytics: the customer ID is resolved **server-side only** from
 the VERIFIED caller's active org (`getActiveOrgId()` in `src/server/auth.ts`)
 via `getActiveOrgConfig()` → `config.googleAdsCustomerId` (set on the Tenants
-page; dashes allowed, digits are extracted). With an active org there is **no
-env fallback**; `GOOGLE_ADS_CUSTOMER_ID` applies only when the request carries
-no valid session. Never accept a customer ID from the client.
+page; dashes allowed, digits are extracted). There is **no env fallback at
+all** (`GOOGLE_ADS_CUSTOMER_ID` no longer resolves anything) — a request with
+no valid session resolves null and gets the config-missing result, which is
+the auth gate for these publicly reachable Server Action endpoints. Never
+accept a customer ID from the client.
 
 ## Rules that are easy to break
 

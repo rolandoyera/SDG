@@ -8,7 +8,7 @@ function getErrorMessage(error: unknown, fallback: string) {
 }
 
 const CONFIG_MISSING_ERROR =
-  "Google Search Console is not configured in .env.local yet.";
+  "Google Search Console is not configured for this organization yet.";
 
 // Search Console data lags ~2-3 days; querying up to "today" returns empty rows
 // for the most recent days, so we end the window a few days back.
@@ -51,20 +51,18 @@ function getDateRange(range?: string): { startDate: string; endDate: string } {
 /**
  * Resolves the Search Console site for the current request's tenant.
  *
- * With an active-organization cookie, only that org's `config.gscSiteUrl`
- * counts — no env fallback, so one tenant can never see another's data.
- * Without org context, the global GSC_SITE_URL env var applies.
+ * Only the verified caller's org `config.gscSiteUrl` counts — no env
+ * fallback, so an unauthenticated request (Server Actions are publicly
+ * reachable endpoints) can never read any site, and one tenant can
+ * never see another's data.
  */
 async function getConfiguredSiteUrl(): Promise<string | null> {
   if (!hasGSCCredentials()) return null;
 
   const orgConfig = await getActiveOrgConfig();
-  if (orgConfig) {
-    const siteUrl = orgConfig.gscSiteUrl;
-    return siteUrl?.trim() ? siteUrl.trim() : null;
-  }
+  if (!orgConfig) return null;
 
-  const siteUrl = process.env.GSC_SITE_URL;
+  const siteUrl = orgConfig.gscSiteUrl;
   return siteUrl?.trim() ? siteUrl.trim() : null;
 }
 

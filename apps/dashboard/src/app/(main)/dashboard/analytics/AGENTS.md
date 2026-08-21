@@ -33,11 +33,13 @@ Server logic lives in `src/server/`, not this folder. Two external APIs, two sep
 Property/site are resolved **server-side only**, from the VERIFIED caller's active org
 (`getActiveOrgId()` in `src/server/auth.ts`), never from caller input.
 `getConfiguredPropertyId` (GA4) and `getConfiguredSiteUrl` (GSC) read
-`getActiveOrgConfig()`: with an active org, only that org's `config.gaPropertyId` /
-`config.gscSiteUrl` counts — **no env fallback**, so one tenant can never see another's data.
-Env vars (`GA_PROPERTY_ID`, `GSC_SITE_URL`) apply **only** when the request has no valid session.
-Never add a propertyId/siteUrl prop or action argument — that would let a client spoof another
-tenant. The Admin SDK in `org-config.ts` bypasses security rules; keep it server-only.
+`getActiveOrgConfig()`: only the caller's org `config.gaPropertyId` / `config.gscSiteUrl`
+counts — **no env fallback at all** (`GA_PROPERTY_ID`/`GSC_SITE_URL` env vars no longer
+resolve anything). A request with no valid session resolves null and gets the
+config-missing result; Server Actions are publicly reachable endpoints, so this is the
+auth gate — don't reintroduce an env fallback. Never add a propertyId/siteUrl prop or
+action argument — that would let a client spoof another tenant. The Admin SDK in
+`org-config.ts` bypasses security rules; keep it server-only.
 
 ## Rules that are easy to break
 

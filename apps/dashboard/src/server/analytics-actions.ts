@@ -493,26 +493,23 @@ export async function fetchKpiData(
 /**
  * Resolves the GA4 property for the current request's tenant.
  *
- * With an active-organization cookie, only that org's `config.gaPropertyId`
- * counts â€” no env fallback, so one tenant can never see another's data.
- * Without org context, the global GA_PROPERTY_ID env var applies.
+ * Only the verified caller's org `config.gaPropertyId` counts — no env
+ * fallback, so an unauthenticated request (Server Actions are publicly
+ * reachable endpoints) can never read any property, and one tenant can
+ * never see another's data.
  */
 async function getConfiguredPropertyId(): Promise<string | null> {
   if (!hasGA4Credentials()) return null;
 
   const orgConfig = await getActiveOrgConfig();
-  if (orgConfig) {
-    const gaPropertyId = orgConfig.gaPropertyId;
-    return gaPropertyId?.trim() ? gaPropertyId.trim() : null;
-  }
+  if (!orgConfig) return null;
 
-  const propertyId = process.env.GA_PROPERTY_ID;
-  if (!propertyId || propertyId === "YOUR_GA4_PROPERTY_ID_HERE") return null;
-  return propertyId;
+  const gaPropertyId = orgConfig.gaPropertyId;
+  return gaPropertyId?.trim() ? gaPropertyId.trim() : null;
 }
 
 const CONFIG_MISSING_ERROR =
-  "Google Analytics 4 is not configured in .env.local yet.";
+  "Google Analytics 4 is not configured for this organization yet.";
 
 type FilterExpression = protos.google.analytics.data.v1beta.IFilterExpression;
 

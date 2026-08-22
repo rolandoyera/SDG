@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import { getRequestAppBrand } from "@/server/app-brand";
 
 import { DbStatsProbe } from "./_components/db-stats-probe";
-import { LayoutControls } from "./_components/sidebar/layout-controls";
+import { PreferencesControls } from "./_components/sidebar/preferences-controls";
 import { NotificationBell } from "./_components/sidebar/notification-bell";
 import { SearchDialog } from "./_components/sidebar/search-dialog";
 import { UserProfile } from "./_components/sidebar/user-profile";
@@ -30,7 +30,7 @@ export default async function Layout({
       defaultOpen={defaultOpen}
       style={
         {
-          "--sidebar-width": "calc(var(--spacing) * 68)",
+          "--sidebar-width": "calc(var(--spacing) * 60)",
         } as React.CSSProperties
       }
     >
@@ -59,7 +59,7 @@ export default async function Layout({
             </div>
             <div className="flex items-center gap-3">
               <NotificationBell />
-              <LayoutControls />
+              <PreferencesControls />
               <UserProfile />
             </div>
           </div>

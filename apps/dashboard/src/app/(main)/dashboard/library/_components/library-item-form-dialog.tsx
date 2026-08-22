@@ -47,7 +47,6 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -400,9 +399,7 @@ export function LibraryItemFormDialog({
         <Badge
           variant="warning"
           className="ml-1.5 flex animate-pulse items-center gap-0.5 px-1 py-0.5 text-[8px]"
-        >
-          Review
-        </Badge>
+        />
       );
     }
 
@@ -410,9 +407,7 @@ export function LibraryItemFormDialog({
       <Badge
         variant="success"
         className="ml-1.5 flex items-center gap-0.5 px-1 py-0.5 text-[8px]"
-      >
-        Confident
-      </Badge>
+      />
     );
   };
 
@@ -472,10 +467,6 @@ export function LibraryItemFormDialog({
               <ShoppingBag className="size-5 text-primary" />
               {title}
             </DialogTitle>
-            <DialogDescription>
-              When using {AI_ASSISTANT_NAME}, always review extracted values. AI
-              can sometimes make mistakes.
-            </DialogDescription>
           </DialogHeader>
 
           {/* Split Screen Container */}
@@ -1288,15 +1279,27 @@ export function LibraryItemFormDialog({
             </div>
           </div>
 
-          <DialogFooter className="border-t bg-muted/30 pr-8 pb-8">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={submitting}
-            >
-              Cancel
-            </Button>
+          <DialogFooter className="flex justify-between! border-t bg-muted/30 px-8 pb-8">
+            <div className="flex flex-col justify-between">
+              <div className="flex gap-8">
+                <Badge
+                  variant="success"
+                  className="flex items-center gap-0.5 px-0! py-0.5 text-xs"
+                >
+                  <span className="mx-1">=</span> Confident
+                </Badge>
+                <Badge
+                  variant="warning"
+                  className="flex items-center gap-0.5 px-0! py-0.5 text-xs"
+                >
+                  <span className="mx-1">=</span> Review
+                </Badge>
+              </div>
+              <p className="text-muted-foreground text-xs">
+                When using {AI_ASSISTANT_NAME}, always review extracted values.
+                AI can sometimes make mistakes.
+              </p>
+            </div>
             <Button
               type="submit"
               disabled={submitting}

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-import { Plus, ShoppingBag } from "lucide-react";
+import { Plus, ShoppingBag, ChevronRight } from "lucide-react";
 
 import { DashboardImage } from "@/components/dashboard-image";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/tooltip";
 import type { LibraryItem } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
+import { NextLink } from "@/components/ui/next-link";
 
 interface VendorItemsProps {
   items: LibraryItem[];
@@ -99,47 +100,56 @@ export function VendorItems({ items, onAddItem }: VendorItemsProps) {
                             href={`/dashboard/library?category=${encodeURIComponent(item.category)}`}
                             className="cursor-pointer transition-colors hover:text-primary hover:underline"
                           >
-                            {item.category}
+                            <Button
+                              size="link"
+                              variant="link"
+                              className="tracking-wider text-xs uppercase"
+                            >
+                              {item.category}
+                            </Button>
                           </Link>
                         </Label>
                       )}
-                      {item.category && <Label>→</Label>}
                       {item.subcategory && (
-                        <Label>
-                          <Link
-                            href={`/dashboard/library?category=${encodeURIComponent(item.category)}&subcategory=${encodeURIComponent(item.subcategory)}`}
-                            className="cursor-pointer transition-colors hover:text-primary hover:underline"
-                          >
-                            {item.subcategory}
-                          </Link>
-                        </Label>
+                        <ChevronRight
+                          size="10px"
+                          className="text-muted-foreground"
+                        />
+                      )}
+                      {item.subcategory && (
+                        <NextLink
+                          variant="label"
+                          href={`/dashboard/library?category=${encodeURIComponent(item.category)}&subcategory=${encodeURIComponent(item.subcategory)}`}
+                        >
+                          {item.subcategory}
+                        </NextLink>
                       )}
                     </div>
-                    <Link
+                    <NextLink
                       href={`/dashboard/library/${item.itemId}`}
-                      className="line-clamp-1 font-heading font-semibold text-sm transition-colors hover:text-primary hover:underline"
+                      className="font-heading font-semibold"
                     >
                       {item.name}
-                    </Link>
+                    </NextLink>
                   </div>
                 </div>
                 {/* Finish Color */}
                 <div className="flex flex-col gap-1.5 mt-4">
                   <Label className="block">Finish / Color</Label>
-                  <p className="font-medium text-foreground text-sm capitalize">
+                  <p className="text-muted-foreground capitalize">
                     {item.finishColor}
                   </p>
                 </div>
                 <div className="flex flex-col gap-1.5 mt-4">
                   <Label className="block">Materials</Label>
-                  <p className="font-medium text-foreground text-sm capitalize">
+                  <p className="text-muted-foreground capitalize">
                     {item.materials}
                   </p>
                 </div>
                 {/* Dimensions */}
                 <div className="flex flex-col gap-1.5 mt-4">
                   <Label className="block">Dimensions</Label>
-                  <p className="font-medium text-foreground text-sm capitalize">
+                  <p className="text-muted-foreground capitalize">
                     {item.dimensions}
                   </p>
                 </div>
@@ -147,7 +157,7 @@ export function VendorItems({ items, onAddItem }: VendorItemsProps) {
                 {/* Pricing */}
                 <div className="text-right flex flex-col gap-1.5 mt-4">
                   <Label className="block">Retail</Label>
-                  <p className="font-medium text-foreground text-sm">
+                  <p className="text-foreground font-medium capitalize">
                     {formatCurrency(item.sellingPrice, { noDecimals: true })}
                   </p>
                 </div>

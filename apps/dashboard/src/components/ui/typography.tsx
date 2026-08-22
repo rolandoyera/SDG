@@ -13,7 +13,7 @@ export function H1({ children, className }: H1Props) {
   return (
     <h1
       className={cn(
-        "scroll-m-20 text-3xl font-medium tracking-tight text-balance",
+        "scroll-m-20 text-3xl font-medium tracking-tight text-balance text-card-foreground",
         className,
       )}
     >
@@ -26,7 +26,7 @@ export function H2({ children, className }: H1Props) {
   return (
     <h2
       className={cn(
-        "scroll-m-20 text-2xl font-medium tracking-tight",
+        "scroll-m-20 text-2xl font-medium tracking-tight text-card-foreground",
         className,
       )}
     >

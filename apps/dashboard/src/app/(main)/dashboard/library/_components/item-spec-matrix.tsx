@@ -39,9 +39,9 @@ function SpecField({
 }) {
   return (
     <div className={cn("flex flex-col gap-1.5 bg-background p-4", className)}>
-      <Label className="uppercase">{label}</Label>
+      <Label>{label}</Label>
       {value && (
-        <span className="font-medium text-foreground text-sm capitalize">
+        <span className="text-muted-foreground text-sm capitalize">
           {value}
         </span>
       )}

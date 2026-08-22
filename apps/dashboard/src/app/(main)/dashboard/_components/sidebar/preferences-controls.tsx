@@ -19,7 +19,6 @@ import {
 } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { type FontKey, fontOptions } from "@/lib/fonts/registry";
-import { applyFont } from "@/lib/preferences/layout-utils";
 import { PREFERENCE_DEFAULTS } from "@/lib/preferences/preferences-config";
 import { persistPreference } from "@/lib/preferences/preferences-storage";
 import {
@@ -27,10 +26,10 @@ import {
   type ThemeMode,
   type ThemePreset,
 } from "@/lib/preferences/theme";
-import { applyThemePreset } from "@/lib/preferences/theme-utils";
+import { applyFont, applyThemePreset } from "@/lib/preferences/theme-utils";
 import { usePreferencesStore } from "@/stores/preferences/preferences-provider";
 
-export function LayoutControls() {
+export function PreferencesControls() {
   const themeMode = usePreferencesStore((s) => s.themeMode);
   const resolvedThemeMode = usePreferencesStore((s) => s.resolvedThemeMode);
   const setThemeMode = usePreferencesStore((s) => s.setThemeMode);
@@ -76,7 +75,7 @@ export function LayoutControls() {
           <div className="space-y-1.5">
             <h4 className="font-medium text-sm leading-none">Preferences</h4>
             <p className="text-muted-foreground text-xs">
-              Customize your dashboard layout preferences.
+              Customize your dashboard preferences.
             </p>
           </div>
           <div className="space-y-3 **:data-[slot=toggle-group]:w-full **:data-[slot=toggle-group-item]:flex-1 **:data-[slot=toggle-group-item]:text-xs">
@@ -95,7 +94,7 @@ export function LayoutControls() {
                         value={preset.value}
                       >
                         <span
-                          className="size-2.5 rounded-full"
+                          className="size-2.5 rounded"
                           style={{
                             backgroundColor:
                               (resolvedThemeMode ?? "light") === "dark"

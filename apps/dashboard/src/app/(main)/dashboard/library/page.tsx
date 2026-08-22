@@ -176,7 +176,7 @@ function LibraryContent() {
           className="flex items-center gap-2 bg-primary text-primary-foreground hover:bg-primary/95 sm:self-start"
         >
           <Plus className="size-4" />
-          Add Item
+          Item
         </Button>
       </div>
 

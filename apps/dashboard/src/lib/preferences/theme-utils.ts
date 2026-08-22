@@ -27,6 +27,10 @@ export function applyThemePreset(value: string) {
   document.documentElement.setAttribute("data-theme-preset", value);
 }
 
+export function applyFont(value: string) {
+  document.documentElement.setAttribute("data-font", value);
+}
+
 export function subscribeToSystemTheme(
   onChange: (mode: ResolvedThemeMode) => void,
 ): () => void {

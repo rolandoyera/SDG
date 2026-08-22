@@ -68,15 +68,18 @@ export function ItemDetailHeader({
                       href={`/dashboard/library?category=${encodeURIComponent(item.category)}`}
                     >
                       <Button
+                        size="sm"
                         variant="link"
-                        className="flex cursor-pointer items-center text-muted-foreground tracking-wider hover:bg-transparent hover:text-primary p-0 text-xs uppercase h-4 font-normal"
+                        className="tracking-wider text-xs uppercase"
                       >
                         {item.category}
                       </Button>
                     </Link>
                   </div>
                 )}
-                {item.subcategory && <ChevronRight size="10px" />}
+                {item.subcategory && (
+                  <ChevronRight size="10px" className="text-muted-foreground" />
+                )}
                 {item.subcategory && (
                   <Label>
                     <Link
@@ -84,7 +87,8 @@ export function ItemDetailHeader({
                     >
                       <Button
                         variant="link"
-                        className="flex cursor-pointer items-center text-muted-foreground tracking-wider hover:bg-transparent hover:text-primary p-0 text-xs uppercase h-4 font-normal"
+                        size="sm"
+                        className="tracking-wider text-xs uppercase"
                       >
                         {item.subcategory}
                       </Button>

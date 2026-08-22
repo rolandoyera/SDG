@@ -140,12 +140,13 @@ export default function VendorsPage() {
           <div>
             <H1>Vendor Directory</H1>
             <p className="mt-1 text-muted-foreground text-sm">
-              Manage trade vendors and client procurement representatives.
+              Manage your trade vendors.
             </p>
           </div>
           <Button
             onClick={handleOpenAdd}
-            className="flex items-center gap-2 bg-primary text-primary-foreground hover:bg-primary/95 sm:self-start">
+            className="flex items-center gap-2 bg-primary text-primary-foreground hover:bg-primary/95 sm:self-start"
+          >
             <Plus className="size-4" />
             Vendor
           </Button>
@@ -157,7 +158,8 @@ export default function VendorsPage() {
           <Tabs
             value={activeCategory}
             onValueChange={setActiveCategory}
-            className="w-full">
+            className="w-full"
+          >
             <TabsList className="flex max-w-full flex-wrap gap-0.5">
               <TabsTrigger value="All">All Vendors</TabsTrigger>
               {VENDOR_CATEGORIES.map((cat) => (
@@ -200,7 +202,8 @@ export default function VendorsPage() {
             {!searchQuery && (
               <Button
                 onClick={handleOpenAdd}
-                className="mt-4 flex items-center gap-2">
+                className="mt-4 flex items-center gap-2"
+              >
                 <Plus className="size-4" />
                 Add Vendor
               </Button>
@@ -243,7 +246,8 @@ function VendorCard({ vendor }: { vendor: Vendor }) {
       {/* Hero area: real image → gradient fallback */}
       <Link
         href={`/dashboard/vendors/${vendor.vendorId}`}
-        className="detail-link relative flex aspect-5/4 w-full cursor-pointer items-center justify-center overflow-hidden">
+        className="detail-link relative flex aspect-5/4 w-full cursor-pointer items-center justify-center overflow-hidden"
+      >
         {vendor.heroImageUrl ? (
           <DashboardImage
             src={vendor.heroImageUrl}
@@ -267,7 +271,8 @@ function VendorCard({ vendor }: { vendor: Vendor }) {
           <H3 className="transition-colors group-has-[.detail-link:hover]:text-primary">
             <Link
               href={`/dashboard/vendors/${vendor.vendorId}`}
-              className="detail-link cursor-pointer">
+              className="detail-link cursor-pointer"
+            >
               {vendor.name}
             </Link>
           </H3>
@@ -317,7 +322,8 @@ function VendorCard({ vendor }: { vendor: Vendor }) {
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.currentTarget.blur()}
-                className="cursor-pointer text-muted-foreground transition-colors hover:text-primary">
+                className="cursor-pointer text-muted-foreground transition-colors hover:text-primary"
+              >
                 <GlobeIcon />
               </a>
             </TooltipTrigger>
@@ -336,7 +342,8 @@ function VendorCard({ vendor }: { vendor: Vendor }) {
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.currentTarget.blur()}
-                className="cursor-pointer text-muted-foreground transition-colors hover:text-primary">
+                className="cursor-pointer text-muted-foreground transition-colors hover:text-primary"
+              >
                 <InstagramIcon />
               </a>
             </TooltipTrigger>
@@ -355,7 +362,8 @@ function VendorCard({ vendor }: { vendor: Vendor }) {
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.currentTarget.blur()}
-                className="cursor-pointer text-muted-foreground transition-colors hover:text-primary">
+                className="cursor-pointer text-muted-foreground transition-colors hover:text-primary"
+              >
                 <PinterestIcon />
               </a>
             </TooltipTrigger>
@@ -374,7 +382,8 @@ function VendorCard({ vendor }: { vendor: Vendor }) {
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.currentTarget.blur()}
-                className="cursor-pointer text-muted-foreground transition-colors hover:text-primary">
+                className="cursor-pointer text-muted-foreground transition-colors hover:text-primary"
+              >
                 <FacebookIcon />
               </a>
             </TooltipTrigger>
@@ -393,7 +402,8 @@ function VendorCard({ vendor }: { vendor: Vendor }) {
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.currentTarget.blur()}
-                className="cursor-pointer text-muted-foreground transition-colors hover:text-primary">
+                className="cursor-pointer text-muted-foreground transition-colors hover:text-primary"
+              >
                 <YoutubeIcon />
               </a>
             </TooltipTrigger>
@@ -412,7 +422,8 @@ function VendorCard({ vendor }: { vendor: Vendor }) {
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.currentTarget.blur()}
-                className="cursor-pointer text-muted-foreground transition-colors hover:text-primary">
+                className="cursor-pointer text-muted-foreground transition-colors hover:text-primary"
+              >
                 <XTwitterIcon />
               </a>
             </TooltipTrigger>

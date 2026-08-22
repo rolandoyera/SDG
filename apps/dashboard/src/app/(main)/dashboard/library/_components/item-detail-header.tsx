@@ -2,7 +2,13 @@
 
 import Link from "next/link";
 
-import { Forklift, MoreVertical, Trash2, Edit } from "lucide-react";
+import {
+  Forklift,
+  MoreVertical,
+  Trash2,
+  Edit,
+  ChevronRight,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenuContent,
@@ -36,55 +42,58 @@ export function ItemDetailHeader({
     <>
       <HeaderBackLink href="/dashboard/library" />
 
-      <div className="flex flex-col justify-start gap-16 pb-4 md:flex-row">
+      <div className="flex flex-col justify-start gap-16 pb-4 md:flex-row mt-2">
         <div className="flex flex-col">
-          <H1 className="mb-1">{item.name}</H1>
+          <H1 className="mb-2">{item.name}</H1>
           {vendorName && (
-            <p className="flex items-center gap-1 font-medium text-[12px] text-muted-foreground">
+            <div className="flex items-center">
               <Forklift className="size-3.5 shrink-0 text-primary" />
-
               {item.vendorId ? (
-                <Link
-                  href={`/dashboard/vendors/${item.vendorId}`}
-                  className="cursor-pointer transition-colors hover:text-primary hover:underline"
-                >
-                  <Label
-                    size="large"
-                    className="cursor-pointer text-foreground hover:text-primary"
+                <Link href={`/dashboard/vendors/${item.vendorId}`}>
+                  <Button
+                    variant="link"
+                    className="text-foreground hover:text-primary p-0 pl-1 text-lg"
                   >
                     {vendorName}
-                  </Label>
-                </Link>
-              ) : (
-                <Label size="large">{vendorName}</Label>
-              )}
-            </p>
-          )}
-          <div className="flex items-center text-xs -mt-2 ml-1">
-            In:
-            <Link
-              href={`/dashboard/library?category=${encodeURIComponent(item.category)}`}
-            >
-              <Button
-                variant="link"
-                className="flex cursor-pointer items-center text-muted-foreground text-xs hover:bg-transparent hover:text-primary"
-              >
-                {item.category}
-              </Button>
-            </Link>
-            {item.subcategory && (
-              <div className="flex items-center">
-                <span>→</span>
-                <Link
-                  href={`/dashboard/library?category=${encodeURIComponent(item.category)}&subcategory=${encodeURIComponent(item.subcategory)}`}
-                >
-                  <Button className="flex cursor-pointer items-center gap-1.5 bg-transparent text-muted-foreground text-xs hover:bg-transparent hover:text-primary">
-                    {item.subcategory}
                   </Button>
                 </Link>
+              ) : (
+                ""
+              )}
+
+              <div className="flex items-center gap-2 ml-3 mt-1">
+                {item.category && (
+                  <div className="text-muted-foreground tracking-wider text-xs uppercase">
+                    <Link
+                      href={`/dashboard/library?category=${encodeURIComponent(item.category)}`}
+                    >
+                      <Button
+                        variant="link"
+                        className="flex cursor-pointer items-center text-muted-foreground tracking-wider hover:bg-transparent hover:text-primary p-0 text-xs uppercase h-4 font-normal"
+                      >
+                        {item.category}
+                      </Button>
+                    </Link>
+                  </div>
+                )}
+                {item.subcategory && <ChevronRight size="10px" />}
+                {item.subcategory && (
+                  <Label>
+                    <Link
+                      href={`/dashboard/library?category=${encodeURIComponent(item.category)}&subcategory=${encodeURIComponent(item.subcategory)}`}
+                    >
+                      <Button
+                        variant="link"
+                        className="flex cursor-pointer items-center text-muted-foreground tracking-wider hover:bg-transparent hover:text-primary p-0 text-xs uppercase h-4 font-normal"
+                      >
+                        {item.subcategory}
+                      </Button>
+                    </Link>
+                  </Label>
+                )}
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         <div>

@@ -30,7 +30,7 @@ export default function HeaderBackLink({
   };
 
   return (
-    <div className="-mt-4">
+    <div className="-mt-5">
       <Link
         href={href ?? "#"}
         onClick={handleBack}
@@ -39,7 +39,7 @@ export default function HeaderBackLink({
         // (mirroring handleBack) instead of pushing the static href.
         data-back-link=""
       >
-        <Button className="flex cursor-pointer items-center gap-1.5 bg-transparent text-muted-foreground text-xs hover:bg-transparent hover:text-primary">
+        <Button className="flex cursor-pointer items-center gap-1.5 bg-transparent text-muted-foreground text-xs hover:bg-transparent hover:text-primary pl-0">
           <ArrowLeft className="size-2.5" />
           Go Back
         </Button>

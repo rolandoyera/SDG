@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 import { Building2, Loader2, Mail, Phone, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
@@ -47,13 +48,30 @@ import {
   getVendorSocialHrefs,
 } from "./_components/vendor-links";
 
-export default function VendorsPage() {
+function VendorsContent() {
   const { profile, organizationId, loading: authLoading } = useAuth();
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeCategory, setActiveCategory] = useState("All");
   const [isAddOpen, setIsAddOpen] = useState(false);
+
+  // Category filter lives in the URL (?category=) so links elsewhere can
+  // deep-link into a filtered directory, and refresh/copied links land on
+  // the same view.
+  const searchParams = useSearchParams();
+  const activeCategory = searchParams.get("category") ?? "All";
+
+  const setActiveCategory = (category: string) => {
+    const params = new URLSearchParams(window.location.search);
+    if (category === "All") params.delete("category");
+    else params.set("category", category);
+    const qs = params.toString();
+    window.history.replaceState(
+      null,
+      "",
+      qs ? `${window.location.pathname}?${qs}` : window.location.pathname,
+    );
+  };
 
   const handleOpenAdd = () => setIsAddOpen(true);
 
@@ -227,6 +245,24 @@ export default function VendorsPage() {
         />
       </div>
     </>
+  );
+}
+
+// useSearchParams requires a Suspense boundary on a statically rendered route.
+export default function VendorsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-75 flex-col items-center justify-center gap-3">
+          <Loader2 className="size-8 animate-spin text-primary" />
+          <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
+            Loading Directory
+          </p>
+        </div>
+      }
+    >
+      <VendorsContent />
+    </Suspense>
   );
 }
 

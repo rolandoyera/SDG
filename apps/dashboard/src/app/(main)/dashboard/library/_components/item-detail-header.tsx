@@ -1,7 +1,5 @@
 "use client";
 
-import Link from "next/link";
-
 import {
   Forklift,
   MoreVertical,
@@ -18,11 +16,11 @@ import {
   DropdownMenuTrigger,
   TooltipDropdownMenu,
 } from "@/components/ui/dropdown-menu";
-import { Label } from "@/components/ui/label";
 import type { LibraryItem } from "@/lib/types";
 
 import HeaderBackLink from "../../_components/HeaderBackLink";
 import { H1 } from "@/components/ui/typography";
+import { NextLink } from "@/components/ui/next-link";
 
 interface ItemDetailHeaderProps {
   item: LibraryItem;
@@ -46,54 +44,35 @@ export function ItemDetailHeader({
         <div className="flex flex-col">
           <H1 className="mb-2">{item.name}</H1>
           {vendorName && (
-            <div className="flex items-center">
+            <div className="flex items-center gap-1">
               <Forklift className="size-3.5 shrink-0 text-primary" />
               {item.vendorId ? (
-                <Link href={`/dashboard/vendors/${item.vendorId}`}>
-                  <Button
-                    variant="link"
-                    className="text-foreground hover:text-primary p-0 pl-1 text-lg"
-                  >
-                    {vendorName}
-                  </Button>
-                </Link>
+                <NextLink href={`/dashboard/vendors/${item.vendorId}`}>
+                  {vendorName}
+                </NextLink>
               ) : (
                 ""
               )}
 
-              <div className="flex items-center gap-2 ml-3 mt-1">
+              <div className="flex items-center gap-2 ml-4 mt-1">
                 {item.category && (
-                  <div className="text-muted-foreground tracking-wider text-xs uppercase">
-                    <Link
-                      href={`/dashboard/library?category=${encodeURIComponent(item.category)}`}
-                    >
-                      <Button
-                        size="sm"
-                        variant="link"
-                        className="tracking-wider text-xs uppercase"
-                      >
-                        {item.category}
-                      </Button>
-                    </Link>
-                  </div>
+                  <NextLink
+                    variant="label"
+                    href={`/dashboard/library?category=${encodeURIComponent(item.category)}`}
+                  >
+                    {item.category}
+                  </NextLink>
                 )}
                 {item.subcategory && (
                   <ChevronRight size="10px" className="text-muted-foreground" />
                 )}
                 {item.subcategory && (
-                  <Label>
-                    <Link
-                      href={`/dashboard/library?category=${encodeURIComponent(item.category)}&subcategory=${encodeURIComponent(item.subcategory)}`}
-                    >
-                      <Button
-                        variant="link"
-                        size="sm"
-                        className="tracking-wider text-xs uppercase"
-                      >
-                        {item.subcategory}
-                      </Button>
-                    </Link>
-                  </Label>
+                  <NextLink
+                    variant="label"
+                    href={`/dashboard/library?category=${encodeURIComponent(item.category)}&subcategory=${encodeURIComponent(item.subcategory)}`}
+                  >
+                    {item.subcategory}
+                  </NextLink>
                 )}
               </div>
             </div>

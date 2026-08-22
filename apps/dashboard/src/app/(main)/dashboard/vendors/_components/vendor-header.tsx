@@ -1,8 +1,6 @@
 "use client";
 
 import { MoreVertical, Edit, Trash2, Tag } from "lucide-react";
-
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenuContent,
@@ -15,6 +13,7 @@ import { H1 } from "@/components/ui/typography";
 import type { Vendor } from "@/lib/types";
 import { DashboardImage } from "@/components/dashboard-image";
 import HeaderBackLink from "../../_components/HeaderBackLink";
+import { NextLink } from "@/components/ui/next-link";
 
 interface VendorHeaderProps {
   vendor: Vendor;
@@ -51,7 +50,12 @@ export function VendorHeader({
           {vendor.category && (
             <div className="flex items-center gap-1.5">
               <Tag className="size-2.5 text-primary" />
-              <Label> {vendor.category}</Label>
+              <NextLink
+                variant="label"
+                href={`/dashboard/vendors?category=${encodeURIComponent(vendor.category)}`}
+              >
+                {vendor.category}
+              </NextLink>
             </div>
           )}
         </div>

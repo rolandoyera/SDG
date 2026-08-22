@@ -71,6 +71,7 @@ export const SUBCATEGORIES: Record<string, string[]> = {
     "Track Lighting",
     "Recessed Lighting",
     "Accent Lighting",
+    "Outdoor",
     "Other",
   ],
   Kitchen: [
@@ -129,14 +130,7 @@ export const SUBCATEGORIES: Record<string, string[]> = {
     "Other",
   ],
   Decor: ["Art", "Mirrors", "Planters", "Vases", "Rugs", "Other"],
-  Outdoor: [
-    "Furniture",
-    "Lighting",
-    "Kitchen",
-    "Structures",
-    "Planters",
-    "Other",
-  ],
+  Outdoor: ["Furniture", "Kitchen", "Structures", "Planters", "Other"],
   "Construction Materials": [
     "Lumber",
     "Drywall",

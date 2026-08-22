@@ -7,13 +7,11 @@ import {
   FileText,
   FolderKanban,
   Forklift,
-  Gauge,
   Globe,
   Hammer,
   LayoutDashboard,
   ListTodo,
   type LucideIcon,
-  Megaphone,
   ReceiptText,
   ShoppingBag,
   UserPlus,
@@ -21,7 +19,7 @@ import {
 } from "lucide-react";
 import type { ComponentType } from "react";
 
-import { InstagramIcon } from "@/components/icons/icons";
+import { AdWordsIcon, GA4Icon, InstagramIcon } from "@/components/icons/icons";
 
 /** Sidebar icons can be lucide icons or our custom SVG icon components. */
 type NavIcon = LucideIcon | ComponentType<{ className?: string }>;
@@ -132,7 +130,7 @@ export const sidebarItems: NavGroup[] = [
       {
         title: "Analytics",
         url: "/dashboard/analytics",
-        icon: Gauge,
+        icon: GA4Icon,
       },
       {
         title: "SEO",
@@ -143,7 +141,7 @@ export const sidebarItems: NavGroup[] = [
       {
         title: "Google Ads",
         url: "/dashboard/ads",
-        icon: Megaphone,
+        icon: AdWordsIcon,
         isNew: true,
       },
     ],

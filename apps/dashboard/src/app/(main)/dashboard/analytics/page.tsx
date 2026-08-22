@@ -20,6 +20,7 @@ import {
   fetchCampaignOptions,
   testGA4Connection,
 } from "@/server/analytics-actions";
+import { GA4Icon } from "@/components/icons/icons";
 
 interface PageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
@@ -38,27 +39,30 @@ export default async function Page({ searchParams }: PageProps) {
   return (
     <div className="flex flex-col gap-6">
       <PageTitle title="Analytics" />
-      <PageHeader
-        title="Analytics"
-        description="Remove the guesswork and follow the data."
-        titleAccessory={
-          <span
-            role="img"
-            className="relative flex size-2.5"
-            title={connected ? "Connected" : "Not connected"}
-            aria-label={connected ? "Connected" : "Not connected"}
-          >
+      <div className="flex items-start gap-3">
+        <GA4Icon className="mt-1.25" size={24} />
+        <PageHeader
+          title="Analytics"
+          description="Remove the guesswork and follow the data."
+          titleAccessory={
             <span
-              className={`absolute inline-flex size-full animate-ping rounded-full opacity-75 ${
-                connected ? "bg-green-500" : "bg-red-500"
-              }`}
-            />
-            <span
-              className={`relative inline-flex size-2.5 rounded-full ${connected ? "bg-green-500" : "bg-red-500"}`}
-            />
-          </span>
-        }
-      />
+              role="img"
+              className="relative flex size-2.5"
+              title={connected ? "Connected" : "Not connected"}
+              aria-label={connected ? "Connected" : "Not connected"}
+            >
+              <span
+                className={`absolute inline-flex size-full animate-ping rounded-full opacity-75 ${
+                  connected ? "bg-green-500" : "bg-red-500"
+                }`}
+              />
+              <span
+                className={`relative inline-flex size-2.5 rounded-full ${connected ? "bg-green-500" : "bg-red-500"}`}
+              />
+            </span>
+          }
+        />
+      </div>
 
       <Tabs defaultValue="overview" className="flex flex-col gap-6">
         <div className="flex flex-wrap items-center justify-between gap-3">

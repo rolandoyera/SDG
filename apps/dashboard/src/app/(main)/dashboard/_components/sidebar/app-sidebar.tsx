@@ -6,6 +6,7 @@ import Link from "next/link";
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -17,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { sidebarItems } from "@/navigation/sidebar/sidebar-items";
 
 import { NavMain } from "./nav-main";
+import { TenantSwitcher } from "./tenant-switcher";
 
 type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
   brand: AppBrand;
@@ -76,6 +78,9 @@ export function AppSidebar({ brand, ...props }: AppSidebarProps) {
       <SidebarContent>
         <NavMain items={sidebarItems} />
       </SidebarContent>
+      <SidebarFooter>
+        <TenantSwitcher />
+      </SidebarFooter>
     </Sidebar>
   );
 }

@@ -12,7 +12,6 @@ import {
 import { cn } from "@/lib/utils";
 import { getRequestAppBrand } from "@/server/app-brand";
 
-import { ActiveOrgBanner } from "./_components/active-org-banner";
 import { DbStatsProbe } from "./_components/db-stats-probe";
 import { LayoutControls } from "./_components/sidebar/layout-controls";
 import { NotificationBell } from "./_components/sidebar/notification-bell";
@@ -65,7 +64,6 @@ export default async function Layout({
             </div>
           </div>
         </header>
-        <ActiveOrgBanner />
         {/* Pages can set data-content-padding="false" to render full-bleed app layouts. */}
         <div className="h-full p-4 has-data-[content-padding=false]:p-0 md:p-6 md:has-data-[content-padding=false]:p-0">
           {children}

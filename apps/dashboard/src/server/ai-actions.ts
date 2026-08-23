@@ -691,9 +691,9 @@ async function extractProductViaUrlContext(
 
   // Static block first, URL last — same cache-prefix reasoning as the markdown
   // path in autofillProductFromUrl.
-  const prompt = `You are an expert product data extractor. Use the url_context tool to retrieve the product page at the URL supplied after these instructions, then extract the exact product specifications to populate a library item form.
+  const prompt = `You are populating a product record in an interior design CRM from a manufacturer or retailer product page; designers use these records for sourcing, specifications, and client proposals. Use the url_context tool to retrieve the page at the URL supplied after these instructions, identify the exact product and selected variant shown there, and extract its specifications to populate a library item form.
 
-Return the following specifications in the requested JSON structure. If a field cannot be found, use an empty string or omit it.
+Return the following specifications in the requested JSON structure. If a field cannot be found or verified on the product page, return the empty value required by the JSON schema. Never guess or infer unsupported product details.
 Specifically:
 ${productFieldInstructions(imageInstruction)}
 
@@ -1276,9 +1276,9 @@ export async function autofillProductFromUrl(
               // on repeat calls, and any field added to it later inherits that
               // discount instead of adding full-price tokens to every scrape.
               // Do not move variable content back above the static block.
-              text: `You are an expert product data extractor. Extract the exact product specifications to populate a library item form, from the product page supplied after these instructions (a Markdown snapshot of an e-commerce website).
+              text: `You are populating a product record in an interior design CRM from a manufacturer or retailer product page; designers use these records for sourcing, specifications, and client proposals. From the product page supplied after these instructions (a Markdown snapshot of an e-commerce website), identify the exact product and selected variant shown, and extract its specifications to populate a library item form.
 
-Return the following specifications in the requested JSON structure. If a field cannot be found, use an empty string or omit it.
+Return the following specifications in the requested JSON structure. If a field cannot be found or verified on the product page, return the empty value required by the JSON schema. Never guess or infer unsupported product details.
 Specifically:
 ${productFieldInstructions(
   `The 'Candidate Images' array below is pre-ranked best-first. Select the top 1 to ${MAX_IMAGES} direct product image URLs from that array, keeping the very first suitable product image as the primary cover. If the 'Candidate Images' array is incomplete (contains fewer than ${MAX_IMAGES} valid product gallery images) or empty, you MUST also extract valid absolute product image URLs directly from the Markdown page content to complete the list up to ${MAX_IMAGES} images. Strongly prefer images that represent different views/details of the product. CRITICAL: You must NEVER under any circumstances return base64-encoded image data URLs (e.g. data:image/jpeg;base64,...). Only return absolute HTTP or HTTPS URLs.`,

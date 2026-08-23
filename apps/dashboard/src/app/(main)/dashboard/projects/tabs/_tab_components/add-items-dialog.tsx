@@ -318,7 +318,7 @@ export function AddItemsDialog({
                 />
               </div>
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="h-9 w-[180px]">
+                <SelectTrigger className="h-9 w-45">
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -393,7 +393,7 @@ export function AddItemsDialog({
                         </span>
                       </div>
                       <div className="flex shrink-0 items-center gap-6">
-                        <div className="flex min-w-[70px] flex-col items-end gap-0.5">
+                        <div className="flex min-w-17.5 flex-col items-end gap-0.5">
                           <Label>Total</Label>
                           <span className="font-bold text-primary text-sm">
                             {formatCurrency(qty * item.sellingPrice)}
@@ -677,7 +677,7 @@ export function AddItemsDialog({
                           <Label>Sourcing & PO Description</Label>
                           <Textarea
                             placeholder="Item specifications details..."
-                            className="min-h-[80px]"
+                            className="min-h-20"
                             {...field}
                           />
                           {fieldState.invalid && (

@@ -4,14 +4,16 @@
 export const SCRAPER_CONFIG = {
   maxCharacters: 100000,
   maxImageCandidates: 15,
-  primaryModel: "gemini-3.1-flash-lite",
-  fallbackModel: "gemini-2.5-flash",
+  // Trialing gemini-3.5-flash-lite (since 2026-08-22); previous primary
+  // gemini-3.1-flash-lite demoted to fallback for the trial.
+  primaryModel: "gemini-3.5-flash-lite",
+  fallbackModel: "gemini-3.1-flash-lite",
   /**
    * Model for the url_context fallback when the target site blocks the scraper.
    * Must be a Gemini 3.x model: 2.5-era models reject tools combined with
    * `responseMimeType: "application/json"` (HTTP 400).
    */
-  urlContextModel: "gemini-3.1-flash-lite",
+  urlContextModel: "gemini-3.5-flash-lite",
   jinaReaderUrl: "https://r.jina.ai/",
 };
 

@@ -677,7 +677,7 @@ export function ProjectItems({ project: initialProject }: ProjectItemsProps) {
 
   if (loading || authLoading) {
     return (
-      <div className="flex min-h-[300px] flex-col items-center justify-center gap-3">
+      <div className="flex min-h-75 flex-col items-center justify-center gap-3">
         <Loader2 className="size-8 animate-spin text-primary" />
         <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
           Retrieving Items Setup
@@ -890,7 +890,7 @@ export function ProjectItems({ project: initialProject }: ProjectItemsProps) {
                 </CardHeader>
 
                 {/* Items List Inside Room */}
-                <CardContent className="max-h-[850px] min-h-[600px] flex-1 overflow-y-auto p-0">
+                <CardContent className="max-h-212.5 min-h-150 flex-1 overflow-y-auto p-0">
                   {itemsInRoom.length === 0 ? (
                     <div className="flex flex-col items-center justify-center px-4 py-12 text-center text-muted-foreground">
                       <ShoppingBag className="mb-2 size-8 text-muted-foreground/30" />
@@ -998,7 +998,7 @@ export function ProjectItems({ project: initialProject }: ProjectItemsProps) {
           {/* Create Room Box trigger */}
           <Card
             onClick={openCreateRoom}
-            className="group flex min-h-[300px] cursor-pointer flex-col items-center justify-center border-dashed p-8 text-center transition-all hover:border-primary/40 hover:bg-primary/5"
+            className="group flex min-h-75 cursor-pointer flex-col items-center justify-center border-dashed p-8 text-center transition-all hover:border-primary/40 hover:bg-primary/5"
           >
             <div className="mb-3 flex size-12 items-center justify-center rounded-full border border-dashed text-muted-foreground transition-colors group-hover:border-primary/50 group-hover:text-primary">
               <FolderPlus className="size-6" />
@@ -1112,7 +1112,7 @@ export function ProjectItems({ project: initialProject }: ProjectItemsProps) {
                   <Textarea
                     id="room-description"
                     placeholder="e.g. Modern airy styling with custom flooring specifications."
-                    className="min-h-[80px] resize-none"
+                    className="min-h-20 resize-none"
                     {...field}
                   />
                   {fieldState.invalid && (

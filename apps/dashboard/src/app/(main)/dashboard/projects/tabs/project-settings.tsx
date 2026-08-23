@@ -169,7 +169,7 @@ export function ProjectSettings({ project }: { project: Project }) {
         <SectionHeader label="Timelines" />
         <Card
           variant="panel"
-          className="flex min-h-[160px] items-center justify-center border-dashed"
+          className="flex min-h-40 items-center justify-center border-dashed"
         >
           <p className="text-muted-foreground text-sm">
             Timeline configuration coming soon.
@@ -282,7 +282,7 @@ function ImagerySetCard({
 
   // Unlinked: no card chrome — just the dashed empty state.
   return (
-    <div className="flex min-h-[220px] flex-col items-center justify-center gap-3 rounded border border-dashed p-8 text-center">
+    <div className="flex min-h-55 flex-col items-center justify-center gap-3 rounded border border-dashed p-8 text-center">
       <Folder className="size-6 text-muted-foreground" />
       <p className="max-w-xs text-muted-foreground text-sm">
         {IMAGERY_SET_HINT}

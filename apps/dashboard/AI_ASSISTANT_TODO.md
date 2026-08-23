@@ -1,8 +1,8 @@
 # AI Assistant (CRM Discussion Agent) — Plan
 
-Goal: an in-app chat assistant that lets a user discuss what's already in the CRM —
-clients, projects, contracts, activities, library items, and gathered SEO/analytics
-data (GSC positions, GA4, Instagram) — from a panel inside the dashboard.
+## AI Assistant Goal
+
+AI Assistant turns messy, time-consuming information into accurate, reviewable CRM work so design studios spend less time on administration and more time serving clients.
 
 Status as of 2026-08-14: **not started — architecture decided, nothing built.**
 Existing AI usage (the library/vendor autofill scrapers in

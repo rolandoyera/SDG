@@ -357,6 +357,66 @@ function extractProductImagesFromHtml(html: string, base: string): string[] {
   return ordered;
 }
 
+interface VariantLabelGroup {
+  group: string;
+  labels: string[];
+}
+
+/**
+ * Selectable option labels (finish/color/size pickers) from the raw page HTML.
+ * Markdown conversion drops these entirely on BigCommerce storefronts: a swatch
+ * renders as `<span title="Champagne" style="background-image:…">` inside a
+ * `[data-product-attribute]` group, so the label survives only as a `title`
+ * attribute — finearthl.com's "Finish Options" reached the model as nothing but
+ * SKU-coded image filenames. Harvested here and appended to the prompt so the
+ * model can name variants properly instead of falling back to those codes.
+ */
+function extractVariantGroupsFromHtml(html: string): VariantLabelGroup[] {
+  const groups: VariantLabelGroup[] = [];
+  try {
+    const $ = cheerio.load(html);
+    $("[data-product-attribute]").each((_, el) => {
+      const $el = $(el);
+      // Group text nests a "(Required)"/"(Optional)" marker span — drop it.
+      const group = $el
+        .find("label.form-label")
+        .first()
+        .text()
+        .replace(/\s+/g, " ")
+        .replace(/\((required|optional)\)/i, "")
+        .replace(/[:\s]+$/, "")
+        .trim();
+      const labels: string[] = [];
+      const seen = new Set<string>();
+      const addLabel = (raw: string) => {
+        const label = raw.replace(/\s+/g, " ").trim();
+        // Skip empties, "-- Please Choose --" placeholders, and anything too
+        // long to be an option name (stray copy swept up by .text()).
+        if (!label || label.length > 60) return;
+        if (/choose|select an? |please pick/i.test(label)) return;
+        if (seen.has(label.toLowerCase())) return;
+        seen.add(label.toLowerCase());
+        labels.push(label);
+      };
+      // Swatches carry the name only in a title attribute; rectangle/radio
+      // options carry it as text; set-select groups as <option> elements.
+      $el.find(".form-option").each((_, opt) => {
+        const $opt = $(opt);
+        addLabel($opt.find("[title]").first().attr("title") ?? $opt.text());
+      });
+      $el.find("select option").each((_, opt) => {
+        addLabel($(opt).text());
+      });
+      if (labels.length > 0) {
+        groups.push({ group: group || "Options", labels: labels.slice(0, 30) });
+      }
+    });
+  } catch {
+    return [];
+  }
+  return groups.slice(0, 4);
+}
+
 /** Image URLs that are never product photos (nav chrome, payment badges, trackers, …). */
 const JUNK_IMAGE_PATTERNS =
   /logo|icon|avatar|sprite|banner|pixel|social|facebook|instagram|pinterest|twitter|linkedin|tracker|nav|footer|header|loading|\.svg|\.gif|analytics|checkout|cart|adroll|doubleclick|yotpo|trust|badge|payment|paypal|visa|mastercard|amex|applepay|googlepay|shipping|delivery|guarante|refund|secur|padlock|warranty|search-menu|placeholder/i;
@@ -404,7 +464,7 @@ ${Object.entries(SUBCATEGORIES)
 - msrp: The retail price/selling price listed on the page. Parse as a clean float number (e.g. 1299.00). Do not include currency symbols.
 - sku: The model number, article number, model name, or inventory SKU of the product if listed (e.g. "42801140").
 - imageUrls: ${imageUrlsInstruction}
-- variantOptions: If the product is offered in multiple selectable variants (finishes, colors, sizes, configurations) AND the URL does NOT already identify one exact variant (e.g. a variant/option id in the query string, or the option name in the URL slug), list EVERY selectable variant as an object with ALL of these fields: label (the option name a shopper picks, e.g. "Outdoor Bronze"), sku (that exact variant's model/SKU number, else empty string), finishColor (the variant's finish/color, else empty string), and imageUrl (the absolute http(s) URL of the image depicting that exact variant, else empty string). Gallery image alt text and file names frequently encode each variant — e.g. an image with alt "Waterfall 100152-8 - Outdoor Bronze" whose URL contains "100152-8" gives you that variant's sku (100152-8), finish (Outdoor Bronze), and imageUrl in one place; when the variants are finishes/colors, the finish name from the label MUST also be copied into finishColor, and when a variant-specific image exists its URL MUST be returned in imageUrl (prefer the largest rendition when several sizes of the same image appear). If the URL clearly identifies a single variant, or the product has no selectable variants, return an empty array. The top-level fields above must still describe the default/currently-shown variant.
+- variantOptions: If the product is offered in multiple selectable variants (finishes, colors, sizes, configurations) AND the URL does NOT already identify one exact variant (e.g. a variant/option id in the query string, or the option name in the URL slug), list EVERY selectable variant as an object with ALL of these fields: label (the option name a shopper picks, e.g. "Outdoor Bronze"), sku (that exact variant's model/SKU number, else empty string), finishColor (the variant's finish/color, else empty string), and imageUrl (the absolute http(s) URL of the image depicting that exact variant, else empty string). Gallery image alt text and file names frequently encode each variant — e.g. an image with alt "Waterfall 100152-8 - Outdoor Bronze" whose URL contains "100152-8" gives you that variant's sku (100152-8), finish (Outdoor Bronze), and imageUrl in one place; when the variants are finishes/colors, the finish name from the label MUST also be copied into finishColor, and when a variant-specific image exists its URL MUST be returned in imageUrl (prefer the largest rendition when several sizes of the same image appear). If the URL clearly identifies a single variant, or the product has no selectable variants, return an empty array. The top-level fields above must still describe the default/currently-shown variant. A "Selectable product options" block may follow the page content: those labels were harvested directly from the page's option pickers and are authoritative — build variantOptions from them (one entry per label of the variant-defining group), copy each label of a finish/color group into that variant's finishColor, and attach a sku or imageUrl to a label only when the page content clearly links them (matching alt text or shared codes); otherwise leave those fields as empty strings.
 - specSheetUrl: The absolute http(s) URL of the product's downloadable spec sheet PDF, if the page links one. Look for links labeled "Spec Sheet", "Specification Sheet", "Specifications", "Cut Sheet", or "Tear Sheet"; if none exists, a link labeled "Reference Drawings" (or "Dimensional Drawing"/"Line Drawing") counts instead — a spec-sheet-labeled link always takes priority over a drawing. The URL should point directly at a PDF file (usually ending in .pdf). Empty string when the page links neither.
 - confidence: An object with keys matching each of the parsed text/numeric fields above (name, sku, category, subcategory, description, finishColor, manufacturer, materials, dimensions, msrp, imageUrls). For each field, return a float confidence value between 0.0 (completely uncertain) and 1.0 (absolutely certain) based on how clearly and unambiguously the information was stated in the page content.`;
 }
@@ -1196,6 +1256,23 @@ export async function autofillProductFromUrl(
       `[AI Autofill] HTML-derived image candidates: ${htmlImages.length}`,
     );
 
+    // Variant picker labels survive only in the raw HTML (see
+    // extractVariantGroupsFromHtml) — hand them to the model alongside the
+    // markdown, which lost them.
+    const variantGroups = rawHtml ? extractVariantGroupsFromHtml(rawHtml) : [];
+    const variantGroupBlock =
+      variantGroups.length > 0
+        ? `\n\nSelectable product options harvested from the page HTML (the Markdown conversion dropped these labels):\n${variantGroups
+            .map((g) => `${g.group}: ${g.labels.join(", ")}`)
+            .join("\n")}`
+        : "";
+    if (variantGroups.length > 0) {
+      console.log(
+        `[AI Autofill] HTML-derived variant groups:`,
+        variantGroups.map((g) => `${g.group} (${g.labels.length})`).join("; "),
+      );
+    }
+
     // Merge HTML-derived (priority) ahead of markdown candidates, collapsing size
     // variants of the same photo so the largest/canonical version wins each slot.
     const mergedImages: string[] = [];
@@ -1293,7 +1370,7 @@ Page Content:
 ${optimizedMarkdown}
 
 Candidate Images found on the page (measured, ranked largest-first):
-${candidateImageBlock}`,
+${candidateImageBlock}${variantGroupBlock}`,
             },
           ],
         },

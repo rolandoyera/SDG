@@ -213,10 +213,18 @@ state** — nothing is saved until the user submits, and the mirror step (above)
   (Shopify `?variant=`, WooCommerce `attribute*\*`, sku params), not just by the prompt: the model
 hedges and returns the full list when it can't map an opaque variant id to an option (seen on
 arhaus.com). Variant image URLs get the same measured-original upgrade as gallery images.
+Variant NAMES often never reach the markdown at all: BigCommerce swatches render the label only
+as a `title` attribute on a CSS-background span, which Jina/Firecrawl markdown drops (on
+finearthl.com the model saw nothing but SKU-coded image filenames). The markdown tier therefore
+harvests `[data-product-attribute]` option labels from the raw HTML
+(`extractVariantGroupsFromHtml`) and appends them to the prompt as a "Selectable product options"
+block, which the field instructions treat as the authoritative label source.
 When more than one comes back, the hook exposes `variantOptions`/`selectedVariantLabel`/
 `applyVariant`and the dialog shows a "which one did you select?" chip picker under the sourcing
 link. A pick resolves into the existing flat fields (sku, finishColor, image promoted to cover)
-and clears the confidence entries it overwrites, same as a manual edit. The options are transient
+and clears the confidence entries it overwrites, same as a manual edit — when the model left a
+variant's finishColor empty its label stands in, unless the label is just the SKU repeated
+(then finish stays blank; a SKU is not a finish). The options are transient
 UI state — never persisted to`LibraryItem`, cleared on `reset` and on every re-scrape.
 
 - **AI re-scrape preserves manual uploads.** `manualImageUrls` tracks user-uploaded images (always

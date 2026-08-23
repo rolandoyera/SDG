@@ -336,10 +336,14 @@ export function useLibraryItemForm() {
       // Keeping the previous variant's finish after a pick is guaranteed wrong,
       // so when the model left finishColor empty the label stands in — for
       // finish-style variants it IS the finish, and anywhere else it's at least
-      // visibly editable rather than silently stale.
+      // visibly editable rather than silently stale. Except when the label is
+      // just the SKU repeated (pages whose only variant evidence is SKU-coded
+      // image names): a SKU carries no finish information, so leave it blank.
       const finishColor = option.finishColor?.trim()
         ? option.finishColor
-        : option.label;
+        : option.label !== option.sku
+          ? option.label
+          : "";
       setFormData((prev) => {
         const confidence = { ...prev.aiMetadata?.confidence };
         if (option.sku) delete confidence.sku;

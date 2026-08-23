@@ -33,7 +33,7 @@ import { useLibraryItemForm } from "./_components/use-library-item-form";
 import PageHeader from "@/components/page-header";
 
 function LibraryContent() {
-  const { profile, organizationId, loading: authLoading } = useAuth();
+  const { organizationId, loading: authLoading } = useAuth();
   const [items, setItems] = useState<LibraryItem[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
@@ -99,13 +99,16 @@ function LibraryContent() {
   };
 
   const handleSubmit = async () => {
-    if (!profile) return;
+    // The ACTIVE org, not profile.organizationId (the HOME org): a SuperAdmin
+    // working inside a tenant must create the item in that tenant, or it lands
+    // invisible in their home org (fetches here already query the active org).
+    if (!organizationId) return;
     setSubmitting(true);
     try {
       // Mirror any external (AI-sourced) images into Firebase so the item self-hosts them.
       const { imageUrls, coverImageUrl, coverImagePath, images, specSheet } =
         await mirrorExternalImagesToFirebase(
-          profile.organizationId,
+          organizationId,
           {
             imageUrls: form.formData.imageUrls,
             coverImageUrl: form.formData.coverImageUrl,
@@ -123,7 +126,7 @@ function LibraryContent() {
           coverImagePath,
           images,
           specSheet,
-          organizationId: profile.organizationId,
+          organizationId,
         },
         form.tempItemId,
       );

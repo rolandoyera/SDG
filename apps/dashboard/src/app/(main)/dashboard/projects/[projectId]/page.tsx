@@ -205,11 +205,13 @@ export default function ProjectDetailPage({ params }: PageProps) {
   };
 
   const handleAddProposal = async () => {
-    if (!profile || !project) return;
+    if (!project) return;
     setAddingProposal(true);
     try {
       const created = await addProposal({
-        organizationId: profile.organizationId,
+        // A proposal lives in its project's org — never the caller's home org
+        // (profile.organizationId), which diverges for a switched SuperAdmin.
+        organizationId: project.organizationId,
         projectId: project.projectId,
         clientId: project.clientId,
         title: `Draft - ${project.name}`,

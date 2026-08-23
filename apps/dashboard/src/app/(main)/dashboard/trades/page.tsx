@@ -53,7 +53,7 @@ function tradeGradient(name: string) {
 }
 
 export default function TradesPage() {
-  const { profile, organizationId, loading: authLoading } = useAuth();
+  const { organizationId, loading: authLoading } = useAuth();
   const [trades, setTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -86,14 +86,16 @@ export default function TradesPage() {
   }, [organizationId, authLoading]);
 
   const handleAdd = async (data: TradeFormData, customTradeId?: string) => {
-    if (!profile) return;
+    // The ACTIVE org, not profile.organizationId (the HOME org) — a SuperAdmin
+    // working inside a tenant must create the trade in that tenant.
+    if (!organizationId) return;
     const tradeId =
       customTradeId ?? `trade-${Math.random().toString(36).substr(2, 9)}`;
     try {
       const created = await addTrade(
         {
           ...data,
-          organizationId: profile.organizationId,
+          organizationId,
         },
         tradeId,
       );

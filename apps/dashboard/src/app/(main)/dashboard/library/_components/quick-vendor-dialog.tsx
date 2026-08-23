@@ -46,7 +46,9 @@ export function QuickVendorDialog({
   onOpenChange,
   onCreated,
 }: QuickVendorDialogProps) {
-  const { profile } = useAuth();
+  // The ACTIVE org, not profile.organizationId (the HOME org) — a SuperAdmin
+  // working inside a tenant must create the vendor in that tenant.
+  const { organizationId } = useAuth();
   const {
     control,
     handleSubmit,
@@ -63,7 +65,7 @@ export function QuickVendorDialog({
   }, [open, reset]);
 
   const onSubmit = async (data: QuickVendorFormData) => {
-    if (!profile) return;
+    if (!organizationId) return;
     try {
       const created = await addVendor({
         name: data.name.trim(),
@@ -72,7 +74,7 @@ export function QuickVendorDialog({
         repEmail: "",
         repPhone: "",
         notes: "Quick-created during Catalog Item entry.",
-        organizationId: profile.organizationId,
+        organizationId,
       });
       onCreated(created);
       onOpenChange(false);

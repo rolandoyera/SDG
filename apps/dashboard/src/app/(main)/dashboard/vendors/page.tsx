@@ -49,7 +49,7 @@ import {
 } from "./_components/vendor-links";
 
 function VendorsContent() {
-  const { profile, organizationId, loading: authLoading } = useAuth();
+  const { organizationId, loading: authLoading } = useAuth();
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -99,12 +99,14 @@ function VendorsContent() {
   }, [organizationId, authLoading]);
 
   const handleAdd = async (data: VendorFormData, customVendorId?: string) => {
-    if (!profile) return;
+    // The ACTIVE org, not profile.organizationId (the HOME org) — a SuperAdmin
+    // working inside a tenant must create the vendor in that tenant.
+    if (!organizationId) return;
     const vendorId =
       customVendorId ?? `vendor-${Math.random().toString(36).substr(2, 9)}`;
     try {
       const mirrored = await mirrorVendorImagesToFirebase(
-        profile.organizationId,
+        organizationId,
         {
           logoUrl: data.logoUrl,
           logoPath: data.logoPath,
@@ -120,7 +122,7 @@ function VendorsContent() {
           logoPath: mirrored.logoPath,
           heroImageUrl: mirrored.heroImageUrl,
           heroImagePath: mirrored.heroImagePath,
-          organizationId: profile.organizationId,
+          organizationId,
         },
         vendorId,
       );

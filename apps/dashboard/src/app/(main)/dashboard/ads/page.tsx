@@ -11,6 +11,7 @@ import {
   AdsKeywordsSection,
   AdsLocationsSection,
   AdsSearchTermsSection,
+  AdsZipLocationsSection,
 } from "./_components/ads-table-sections";
 import { AdsToolbar } from "./_components/ads-toolbar";
 import { AdsTrend } from "./_components/ads-trend";
@@ -89,7 +90,10 @@ export default async function Page({ searchParams }: PageProps) {
         </TabsContent>
 
         <TabsContent value="locations">
-          <AdsLocationsSection range={range} />
+          <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
+            <AdsLocationsSection range={range} />
+            <AdsZipLocationsSection range={range} />
+          </div>
         </TabsContent>
       </Tabs>
     </div>

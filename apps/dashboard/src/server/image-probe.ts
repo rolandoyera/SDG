@@ -272,6 +272,32 @@ export async function probeIsPdf(url: string): Promise<boolean> {
   }
 }
 
+/**
+ * True when the URL actually serves something decodable as an image. Pages
+ * DECLARE logo sources without serving them — Perigold's HTML names an
+ * apple-touch-icon whose path 404s, and a dead URL offered to the model comes
+ * back as the chosen logoUrl — so verify before offering. Accepts the raster
+ * formats parseDimensions reads, plus SVG and ICO (both common for logos,
+ * neither carries a raster header).
+ */
+export async function probeIsImage(url: string): Promise<boolean> {
+  try {
+    const head = await readHeadBytes(url, HEADER_BYTES);
+    if (!head || head.buf.length === 0) return false;
+    if (parseDimensions(head.buf)) return true;
+    const start = head.buf
+      .subarray(0, 256)
+      .toString("utf8")
+      .trimStart()
+      .toLowerCase();
+    if (start.startsWith("<?xml") || start.startsWith("<svg")) return true;
+    // ICO magic: 00 00 01 00
+    return head.buf.length >= 4 && head.buf.readUInt32LE(0) === 0x00010000;
+  } catch {
+    return false; // unreachable, timeout, or non-image
+  }
+}
+
 async function probe(url: string): Promise<ImageCandidate | null> {
   try {
     const head = await readHeadBytes(url, HEADER_BYTES);

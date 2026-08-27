@@ -10,42 +10,44 @@ function getErrorMessage(error: unknown, fallback: string) {
 const CONFIG_MISSING_ERROR =
   "Google Search Console is not configured for this organization yet.";
 
-// Search Console data lags ~2-3 days; querying up to "today" returns empty rows
-// for the most recent days, so we end the window a few days back.
-const DATA_DELAY_DAYS = 3;
-
-function formatDate(date: Date): string {
-  return date.toISOString().split("T")[0];
+// GSC keys its data to America/Los_Angeles calendar days.
+function ptToday(): string {
+  return new Date().toLocaleDateString("en-CA", {
+    timeZone: "America/Los_Angeles",
+  });
 }
 
-function getDateRange(range?: string): { startDate: string; endDate: string } {
-  const end = new Date();
-  end.setDate(end.getDate() - DATA_DELAY_DAYS);
+function shiftDays(isoDay: string, days: number): string {
+  const d = new Date(`${isoDay}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
 
-  // Custom picker ranges ("YYYY-MM-DD_YYYY-MM-DD") pass through, with the end
-  // clamped to the lagged window. A selection entirely inside the lag window
-  // (e.g. today/yesterday) has no data yet — fall through to the 28-day default.
+// Ranges pass through exactly as picked; days GSC hasn't published yet simply
+// return no rows (queries request dataState "all", so fresh data covers up to
+// ~a few hours ago). Never substitute a different window than the label shows.
+function getDateRange(range?: string): { startDate: string; endDate: string } {
+  const today = ptToday();
+
   const custom = /^(\d{4}-\d{2}-\d{2})_(\d{4}-\d{2}-\d{2})$/.exec(range ?? "");
-  if (custom) {
-    const laggedEnd = formatDate(end);
-    const startDate = custom[1];
-    const endDate = custom[2] < laggedEnd ? custom[2] : laggedEnd;
-    if (startDate <= endDate) return { startDate, endDate };
+  if (custom && custom[1] <= custom[2]) {
+    return { startDate: custom[1], endDate: custom[2] };
+  }
+
+  if (range === "yesterday") {
+    const yesterday = shiftDays(today, -1);
+    return { startDate: yesterday, endDate: yesterday };
+  }
+  if (range === "year-to-date") {
+    return { startDate: `${today.slice(0, 4)}-01-01`, endDate: today };
   }
 
   let days = 28;
-  if (range === "last-7-days") days = 7;
+  if (range === "today") days = 1;
+  else if (range === "last-7-days") days = 7;
   else if (range === "last-3-months") days = 90;
-  else if (range === "year-to-date") {
-    return {
-      startDate: `${end.getFullYear()}-01-01`,
-      endDate: formatDate(end),
-    };
-  }
 
-  const start = new Date(end);
-  start.setDate(end.getDate() - days + 1);
-  return { startDate: formatDate(start), endDate: formatDate(end) };
+  return { startDate: shiftDays(today, -(days - 1)), endDate: today };
 }
 
 /**
@@ -73,7 +75,7 @@ export interface GSCConnectionResult {
   configMissing: boolean;
 }
 
-/** Lightweight validation: total clicks over the last 7 (available) days. */
+/** Lightweight validation: total clicks over the last 7 days. */
 export async function testGSCConnection(): Promise<GSCConnectionResult> {
   const siteUrl = await getConfiguredSiteUrl();
   if (!siteUrl) {
@@ -86,7 +88,7 @@ export async function testGSCConnection(): Promise<GSCConnectionResult> {
 
     const res = await client.searchanalytics.query({
       siteUrl,
-      requestBody: { startDate, endDate, dimensions: [] },
+      requestBody: { startDate, endDate, dimensions: [], dataState: "all" },
     });
 
     const totalClicks = res.data.rows?.[0]?.clicks ?? 0;
@@ -130,7 +132,7 @@ export async function fetchSearchTotals(
 
     const res = await client.searchanalytics.query({
       siteUrl,
-      requestBody: { startDate, endDate, dimensions: [] },
+      requestBody: { startDate, endDate, dimensions: [], dataState: "all" },
     });
 
     const row = res.data.rows?.[0];
@@ -181,6 +183,7 @@ export async function fetchTopSearchQueries(
         endDate,
         dimensions: ["query"],
         rowLimit: 1000,
+        dataState: "all",
       },
     });
 
@@ -234,6 +237,7 @@ export async function fetchTopSearchPages(
         endDate,
         dimensions: ["page"],
         rowLimit: 1000,
+        dataState: "all",
       },
     });
 

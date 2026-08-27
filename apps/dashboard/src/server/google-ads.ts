@@ -78,6 +78,8 @@ export interface GoogleAdsRow {
     keyword?: { info?: { text?: string } };
     /** Resource name, e.g. "geoTargetConstants/1015027". */
     geoTargetCity?: string;
+    /** Resource name, e.g. "geoTargetConstants/9011965". */
+    geoTargetPostalCode?: string;
   };
   metrics?: {
     impressions?: string;

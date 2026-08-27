@@ -201,7 +201,11 @@ function buildKpi(
     previousValue: format(previous),
   };
   if (previous === 0) {
-    return { ...base, change: current === 0 ? "0.0%" : "New", isPositive: true };
+    return {
+      ...base,
+      change: current === 0 ? "0.0%" : "New",
+      isPositive: true,
+    };
   }
 
   const pct = ((current - previous) / previous) * 100;
@@ -634,8 +638,9 @@ export async function excludeSearchTerm(input: {
 // ---------------------------------------------------------------------------
 
 export interface AdsLocationRow {
+  /** City name, or the ZIP code at "zip" granularity. */
   city: string;
-  /** "Florida, United States" — from the geo target's canonical name. */
+  /** "Florida, United States" — or, for a ZIP, "Oakland Park, Florida". */
   region: string;
   /** False = the user was outside the campaign's targeted locations. */
   inTargetedArea: boolean;
@@ -649,23 +654,31 @@ export interface AdsLocationRow {
 }
 
 /**
- * Where people who saw the ads physically were (user_location_view), by city.
- * Cities arrive as geo_target_constant resource names, so a second query
- * resolves them to display names.
+ * Where people who saw the ads physically were (user_location_view), by city
+ * or by ZIP code. Locations arrive as geo_target_constant resource names, so
+ * a second query resolves them to display names.
  */
 export async function fetchAdsLocations(
   range?: string,
+  granularity: "city" | "zip" = "city",
 ): Promise<{ success: boolean; data: AdsLocationRow[]; error?: string }> {
   const customerId = await getConfiguredCustomerId();
   if (!customerId)
     return { success: false, data: [], error: CONFIG_MISSING_ERROR };
 
   const { start, end } = rangeToDates(range);
+  // ZIP mode also pulls the city segment so each ZIP can be labeled with the
+  // city its traffic actually resolved to — the geo hierarchy is no help here
+  // (a postal code's parent_geo_target is the state, not a city).
+  const segmentFields =
+    granularity === "zip"
+      ? "segments.geo_target_postal_code, segments.geo_target_city"
+      : "segments.geo_target_city";
 
   try {
     const rows = await searchGoogleAds(
       customerId,
-      `SELECT user_location_view.targeting_location, segments.geo_target_city,
+      `SELECT user_location_view.targeting_location, ${segmentFields},
               metrics.impressions, metrics.clicks, metrics.cost_micros,
               metrics.conversions
        FROM user_location_view
@@ -674,70 +687,108 @@ export async function fetchAdsLocations(
        LIMIT 200`,
     );
 
-    // Rows repeat per (country, targeted) split — aggregate per city + flag.
+    // Rows repeat per (country, targeted) split — aggregate per location + flag.
     interface Bucket {
-      cityId: string;
+      locationId: string;
       inTargetedArea: boolean;
       impressions: number;
       clicks: number;
       cost: number;
       conversions: number;
+      /** ZIP mode: impressions per resolved city, to pick the dominant one. */
+      cityVotes: Map<string, number>;
     }
     const buckets = new Map<string, Bucket>();
     for (const row of rows) {
-      const cityId =
-        row.segments?.geoTargetCity?.replace("geoTargetConstants/", "") ?? "";
+      const geoRef =
+        granularity === "zip"
+          ? row.segments?.geoTargetPostalCode
+          : row.segments?.geoTargetCity;
+      const locationId = geoRef?.replace("geoTargetConstants/", "") ?? "";
       const inTargetedArea = row.userLocationView?.targetingLocation ?? false;
-      const key = `${cityId}~${inTargetedArea}`;
+      const key = `${locationId}~${inTargetedArea}`;
       const bucket = buckets.get(key) ?? {
-        cityId,
+        locationId,
         inTargetedArea,
         impressions: 0,
         clicks: 0,
         cost: 0,
         conversions: 0,
+        cityVotes: new Map<string, number>(),
       };
-      bucket.impressions += toInt(row.metrics?.impressions);
+      const impressions = toInt(row.metrics?.impressions);
+      bucket.impressions += impressions;
       bucket.clicks += toInt(row.metrics?.clicks);
       bucket.cost += microsToDollars(row.metrics?.costMicros);
       bucket.conversions += row.metrics?.conversions ?? 0;
+      if (granularity === "zip") {
+        const cityId =
+          row.segments?.geoTargetCity?.replace("geoTargetConstants/", "") ?? "";
+        if (cityId)
+          bucket.cityVotes.set(
+            cityId,
+            (bucket.cityVotes.get(cityId) ?? 0) + impressions,
+          );
+      }
       buckets.set(key, bucket);
     }
 
-    // Resolve city ids to names in one lookup.
-    const cityIds = [
-      ...new Set([...buckets.values()].map((b) => b.cityId).filter(Boolean)),
-    ];
-    const names = new Map<string, { city: string; region: string }>();
-    if (cityIds.length > 0) {
+    // A ZIP polygon can spill across cities; label it with the city that got
+    // the most impressions ("" outside ZIP mode).
+    const entries = [...buckets.values()].map((bucket) => ({
+      bucket,
+      cityId: [...bucket.cityVotes.entries()].reduce<[string, number]>(
+        (best, entry) => (entry[1] > best[1] ? entry : best),
+        ["", -1],
+      )[0],
+    }));
+
+    // Resolve location (and, in ZIP mode, city) ids to names in one lookup.
+    const geoIds = [
+      ...new Set(
+        entries.flatMap(({ bucket, cityId }) => [bucket.locationId, cityId]),
+      ),
+    ].filter(Boolean);
+    const names = new Map<string, { name: string; region: string }>();
+    if (geoIds.length > 0) {
       const nameRows = await searchGoogleAds(
         customerId,
         `SELECT geo_target_constant.id, geo_target_constant.name,
                 geo_target_constant.canonical_name
          FROM geo_target_constant
-         WHERE geo_target_constant.id IN (${cityIds.join(", ")})`,
+         WHERE geo_target_constant.id IN (${geoIds.join(", ")})`,
       );
       for (const row of nameRows) {
         const geo = row.geoTargetConstant;
         if (!geo?.id) continue;
         names.set(geo.id, {
-          city: geo.name ?? "(unknown)",
+          name: geo.name ?? "(unknown)",
           region: geo.canonicalName?.split(",").slice(1).join(", ") ?? "",
         });
       }
     }
 
-    const data: AdsLocationRow[] = [...buckets.values()]
-      .map((bucket) => ({
-        city: names.get(bucket.cityId)?.city ?? "Unknown",
-        region: names.get(bucket.cityId)?.region ?? "",
-        inTargetedArea: bucket.inTargetedArea,
-        impressions: bucket.impressions,
-        clicks: bucket.clicks,
-        ctr: bucket.impressions > 0 ? bucket.clicks / bucket.impressions : 0,
-        cost: bucket.cost,
-        conversions: bucket.conversions,
-      }))
+    const data: AdsLocationRow[] = entries
+      .map(({ bucket, cityId }) => {
+        const own = names.get(bucket.locationId);
+        const cityName = names.get(cityId)?.name;
+        // ZIP rows read "Oakland Park, Florida" — the ZIP's own region
+        // ("Florida, United States") supplies the state.
+        const region =
+          granularity === "zip" && cityName
+            ? [cityName, own?.region?.split(", ")[0]].filter(Boolean).join(", ")
+            : (own?.region ?? "");
+        return {
+          city: own?.name ?? "Unknown",
+          region,
+          inTargetedArea: bucket.inTargetedArea,
+          impressions: bucket.impressions,
+          clicks: bucket.clicks,
+          ctr: bucket.impressions > 0 ? bucket.clicks / bucket.impressions : 0,
+          cost: bucket.cost,
+          conversions: bucket.conversions,
+        };
+      })
       .sort((a, b) => b.cost - a.cost || b.impressions - a.impressions);
 
     return { success: true, data };

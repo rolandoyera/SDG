@@ -987,6 +987,12 @@ export interface OrgUsageCounters {
   firecrawlPages?: number;
   /** Markdown characters returned by Jina Reader; ~4 chars per billed token. */
   jinaChars?: number;
+  /**
+   * Google Search queries issued via Gemini Grounding — billed PER QUERY the
+   * model issues, not per request; 5k/month free SHARED across all Gemini 3.x
+   * models, then $14/1k. Counted even while free so the burn rate is known.
+   */
+  groundedSearches?: number;
 }
 
 export interface OrganizationConfig {

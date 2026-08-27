@@ -5,6 +5,7 @@ import * as cheerio from "cheerio";
 import { domainScrapeHint, SCRAPER_CONFIG } from "@/config/scraper-config";
 import {
   measureImageCandidates,
+  probeIsImage,
   probeIsPdf,
   type ImageCandidate,
 } from "@/server/image-probe";
@@ -21,6 +22,7 @@ import { checkAutofillQuota, recordOrgUsage } from "./ai-quota";
 import { recordAiUsage } from "./ai-usage";
 import { getVerifiedCaller } from "./auth";
 import { saveDiagnosticRun } from "./diagnostics";
+import { getAdminDb } from "./firebase-admin";
 
 /**
  * Classifies a non-OK Gemini HTTP status. Transient overload (503/500) and rate-limit (429)
@@ -415,6 +417,108 @@ function extractVariantGroupsFromHtml(html: string): VariantLabelGroup[] {
     return [];
   }
   return groups.slice(0, 4);
+}
+
+/**
+ * Social profile and contact (tel:/mailto:) links from the raw page HTML.
+ * Lazy-loading storefronts never render their footer into Jina's snapshot —
+ * measured on perigold.com: the markdown stops mid-page at 6.8k chars while the
+ * direct HTML fetch carries the full footer (socials, customer service, terms).
+ * The model cannot extract contacts the markdown never contained, so this is
+ * the same rescue pattern as extractVariantGroupsFromHtml: harvest from the
+ * HTML the flow already fetched and hand it to the model alongside the markdown.
+ */
+function extractContactLinksFromHtml(html: string): string[] {
+  // Client-rendered footers ship their links inside (often double-escaped)
+  // embedded JSON, not href attributes — Perigold's Instagram arrives as
+  // \\\"url\\\":\\\"https://www.instagram.com/perigold/\\\". Flatten escapes,
+  // then scan the whole document rather than just attributes.
+  const flat = html.replace(/\\+\//g, "/").replace(/\\+"/g, '"');
+
+  const platforms: { label: string; domain: string; exclude: RegExp }[] = [
+    {
+      label: "instagram",
+      domain: String.raw`instagram\.com`,
+      exclude: /\/(?:p|reel|explore|share)\//i,
+    },
+    {
+      label: "pinterest",
+      domain: String.raw`pinterest\.[a-z.]{2,10}`,
+      exclude: /\/pin\/|pin\/create/i,
+    },
+    {
+      label: "facebook",
+      domain: String.raw`facebook\.com`,
+      exclude: /sharer|dialog|plugins|\.php/i,
+    },
+    {
+      label: "youtube",
+      domain: String.raw`youtube\.com`,
+      exclude: /\/watch|\/embed\/|\/shorts\//i,
+    },
+    {
+      label: "x/twitter",
+      domain: String.raw`(?:twitter|x)\.com`,
+      exclude: /\/intent|\/share|\/search/i,
+    },
+  ];
+
+  const lines: string[] = [];
+  for (const p of platforms) {
+    // `www.` only — wildcard subdomains matched developers.facebook.com/schema.
+    // Requires a path segment — a bare homepage link carries no handle.
+    const re = new RegExp(
+      `https?://(?:www\\.)?${p.domain}/[A-Za-z0-9@._%~/-]+`,
+      "gi",
+    );
+    let m = re.exec(flat);
+    while (m !== null) {
+      if (!p.exclude.test(m[0])) {
+        lines.push(`${p.label}: ${m[0]}`);
+        break;
+      }
+      m = re.exec(flat);
+    }
+  }
+
+  // tel:/mailto: links wherever they appear (attributes or embedded JSON).
+  // tel numbers may contain spaces ("tel: 305 821-3850"); dedupe by digits so
+  // formatted and bare renditions of one number count once.
+  const seenPhones = new Set<string>();
+  let telCount = 0;
+  const telRe = /tel:\s?[0-9()+\-. ]{5,20}/gi;
+  let t = telRe.exec(flat);
+  while (t !== null && telCount < 2) {
+    const phone = t[0].slice(4).trim();
+    const digits = phone.replace(/\D/g, "");
+    if (digits.length >= 7 && !seenPhones.has(digits)) {
+      seenPhones.add(digits);
+      lines.push(`tel: ${phone}`);
+      telCount++;
+    }
+    t = telRe.exec(flat);
+  }
+  const seenEmails = new Set<string>();
+  let mailCount = 0;
+  const mailRe = /mailto:[A-Za-z0-9@._%+-]{5,}/gi;
+  let e = mailRe.exec(flat);
+  while (e !== null && mailCount < 2) {
+    const link = e[0].toLowerCase();
+    if (link.includes("@") && !seenEmails.has(link)) {
+      seenEmails.add(link);
+      lines.push(e[0]);
+      mailCount++;
+    }
+    e = mailRe.exec(flat);
+  }
+  // JSON-payload phone fields ("phoneNumber":"844-753-0401") when no tel: link
+  // exists — the common shape on the same client-rendered storefronts that
+  // motivated this whole function.
+  if (telCount === 0) {
+    const phone = /"phoneNumber"\s*:\s*"([0-9()+\-. ]{7,20})"/i.exec(flat)?.[1];
+    if (phone) lines.push(`phone: ${phone.trim()}`);
+  }
+  return lines;
 }
 
 /** Image URLs that are never product photos (nav chrome, payment badges, trackers, …). */
@@ -2415,6 +2519,310 @@ CRITICAL: Return 100% valid JSON only. Use empty string "" for fields not found.
   }
 }
 
+// ─── Vendor name → official website resolution ────────────────────────────────
+
+export interface VendorSiteCandidate {
+  name: string;
+  url: string;
+  /** Short distinguishing phrase, e.g. "plumbing wholesale parent company". */
+  note?: string;
+}
+
+export interface VendorResolveResult {
+  success: boolean;
+  candidates?: VendorSiteCandidate[];
+  /** Existing vendor in the active org whose name closely matches the input. */
+  existingVendorName?: string;
+  error?: string;
+}
+
+const VENDOR_RESOLVE_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    candidates: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          name: { type: "STRING" },
+          url: { type: "STRING" },
+          note: { type: "STRING" },
+        },
+        required: ["name", "url"],
+      },
+    },
+  },
+  required: ["candidates"],
+} as const;
+
+/** Resolution rules shared by the knowledge and grounded prompts. */
+const VENDOR_RESOLVE_RULES = `You are resolving a vendor name typed (or dictated — it may be misspelled or phonetically transcribed) by an interior designer into that vendor's official website, to enrich a CRM vendor record. Prefer the vendor's own official site over marketplaces, directories, or news. If the name plausibly matches more than one distinct company (e.g. a retail arm vs a wholesale parent, or two unrelated brands), return each as its own candidate, most likely first, up to 3. For each candidate return: name (the company's proper name, correctly spelled), url (the official homepage), and note (a short phrase distinguishing this candidate, e.g. "luxury lighting manufacturer" or "plumbing wholesale parent company").`;
+
+/** Validates and normalizes whatever the model returned into typed candidates. */
+function coerceResolveCandidates(raw: unknown): VendorSiteCandidate[] {
+  const list = (raw as { candidates?: unknown } | null)?.candidates;
+  if (!Array.isArray(list)) return [];
+  const out: VendorSiteCandidate[] = [];
+  for (const item of list) {
+    const c = item as { name?: unknown; url?: unknown; note?: unknown };
+    const name = typeof c.name === "string" ? c.name.trim() : "";
+    const url = typeof c.url === "string" ? withProtocol(c.url.trim()) : "";
+    if (!name || !url.startsWith("http")) continue;
+    const note = typeof c.note === "string" ? c.note.trim() : "";
+    out.push(note ? { name, url, note } : { name, url });
+    if (out.length >= 3) break;
+  }
+  return out;
+}
+
+/**
+ * True when the URL serves ANY HTTP response — a 403/503 from a WAF still
+ * proves the site exists. Only network-dead hosts (DNS failure, refused,
+ * timeout) fail, catching hallucinated domains before they reach the form.
+ * HEAD first; some servers drop HEAD at the connection level, so retry as GET
+ * (headers received is enough — the body is never read).
+ */
+async function probeSiteAlive(url: string): Promise<boolean> {
+  for (const method of ["HEAD", "GET"] as const) {
+    try {
+      await fetch(url, {
+        method,
+        headers: PAGE_FETCH_HEADERS,
+        redirect: "follow",
+        signal: AbortSignal.timeout(6000),
+      });
+      return true;
+    } catch {
+      // fall through to GET, then dead
+    }
+  }
+  return false;
+}
+
+async function filterAliveCandidates(
+  candidates: VendorSiteCandidate[],
+): Promise<VendorSiteCandidate[]> {
+  if (candidates.length === 0) return candidates;
+  const alive = await Promise.all(candidates.map((c) => probeSiteAlive(c.url)));
+  const kept = candidates.filter((_, i) => alive[i]);
+  if (kept.length < candidates.length) {
+    console.warn(
+      `[Vendor Resolve] Dropped ${candidates.length - kept.length} dead candidate URL(s)`,
+    );
+  }
+  return kept;
+}
+
+/**
+ * Fuzzy match against the active org's vendors so "add Ferguson Home" warns
+ * instead of quietly resolving a duplicate. Normalized equality, or containment
+ * when the shorter normalized name is substantial enough not to false-positive
+ * ("rh" must match exactly; "fergusonhome" ⊂ "fergusonhomestudio" may warn).
+ */
+async function findExistingVendorName(
+  organizationId: string,
+  name: string,
+): Promise<string | undefined> {
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const target = norm(name);
+  if (!target) return undefined;
+  const snap = await getAdminDb()
+    .collection("vendors")
+    .where("organizationId", "==", organizationId)
+    .get();
+  for (const doc of snap.docs) {
+    const existingName = (doc.data().name as string | undefined) ?? "";
+    const existing = norm(existingName);
+    if (!existing) continue;
+    if (existing === target) return existingName;
+    const shorter = existing.length < target.length ? existing : target;
+    if (
+      shorter.length >= 5 &&
+      (existing.includes(target) || target.includes(existing))
+    ) {
+      return existingName;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Resolves a vendor NAME to official-website candidates so the vendor form can
+ * enrich without the user hunting for a URL.
+ *
+ * Two steps, because JSON response mode SUPPRESSES Google Search grounding on
+ * Gemini 3.5 (verified empirically 2026-08-22: the googleSearch tool is
+ * accepted but never invoked under responseSchema, even when the prompt demands
+ * it — same platform-gotcha family as "2.5 rejects tools + JSON"):
+ *
+ *  1. Knowledge step, JSON mode — resolves known brands at ZERO search cost
+ *     (the model answers famous and even mid-size vendors from its own
+ *     knowledge; the fake-name case returns an empty list, not a hallucination).
+ *  2. Grounded plain-text step — searches actually fire — only when step 1
+ *     found nothing; the reply is instructed-JSON parsed via parseGeminiJson.
+ *
+ * Grounding bills PER QUERY ISSUED (5k/month free shared across all 3.x
+ * models, then $14/1k) — counted from groundingMetadata.webSearchQueries into
+ * the org's `groundedSearches`. Candidates are liveness-probed to catch
+ * hallucinated domains; the enrich scrape that follows is the final validator.
+ */
+export async function resolveVendorWebsite(
+  name: string,
+): Promise<VendorResolveResult> {
+  try {
+    const trimmed = name?.trim() ?? "";
+    if (trimmed.length < 2) {
+      return { success: false, error: "Please enter a vendor name first." };
+    }
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return { success: false, error: "GEMINI_API_KEY is not configured." };
+    }
+    // Identity and org come from the VERIFIED caller — this action can spend a
+    // metered grounded search, so it cannot run unauthenticated, and the org
+    // that gets metered is never client-supplied.
+    const caller = await getVerifiedCaller();
+    if (!caller) {
+      return { success: false, error: "Please sign in to use AI autofill." };
+    }
+    const quota = await checkAutofillQuota(caller);
+    if (!quota.allowed) {
+      return {
+        success: false,
+        error: `Monthly AI autofill limit reached (${quota.used} of ${quota.limit}). It resets on the 1st.`,
+      };
+    }
+    const organizationId = caller.organizationId;
+
+    const existingVendorName = await findExistingVendorName(
+      organizationId,
+      trimmed,
+    ).catch(() => undefined);
+
+    // Step 1 — knowledge (no search spend). Certain-or-empty, never a guess.
+    const step1Body = JSON.stringify({
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              text: `${VENDOR_RESOLVE_RULES}
+
+Answer ONLY for companies whose official website you are completely certain of. If you are not certain, return an empty candidates list — a second pass will search the web.
+
+----- VENDOR NAME -----
+
+${trimmed}`,
+            },
+          ],
+        },
+      ],
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: VENDOR_RESOLVE_SCHEMA,
+      },
+    });
+
+    let candidates: VendorSiteCandidate[] = [];
+    try {
+      const { response, modelUsed } = await fetchGeminiWithFallback(
+        apiKey,
+        step1Body,
+        AbortSignal.timeout(30000),
+      );
+      if (response.ok) {
+        const geminiJson = await response.json();
+        void recordAiUsage(
+          geminiJson?.usageMetadata,
+          modelUsed,
+          organizationId,
+        );
+        const parts = geminiJson.candidates?.[0]?.content?.parts as
+          | { text?: string }[]
+          | undefined;
+        const text = parts?.find((p) => typeof p.text === "string")?.text;
+        if (text) candidates = coerceResolveCandidates(parseGeminiJson(text));
+      }
+    } catch (error) {
+      console.warn("[Vendor Resolve] Knowledge step failed:", error);
+    }
+    candidates = await filterAliveCandidates(candidates);
+
+    // Step 2 — grounded search, only when knowledge came up empty.
+    if (candidates.length === 0) {
+      const model = SCRAPER_CONFIG.urlContextModel;
+      console.log(
+        `[Vendor Resolve] Knowledge step empty — grounded search via ${model}`,
+      );
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [
+              {
+                role: "user",
+                parts: [
+                  {
+                    text: `${VENDOR_RESOLVE_RULES}
+
+You MUST use Google Search (ONE focused query) to find the vendor — do not answer from memory. Only return candidates the search results support. Reply with ONLY a JSON object of the exact shape {"candidates":[{"name":"...","url":"...","note":"..."}]} and nothing else; reply {"candidates":[]} when nothing matches.
+
+----- VENDOR NAME -----
+
+${trimmed}`,
+                  },
+                ],
+              },
+            ],
+            // No responseSchema here — it would suppress the search tool.
+            tools: [{ googleSearch: {} }],
+          }),
+          signal: AbortSignal.timeout(30000),
+        },
+      );
+      if (res.ok) {
+        const geminiJson = await res.json();
+        void recordAiUsage(geminiJson?.usageMetadata, model, organizationId);
+        const candidate = geminiJson.candidates?.[0];
+        const searchCount =
+          candidate?.groundingMetadata?.webSearchQueries?.length ?? 0;
+        if (searchCount > 0) {
+          void recordOrgUsage(organizationId, {
+            groundedSearches: searchCount,
+          });
+        }
+        // Gemini 3.x may prepend thought-signature parts; join the text parts.
+        const text = (
+          candidate?.content?.parts as { text?: string }[] | undefined
+        )
+          ?.filter((p) => typeof p.text === "string")
+          .map((p) => p.text)
+          .join("");
+        if (text) candidates = coerceResolveCandidates(parseGeminiJson(text));
+        candidates = await filterAliveCandidates(candidates);
+      } else {
+        console.error(
+          `[Vendor Resolve] Grounded step failed with HTTP ${res.status}`,
+        );
+      }
+    }
+
+    console.log(
+      `[Vendor Resolve] "${trimmed}" → ${candidates.length} candidate(s)`,
+      candidates.map((c) => c.url).join(", "),
+    );
+    return { success: true, candidates, existingVendorName };
+  } catch (error) {
+    console.error("[Vendor Resolve] Failed:", error);
+    return {
+      success: false,
+      error: "Failed to look up the vendor website. Please enter it manually.",
+    };
+  }
+}
+
 export async function autofillVendorFromUrl(
   url: string,
 ): Promise<VendorAutofillResult> {
@@ -2552,6 +2960,15 @@ export async function autofillVendorFromUrl(
     }
 
     const ogMeta = rawHtml ? extractOgMeta(rawHtml, vendorUrl) : {};
+    // Footer contacts/socials survive only in the raw HTML on lazy-loading
+    // storefronts (see extractContactLinksFromHtml) — hand them to the model
+    // alongside the markdown, which never contained them.
+    const contactLinks = rawHtml ? extractContactLinksFromHtml(rawHtml) : [];
+    if (contactLinks.length > 0) {
+      console.log(
+        `[Vendor Autofill] HTML-derived contact links: ${contactLinks.length}`,
+      );
+    }
     const {
       logoCandidates,
       imageCandidates: rawImageCandidates,
@@ -2585,15 +3002,45 @@ export async function autofillVendorFromUrl(
       measuredCandidates.map((c) => `${c.width}x${c.height}`).join(", "),
     );
 
+    // Logo sources are DECLARED by the page, not verified — Perigold's HTML
+    // names an apple-touch-icon whose path 404s, and the model dutifully
+    // returned the dead URL as logoUrl on every attempt. Probe each source and
+    // offer only what actually serves an image (heroes already get this via
+    // measureImageCandidates). All-dead ⇒ "none found" ⇒ empty logoUrl, which
+    // beats a broken image in the form.
+    const schemaLogoUrl = ogMeta.schemaLogo
+      ? cleanImageUrlSize(ogMeta.schemaLogo)
+      : "";
+    const faviconUrl = ogMeta.faviconUrl
+      ? cleanImageUrlSize(ogMeta.faviconUrl)
+      : "";
+    const cappedLogoCandidates = logoCandidates.slice(0, 6);
+    const [schemaLogoAlive, faviconAlive, logoCandidatesAlive] =
+      await Promise.all([
+        schemaLogoUrl ? probeIsImage(schemaLogoUrl) : false,
+        faviconUrl ? probeIsImage(faviconUrl) : false,
+        Promise.all(cappedLogoCandidates.map((u) => probeIsImage(u))),
+      ]);
+    const verifiedLogoCandidates = cappedLogoCandidates.filter(
+      (_, i) => logoCandidatesAlive[i],
+    );
+    const deadLogoSources =
+      Number(Boolean(schemaLogoUrl) && !schemaLogoAlive) +
+      Number(Boolean(faviconUrl) && !faviconAlive) +
+      (cappedLogoCandidates.length - verifiedLogoCandidates.length);
+    if (deadLogoSources > 0) {
+      console.warn(
+        `[Vendor Autofill] Dropped ${deadLogoSources} dead logo source(s)`,
+      );
+    }
+
     const logoSourceLines = [
-      ogMeta.schemaLogo
-        ? `Schema.org logo (highest priority): ${cleanImageUrlSize(ogMeta.schemaLogo)}`
+      schemaLogoAlive
+        ? `Schema.org logo (highest priority): ${schemaLogoUrl}`
         : null,
-      ogMeta.faviconUrl
-        ? `Apple touch icon / favicon: ${cleanImageUrlSize(ogMeta.faviconUrl)}`
-        : null,
-      logoCandidates.length > 0
-        ? `Logo URL candidates from page: ${JSON.stringify(logoCandidates)}`
+      faviconAlive ? `Apple touch icon / favicon: ${faviconUrl}` : null,
+      verifiedLogoCandidates.length > 0
+        ? `Logo URL candidates from page: ${JSON.stringify(verifiedLogoCandidates)}`
         : null,
     ]
       .filter(Boolean)
@@ -2625,6 +3072,9 @@ ${logoSourceLines || "none found"}
 Hero Image Candidates (lettered, measured, ranked largest-first):
 ${heroSourceLines || "none found"}
 
+Contact & Social Links harvested from the page HTML (the markdown below may have dropped the footer; treat these as candidate official links — attribute a social profile to the company only when the handle plausibly matches the brand):
+${contactLinks.length > 0 ? contactLinks.join("\n") : "none found"}
+
 Page Content (Markdown):
 ${optimizedMarkdown}
 
@@ -2648,6 +3098,7 @@ Extract the following and return as JSON:
 - facebook: The company's official Facebook page URL if found (e.g. "https://facebook.com/brandname"). Empty string if not found.
 - youtube: The company's official YouTube channel URL if found (e.g. "https://youtube.com/c/brandname"). Empty string if not found.
 - xTwitter: The company's official X / Twitter profile URL if found (e.g. "https://x.com/brandname"). Empty string if not found.
+  For ALL social fields: only return URLs that literally appear in the harvested links or page content above. NEVER construct a social URL from the brand name — a plausible-looking handle you did not see on the page is a fabrication.
 - confidence: Float 0.0–1.0 for each field. Use 0.95 for og:image or Schema.org logo, 0.75 for apple-touch-icon, lower for guessed candidates.
 
 CRITICAL: Return 100% valid JSON only. Never return base64 data: URLs. Use empty string "" for fields not found.`;
@@ -2715,7 +3166,18 @@ CRITICAL: Return 100% valid JSON only. Never return base64 data: URLs. Use empty
       : measuredCandidates;
     const showImagePicker = pickerImageCandidates.length > 1;
 
-    const logoUrl = (extracted.logoUrl as string) || "";
+    let logoUrl = (extracted.logoUrl as string) || "";
+    // Same favicon-cache fallback as the url_context path (confidence 0.4):
+    // when every on-page logo source was dead or absent (Perigold's own touch
+    // icon 404s), Google's cache usually still serves a usable icon. Probed
+    // like the on-page sources — a broken fallback is no fallback.
+    if (!logoUrl) {
+      const cached = faviconLogoUrl(vendorUrl);
+      if (cached && (await probeIsImage(cached))) {
+        logoUrl = cached;
+        conf.logoUrl = 0.4;
+      }
+    }
     const heroImageUrl = showImagePicker ? "" : modelHeroPick;
 
     const rawReturnedData = {

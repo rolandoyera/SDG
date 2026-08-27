@@ -757,11 +757,13 @@ export function AdsKeywordsTable({ data }: { data: AdsKeywordRow[] }) {
 // Locations
 // ---------------------------------------------------------------------------
 
-const locationColumns: ColumnDef<AdsLocationRow>[] = [
+const locationColumns = (
+  locationHeader: string,
+): ColumnDef<AdsLocationRow>[] => [
   {
     accessorKey: "city",
     header: ({ column }) => (
-      <SortableHeader column={column}>City</SortableHeader>
+      <SortableHeader column={column}>{locationHeader}</SortableHeader>
     ),
     cell: ({ row }) => (
       <div className="flex items-center gap-2">
@@ -836,10 +838,20 @@ const locationColumns: ColumnDef<AdsLocationRow>[] = [
   },
 ];
 
-export function AdsLocationsTable({ data }: { data: AdsLocationRow[] }) {
+export function AdsLocationsTable({
+  data,
+  locationHeader = "City",
+}: {
+  data: AdsLocationRow[];
+  locationHeader?: string;
+}) {
+  const columns = useMemo(
+    () => locationColumns(locationHeader),
+    [locationHeader],
+  );
   const table = useReactTable({
     data,
-    columns: locationColumns,
+    columns,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),

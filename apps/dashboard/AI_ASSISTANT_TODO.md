@@ -88,6 +88,16 @@ vendors" shippable without write tools:
    `autofillProductFromUrl` chain; a garbled product name can only land on the
    wrong page of the RIGHT vendor.
 
+   **Built 2026-08-22**: `resolveVendorWebsite` in `ai-actions.ts` + the vendor
+   form's "Find & enrich" flow implement name→website resolution (knowledge step
+   then grounded step, liveness probe, candidate picker, duplicate warning).
+   CRITICAL platform finding, verified on 3.1 AND 3.5-flash-lite: **JSON
+   `responseSchema` suppresses the `googleSearch` tool entirely** (accepted,
+   never invoked — even for questions impossible without live search), while
+   `urlContext` is NOT suppressed. Any grounded-search call must be schema-less
+   (instructed JSON + `parseGeminiJson`). This also means the vendor
+   url_context path's googleSearch contact backfill was always a silent no-op.
+
    **Search mechanism**: Gemini's **Grounding with Google Search** tool —
    5,000 free requests/month SHARED across all Gemini 3.x models, then $14/1k
    (confirmed 2026-08-22). **Billing is per search QUERY the model issues, not

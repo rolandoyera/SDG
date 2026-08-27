@@ -248,6 +248,39 @@ returned error` wrapper and a bare `Access Denied` body, so a phrase-only check 
     exactly the sites that guard exists for. `MIN_USABLE_HTML` is 5000; genuine vendor pages
     measured 400KB-3.5MB.
 
+- **Name-only resolution (`resolveVendorWebsite`).** The form's enrich button also works with just
+  a vendor NAME (typed or dictated, misspellings expected): it resolves the official website, sets
+  the field, and flows into the normal enrich scrape. Two steps because **JSON response mode
+  suppresses Google Search grounding** (verified on both 3.1/3.5-flash-lite): (1) a knowledge-only
+  JSON call — zero search cost, resolves known brands, returns empty rather than guessing; (2) only
+  on empty, a schema-less grounded call whose reply is instructed JSON via `parseGeminiJson`, with
+  search queries counted from `groundingMetadata.webSearchQueries` into the org's
+  `groundedSearches` counter (billed PER QUERY; 5k/month free shared across 3.x, then $14/1k).
+  Candidates are liveness-probed (any HTTP status = alive; only network-dead hosts drop) to catch
+  hallucinated domains. Multiple candidates (retail arm vs wholesale parent) render a picker —
+  never silently chosen; a fuzzy name match against the org's existing vendors warns about
+  duplicates without blocking.
+
+- **Footer contacts/socials are harvested from the raw HTML, not trusted to the markdown.**
+  Lazy-loading storefronts never render their footer into Jina's snapshot — measured on
+  perigold.com (Wayfair platform): the markdown is 6.8k chars ending mid-page, no footer at all,
+  while the direct HTML fetch carries the full 660KB page. And the links there live in
+  double-escaped embedded JSON (`\\\"url\\\":\\\"https://instagram.com/perigold\\\"`), not href
+  attributes, so `extractContactLinksFromHtml` flattens JSON escapes and scans the whole document:
+  one official-profile URL per social platform (www-only hosts — wildcard subdomains matched
+  developers.facebook.com; share/intent/post URLs excluded), up to two `tel:`/`mailto:` links
+  (tel deduped by digits), and a JSON `"phoneNumber"` field as phone fallback. The harvest is
+  handed to the model as a "Contact & Social Links" prompt block with attribute-only-if-the-handle-
+  matches guidance. Verified on perigold.com, finearthl.com, ngalatrading.com.
+
+- **Logo sources are probed before the model sees them.** Pages DECLARE logo URLs without
+  serving them — Perigold's apple-touch-icon path 404s, and the model returned the dead URL as
+  `logoUrl` on every attempt. Each source (Schema.org logo, touch icon/favicon, page candidates)
+  now passes `probeIsImage` (raster header, SVG, or ICO — logos are often the latter two) before
+  entering the prompt's Logo Sources list; when everything on-page is dead or absent, the
+  extraction falls back to Google's favicon cache (`faviconLogoUrl`, confidence 0.4, itself
+  probed) — the same fallback the url_context path always used.
+
 - **The full chain is: direct fetch → Jina markdown → Jina HTML → Firecrawl → url_context → error.**
   Both branches are verified against fergusonhome.com: with Firecrawl it returns name, phone and 5
   measured hero candidates; with `FIRECRAWL_API_KEY` unset it falls through to url_context and still
@@ -258,10 +291,12 @@ returned error` wrapper and a bare `Access Denied` body, so a phrase-only check 
   sites like fergusonhome.com), the action falls back to one Gemini call with the `urlContext`
   tool (`SCRAPER_CONFIG.urlContextModel` — must stay Gemini 3.x, and the REST field must be
   camelCase `urlContext`; see the library AGENTS.md for the discovery history). The call also
-  attaches the `googleSearch` tool: homepage digests rarely carry contact info, so search
-  backfills HQ address/phone/socials from Google's index (prompt-guarded to this exact company,
-  empty-when-uncertain — search-sourced socials are the least verifiable fields, so eyeball them
-  in the form). Other text fields fill from the page digest; images can't (the digest strips
+  attaches the `googleSearch` tool, intended to backfill HQ address/phone/socials from Google's
+  index — **but verified 2026-08-22: `responseSchema` SUPPRESSES `googleSearch` entirely on both
+  3.1- and 3.5-flash-lite** (the tool is accepted, never invoked, even for questions impossible
+  without live search; `urlContext` is NOT suppressed). So the backfill has been a silent no-op —
+  contact fields that fill on this path come from the page digest or model knowledge. Fixing it
+  means a schema-less grounded call (see `resolveVendorWebsite`'s two-step pattern). Other text fields fill from the page digest; images can't (the digest strips
   markup), so `logoUrl` falls back to
   Google's favicon cache (`t3.gstatic.com/faviconV2`, confidence 0.4 — user-replaceable, and the
   mirror step self-hosts it on save) and `heroImageUrl` stays empty with no picker. This path calls

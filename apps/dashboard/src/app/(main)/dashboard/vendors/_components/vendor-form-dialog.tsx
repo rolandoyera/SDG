@@ -42,7 +42,11 @@ import { AI_ASSISTANT_NAME } from "@/lib/ai-assistant";
 import { runAiActionWithRetry } from "@/lib/ai-retry";
 import { uploadVendorImage } from "@/lib/db";
 import { cn, formatUsZip, formatVendorPhone } from "@/lib/utils";
-import { autofillVendorFromUrl } from "@/server/ai-actions";
+import {
+  autofillVendorFromUrl,
+  resolveVendorWebsite,
+  type VendorSiteCandidate,
+} from "@/server/ai-actions";
 import type { ImageCandidate } from "@/server/image-probe";
 
 import {
@@ -220,7 +224,13 @@ export function VendorFormDialog({
   const [aiLoading, setAiLoading] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [heroCandidates, setHeroCandidates] = useState<ImageCandidate[]>([]);
+  // Official-site candidates when name-only resolution was ambiguous — the user
+  // picks which company they meant before the enrich scrape runs.
+  const [siteCandidates, setSiteCandidates] = useState<VendorSiteCandidate[]>(
+    [],
+  );
 
+  const nameValue = watch("name");
   const logoUrlValue = watch("logoUrl");
   const heroImageUrlValue = watch("heroImageUrl");
   const countryValue = watch("country");
@@ -309,6 +319,7 @@ export function VendorFormDialog({
       );
       setPhoneCountryTouched(false);
       setHeroCandidates([]);
+      setSiteCandidates([]);
     }
   }, [open, initialData, reset, vendorId]);
 
@@ -320,13 +331,68 @@ export function VendorFormDialog({
     }
   }, [mode, phoneCountryTouched, countryValue, setValue]);
 
+  // Entry point for the enrich button: with a website, scrape it directly;
+  // with only a name, resolve the official site first (picker when ambiguous),
+  // then flow into the same scrape.
   const handleEnrich = async () => {
     const url = getValues("website");
-    if (!url) return;
+    if (url) {
+      await runEnrich(url);
+      return;
+    }
+    const name = getValues("name");
+    if (!name?.trim()) return;
     setAiLoading(true);
     const toastId = toast.loading(
-      `${AI_ASSISTANT_NAME} is analyzing the vendor site…`,
+      `${AI_ASSISTANT_NAME} is finding the official website…`,
     );
+    try {
+      const result = await resolveVendorWebsite(name);
+      if (!result.success) {
+        toast.error(result.error ?? "Failed to find the vendor website.", {
+          id: toastId,
+        });
+        return;
+      }
+      // Non-blocking: a near-name match may be a duplicate — or a legitimate
+      // second division. Warn and continue.
+      if (result.existingVendorName) {
+        toast.warning(
+          `Heads up: "${result.existingVendorName}" is already in your vendors.`,
+          { duration: 8000 },
+        );
+      }
+      const candidates = result.candidates ?? [];
+      if (candidates.length === 0) {
+        toast.error(
+          `${AI_ASSISTANT_NAME} couldn't find a website for "${name.trim()}" — please enter it manually.`,
+          { id: toastId, duration: 8000 },
+        );
+        return;
+      }
+      if (candidates.length === 1) {
+        setValue("website", candidates[0].url);
+        await runEnrich(candidates[0].url, toastId);
+        return;
+      }
+      // Ambiguous (e.g. retail arm vs wholesale parent) — never silently pick.
+      toast.dismiss(toastId);
+      setSiteCandidates(candidates);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const runEnrich = async (url: string, existingToastId?: string | number) => {
+    setAiLoading(true);
+    const toastId =
+      existingToastId ??
+      toast.loading(`${AI_ASSISTANT_NAME} is analyzing the vendor site…`);
+    if (existingToastId) {
+      toast.loading(`${AI_ASSISTANT_NAME} is analyzing the vendor site…`, {
+        id: toastId,
+      });
+    }
     try {
       const result = await runAiActionWithRetry(
         () => autofillVendorFromUrl(url),
@@ -502,10 +568,14 @@ export function VendorFormDialog({
                       />
                       <AiButton
                         onClick={handleEnrich}
-                        disabled={!field.value || isSubmitting}
+                        disabled={
+                          (!field.value && !nameValue?.trim()) || isSubmitting
+                        }
                         loading={aiLoading}
                       >
-                        {`Enrich with ${AI_ASSISTANT_NAME}`}
+                        {field.value || !nameValue?.trim()
+                          ? `Enrich with ${AI_ASSISTANT_NAME}`
+                          : `Find & enrich with ${AI_ASSISTANT_NAME}`}
                       </AiButton>
                     </div>
                     {fieldState.invalid && (
@@ -1206,6 +1276,54 @@ export function VendorFormDialog({
           if (hero) setValue("heroImageUrl", hero);
         }}
       />
+
+      {/* Official-site disambiguation: shown only when name-only resolution
+          matched more than one company (e.g. retail arm vs wholesale parent). */}
+      <Dialog
+        open={siteCandidates.length > 0}
+        onOpenChange={(v) => {
+          if (!v) setSiteCandidates([]);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-lg">Which vendor?</DialogTitle>
+            <DialogDescription>
+              {AI_ASSISTANT_NAME} found more than one company matching that
+              name. Pick the one you meant.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2 py-1">
+            {siteCandidates.map((candidate) => (
+              <button
+                key={candidate.url}
+                type="button"
+                onClick={() => {
+                  setSiteCandidates([]);
+                  setValue("website", candidate.url);
+                  void runEnrich(candidate.url);
+                }}
+                className="flex flex-col items-start gap-0.5 rounded border border-border px-3 py-2 text-left transition-colors hover:border-primary/50 hover:bg-muted/30"
+              >
+                <span className="font-medium text-sm">{candidate.name}</span>
+                <span className="text-muted-foreground text-xs">
+                  {candidate.url.replace(/^https?:\/\/(www\.)?/, "")}
+                  {candidate.note ? ` — ${candidate.note}` : ""}
+                </span>
+              </button>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setSiteCandidates([])}
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

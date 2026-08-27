@@ -69,12 +69,21 @@ accept a customer ID from the client.
 - **`?range=` is shared vocabulary with Analytics** (named tokens +
   `YYYY-MM-DD_YYYY-MM-DD`), but there is no `?campaign=` here — Ads campaigns
   are entities, not GA4 session dimensions.
-- **Locations is a two-query report**: `user_location_view` (where users
-  physically were) returns cities as `geoTargetConstants/<id>` resource names,
-  so a second `geo_target_constant` query resolves display names. Rows are
-  aggregated per (city, `targeting_location`); `targeting_location: false`
-  renders the "Outside target" badge — that flag is the tell for geo-leak
-  spend (the account's week-1 problem), don't drop it.
+- **Locations is a two-query report, rendered twice**: `user_location_view`
+  (where users physically were) returns locations as `geoTargetConstants/<id>`
+  resource names, so a second `geo_target_constant` query resolves display
+  names. `fetchAdsLocations` takes a granularity — `"city"` segments by
+  `segments.geo_target_city`, `"zip"` by `segments.geo_target_postal_code` —
+  and the tab shows both side by side (By City / By ZIP Code) through the same
+  `AdsLocationsTable`. ZIP mode selects BOTH segments and subtitles each ZIP
+  with the impression-dominant city its traffic resolved to (e.g. "33308 /
+  Oakland Park, Florida") — the geo hierarchy can't provide this (a postal
+  code's `parent_geo_target` is the state). Rows are aggregated per (location,
+  `targeting_location`); `targeting_location: false` renders the "Outside
+  target" badge — that flag is the tell for geo-leak spend (the account's
+  week-1 problem), don't drop it. The city and ZIP views answer different
+  questions: ZIP polygons spill across city lines, so the city view is what
+  exposed the Oakland Park spillover that a ZIP view structurally cannot show.
 - Setup/error states reuse `AnalyticsSetupRequired` from
   `../analytics/_components` — it keys off "not configured" in the message, so
   keep that phrasing in `CONFIG_MISSING_ERROR`.

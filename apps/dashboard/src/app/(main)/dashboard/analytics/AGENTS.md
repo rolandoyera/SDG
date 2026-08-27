@@ -108,8 +108,12 @@ action argument — that would let a client spoof another tenant. The Admin SDK 
   default range; don't add date math on `?range=` outside that validated path. Single-day ranges (named or custom) switch GA4 trend dimensions to hourly
   (`dateHour`); there is no rolling "last 24 hours" — GA4 date ranges are whole calendar days.
   KPI comparisons for custom ranges use the equal-length window immediately before. Search
-  Console clamps a custom range's end to its ~3-day data lag and falls back to its 28-day
-  default when the selection lies entirely inside the lag window (so `today`/`yesterday` too).
+  Console passes the picked range through exactly as labeled — no lag clamping, no silent
+  fallback to a different window (that used to make a one-day label show 28 days of data).
+  Queries send `dataState: "all"` so fresh (not-yet-finalized) data covers up to ~a few hours
+  ago; days GSC truly hasn't published simply contribute no rows. `today`/`yesterday` tokens
+  resolve to America/Los_Angeles calendar days (GSC's day keying); unknown/absent range still
+  defaults to 28 days.
 - **Campaign filter comes from `?campaign=`** (no param = all campaigns). The toolbar dropdown's
   options come from `fetchCampaignOptions(range)` (one extra GA4 report per page load, fetched in
   `page.tsx`); "(not set)"/"(direct)" are kept deliberately — they're real GA4 buckets. Every

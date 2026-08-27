@@ -70,7 +70,7 @@ export async function AdsKeywordsSection({ range }: { range?: string }) {
 export async function AdsLocationsSection({ range }: { range?: string }) {
   const result = await fetchAdsLocations(range);
   return (
-    <TableCard title="Where Your Ads Were Seen">
+    <TableCard title="By City">
       {!result.success ? (
         <AnalyticsSetupRequired
           error={result.error}
@@ -79,6 +79,23 @@ export async function AdsLocationsSection({ range }: { range?: string }) {
         />
       ) : (
         <AdsLocationsTable data={result.data} />
+      )}
+    </TableCard>
+  );
+}
+
+export async function AdsZipLocationsSection({ range }: { range?: string }) {
+  const result = await fetchAdsLocations(range, "zip");
+  return (
+    <TableCard title="By ZIP Code">
+      {!result.success ? (
+        <AnalyticsSetupRequired
+          error={result.error}
+          title="Locations Error"
+          className="min-h-32"
+        />
+      ) : (
+        <AdsLocationsTable data={result.data} locationHeader="ZIP" />
       )}
     </TableCard>
   );

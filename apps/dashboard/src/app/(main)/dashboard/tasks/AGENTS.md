@@ -66,6 +66,13 @@ SDK bypasses them.
 - **The avatar cluster is assignees, not participants** — task assignees ∪ subtask assignees.
   The creator isn't shown unless they're actually on something. Since new subtasks default to
   the creator, usually they are.
+- **People render as real names and initials — never "You".** The app-wide "You" convention is
+  deliberately off here: an avatar turns "You" into a "U" that reads like someone's initial.
+- **Pickers and avatars resolve against `directory`, not `users`.** `getOrganizationUsers`
+  returns only the ACTIVE org's members, but a SuperAdmin can operate inside an org they aren't
+  a member of — so the signed-in user is missing from that list. `page.tsx` appends them.
+  Without it their own avatar renders "?" and they can't assign themselves. A uid that still
+  doesn't resolve renders "?" rather than being run through `initialsOf`.
 - **Project chip dots are a single flat color.** `Project` has no color field and adding one
   was declined.
 

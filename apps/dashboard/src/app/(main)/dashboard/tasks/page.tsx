@@ -52,6 +52,7 @@ import { useTasks } from "./_components/use-tasks";
 export default function TasksPage() {
   const { organizationId, uid, profile, loading: authLoading } = useAuth();
   const isAdmin = profile?.role === "Admin" || profile?.role === "SuperAdmin";
+  const profileName = profile?.fullName ?? "";
 
   const { tasks, loading } = useTasks(
     organizationId,
@@ -102,9 +103,24 @@ export default function TasksPage() {
       window.history.replaceState({}, "", window.location.pathname);
   }, []);
 
+  /**
+   * The people pickers and avatars resolve against this, not `users` directly.
+   * A SuperAdmin can operate inside an org they aren't a member of (Rolando is
+   * homed in org-demo), and getOrganizationUsers only returns the ACTIVE org's
+   * members — so without this the signed-in user is missing from the assignee
+   * list entirely and their own avatar renders as an unresolvable uid.
+   *
+   * Built from primitives, not the profile object, so a heartbeat doesn't hand
+   * every child a new array.
+   */
+  const directory = useMemo<UserProfile[]>(() => {
+    if (!uid || users.some((u) => u.uid === uid)) return users;
+    return [...users, { uid, fullName: profileName } as UserProfile];
+  }, [users, uid, profileName]);
+
   const actor: ActivityActor = useMemo(
-    () => ({ type: "user", id: uid ?? "", name: profile?.fullName ?? "" }),
-    [uid, profile?.fullName],
+    () => ({ type: "user", id: uid ?? "", name: profileName }),
+    [uid, profileName],
   );
 
   const visible = useMemo(() => {
@@ -204,7 +220,7 @@ export default function TasksPage() {
           <TaskCard
             key={task.taskId}
             task={task}
-            users={users}
+            users={directory}
             selected={task.taskId === selectedId}
             onSelect={() => setSelectedId(task.taskId)}
             onToggleComplete={() => void handleToggleComplete(task)}
@@ -267,7 +283,7 @@ export default function TasksPage() {
         {selected && (
           <TaskDetailPanel
             task={selected}
-            users={users}
+            users={directory}
             projects={projects}
             clients={clients}
             saving={submitting}
@@ -288,7 +304,7 @@ export default function TasksPage() {
         submitLabel="Create task"
         submitting={submitting}
         defaultValues={emptyTaskForm(uid ?? "")}
-        users={users}
+        users={directory}
         projects={projects}
         clients={clients}
         creatorUid={uid ?? ""}

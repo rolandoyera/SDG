@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { Check, Loader2, Trash2 } from "lucide-react";
+import { Check, Flag, Loader2, Trash2 } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -28,11 +28,12 @@ import {
 import { AssigneePicker, DuePicker } from "./task-pickers";
 import {
   PRIORITY_LABELS,
+  PRIORITY_ORDER,
+  PRIORITY_STYLES,
   formatDue,
-  initialsOf,
   subtaskProgress,
   taskAvatarUids,
-  userLabel,
+  userInitials,
 } from "./task-utils";
 
 interface TaskDetailPanelProps {
@@ -120,7 +121,7 @@ export function TaskDetailPanel({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={NO_ATTACHMENT}>No project</SelectItem>
+            <SelectItem value={NO_ATTACHMENT}>Add Project</SelectItem>
             {projects.map((project) => (
               <SelectItem
                 key={project.projectId}
@@ -161,7 +162,7 @@ export function TaskDetailPanel({
                     className="size-7 border-2 border-background"
                   >
                     <AvatarFallback className="text-[10px]">
-                      {initialsOf(userLabel(users, uid))}
+                      {userInitials(users, uid)}
                     </AvatarFallback>
                   </Avatar>
                 ))
@@ -200,9 +201,12 @@ export function TaskDetailPanel({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {Object.entries(PRIORITY_LABELS).map(([value, label]) => (
+            {PRIORITY_ORDER.map((value) => (
               <SelectItem key={value} value={value}>
-                {label}
+                <Flag
+                  className={cn("mr-1 size-3.5", PRIORITY_STYLES[value].flag)}
+                />
+                {PRIORITY_LABELS[value]}
               </SelectItem>
             ))}
           </SelectContent>
@@ -246,7 +250,7 @@ export function TaskDetailPanel({
                 </span>
                 <Avatar className="size-5">
                   <AvatarFallback className="text-[9px]">
-                    {initialsOf(userLabel(users, subtask.assigneeId))}
+                    {userInitials(users, subtask.assigneeId)}
                   </AvatarFallback>
                 </Avatar>
               </li>

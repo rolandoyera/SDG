@@ -7,18 +7,11 @@ import type { Task, UserProfile } from "@/lib/types";
 
 import {
   PRIORITY_LABELS,
-  initialsOf,
+  PRIORITY_STYLES,
   subtaskProgress,
   taskAvatarUids,
-  userLabel,
+  userInitials,
 } from "./task-utils";
-
-/** Dots come from theme tokens; only priority is colour-coded, per the design. */
-const PRIORITY_DOT: Record<Task["priority"], string> = {
-  low: "bg-muted-foreground",
-  medium: "bg-chart-1",
-  high: "bg-destructive",
-};
 
 interface TaskCardProps {
   task: Task;
@@ -82,7 +75,7 @@ export function TaskCard({
             <span
               className={cn(
                 "size-1.5 rounded-full",
-                PRIORITY_DOT[task.priority],
+                PRIORITY_STYLES[task.priority].dot,
               )}
             />
             {PRIORITY_LABELS[task.priority]}
@@ -91,7 +84,7 @@ export function TaskCard({
             {avatarUids.slice(0, 3).map((uid) => (
               <Avatar key={uid} className="size-6 border-2 border-card">
                 <AvatarFallback className="text-[10px]">
-                  {initialsOf(userLabel(users, uid))}
+                  {userInitials(users, uid)}
                 </AvatarFallback>
               </Avatar>
             ))}
@@ -128,7 +121,7 @@ export function TaskCard({
               </span>
               <Avatar className="size-5">
                 <AvatarFallback className="text-[9px]">
-                  {initialsOf(userLabel(users, subtask.assigneeId))}
+                  {userInitials(users, subtask.assigneeId)}
                 </AvatarFallback>
               </Avatar>
             </li>

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, Plus, X } from "lucide-react";
+import { Flag, Loader2, Plus, X } from "lucide-react";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
 
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import type { Client, Project, UserProfile } from "@/lib/types";
 
 import {
@@ -34,7 +35,7 @@ import {
   taskSchema,
 } from "./task-constants";
 import { AssigneePicker, DuePicker } from "./task-pickers";
-import { PRIORITY_LABELS } from "./task-utils";
+import { PRIORITY_LABELS, PRIORITY_ORDER, PRIORITY_STYLES } from "./task-utils";
 
 interface TaskFormDialogProps {
   open: boolean;
@@ -100,7 +101,7 @@ export function TaskFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
@@ -114,92 +115,120 @@ export function TaskFormDialog({
             />
             {errors.title && <FieldError>{errors.title.message}</FieldError>}
           </Field>
+          <Field>
+            <Label
+              htmlFor="task-notes"
+              className="text-muted-foreground text-xs uppercase"
+            >
+              Description
+            </Label>
+            <Textarea
+              id="task-notes"
+              {...register("notes")}
+              placeholder="Add a description..."
+              rows={3}
+            />
+          </Field>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
             {/* One picker for both: a task hangs off a project OR a client OR
                 nothing, never a project and a client at once. */}
-            <Controller
-              control={control}
-              name="attachment"
-              render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger className="w-auto" aria-label="Attach to">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={NO_ATTACHMENT}>No project</SelectItem>
-                    {projects.map((project) => (
-                      <SelectItem
-                        key={project.projectId}
-                        value={`project:${project.projectId}`}
-                      >
-                        {project.name}
-                      </SelectItem>
-                    ))}
-                    {clients.map((client) => (
-                      <SelectItem
-                        key={client.uid}
-                        value={`client:${client.uid}`}
-                      >
-                        {clientLabel(client)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
+            <div className="col-span-3">
+              <Controller
+                control={control}
+                name="attachment"
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger className="w-full" aria-label="Attach to">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NO_ATTACHMENT}>Add project</SelectItem>
+                      {projects.map((project) => (
+                        <SelectItem
+                          key={project.projectId}
+                          value={`project:${project.projectId}`}
+                        >
+                          {project.name}
+                        </SelectItem>
+                      ))}
+                      {clients.map((client) => (
+                        <SelectItem
+                          key={client.uid}
+                          value={`client:${client.uid}`}
+                        >
+                          {clientLabel(client)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
 
-            <Controller
-              control={control}
-              name="assigneeIds"
-              render={({ field }) => (
-                <AssigneePicker
-                  users={users}
-                  value={field.value}
-                  onChange={field.onChange}
-                />
-              )}
-            />
+            <div className="col-span-3">
+              <Controller
+                control={control}
+                name="assigneeIds"
+                render={({ field }) => (
+                  <AssigneePicker
+                    users={users}
+                    value={field.value}
+                    onChange={field.onChange}
+                  />
+                )}
+              />
+            </div>
 
-            <Controller
-              control={control}
-              name="dueDate"
-              render={({ field: dateField }) => (
-                <Controller
-                  control={control}
-                  name="dueTime"
-                  render={({ field: timeField }) => (
-                    <DuePicker
-                      date={dateField.value}
-                      time={timeField.value}
-                      onChange={(nextDate, nextTime) => {
-                        dateField.onChange(nextDate);
-                        timeField.onChange(nextTime);
-                      }}
-                    />
-                  )}
-                />
-              )}
-            />
+            <div className="col-span-3">
+              <Controller
+                control={control}
+                name="dueDate"
+                render={({ field: dateField }) => (
+                  <Controller
+                    control={control}
+                    name="dueTime"
+                    render={({ field: timeField }) => (
+                      <DuePicker
+                        date={dateField.value}
+                        time={timeField.value}
+                        onChange={(nextDate, nextTime) => {
+                          dateField.onChange(nextDate);
+                          timeField.onChange(nextTime);
+                        }}
+                      />
+                    )}
+                  />
+                )}
+              />
+            </div>
 
-            <Controller
-              control={control}
-              name="priority"
-              render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger className="w-auto" aria-label="Priority">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(PRIORITY_LABELS).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
+            <div className="col-span-3">
+              <Controller
+                control={control}
+                name="priority"
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger className="w-full" aria-label="Priority">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PRIORITY_ORDER.map((value) => (
+                        <SelectItem key={value} value={value}>
+                          <Flag
+                            className={cn(
+                              "mr-1 size-3.5",
+                              PRIORITY_STYLES[value].flag,
+                            )}
+                          />
+                          {PRIORITY_LABELS[value]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -268,21 +297,6 @@ export function TaskFormDialog({
               </Button>
             </div>
           </div>
-
-          <Field>
-            <Label
-              htmlFor="task-notes"
-              className="text-muted-foreground text-xs uppercase"
-            >
-              Notes
-            </Label>
-            <Textarea
-              id="task-notes"
-              {...register("notes")}
-              placeholder="Add a note..."
-              rows={3}
-            />
-          </Field>
 
           <DialogFooter>
             <Button

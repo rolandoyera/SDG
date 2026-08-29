@@ -15,6 +15,27 @@ export const PRIORITY_LABELS: Record<Task["priority"], string> = {
   high: "High",
 };
 
+/** Least to most urgent — the order every priority picker renders in. */
+export const PRIORITY_ORDER: Task["priority"][] = ["low", "medium", "high"];
+
+/**
+ * Gray, blue, red by urgency. The flag and the card's dot read from one map so
+ * the three surfaces that show priority can't drift apart. Gray is the theme's
+ * muted token so it tracks dark mode; blue and red are mid-tone and stay legible
+ * against both backgrounds.
+ */
+export const PRIORITY_STYLES: Record<
+  Task["priority"],
+  { flag: string; dot: string }
+> = {
+  low: {
+    flag: "fill-muted-foreground stroke-muted-foreground",
+    dot: "bg-muted-foreground",
+  },
+  medium: { flag: "fill-blue-500 stroke-blue-500", dot: "bg-blue-500" },
+  high: { flag: "fill-red-500 stroke-red-500", dot: "bg-red-500" },
+};
+
 /**
  * Past due means due before today, not merely overdue by clock time — a task
  * due at 2:00pm shouldn't jump groups at 2:01 while you're still working on it.
@@ -70,31 +91,46 @@ export function initialsOf(name: string): string {
 }
 
 export function userLabel(users: UserProfile[], uid: string): string {
-  return users.find((u) => u.uid === uid)?.fullName ?? "Unknown";
+  return users.find((u) => u.uid === uid)?.fullName ?? "Unknown user";
 }
 
-/** "Today · 2:00pm" when a time was set, otherwise "Wed" / "Mar 4". */
-export function formatDue(task: Task, now = new Date()): string {
-  if (task.dueAt == null) return "No due date";
-  const due = new Date(task.dueAt);
-  const startOfToday = new Date(now);
-  startOfToday.setHours(0, 0, 0, 0);
-  const days = Math.round(
-    (new Date(due).setHours(0, 0, 0, 0) - startOfToday.getTime()) / 86_400_000,
-  );
+/**
+ * Initials for an avatar. A uid we can't resolve renders "?" rather than being
+ * run through initialsOf — "Unknown" would come out as a confident-looking "U"
+ * that reads like a real person's initial.
+ */
+export function userInitials(users: UserProfile[], uid: string): string {
+  const user = users.find((u) => u.uid === uid);
+  return user ? initialsOf(user.fullName) : "?";
+}
 
-  let day: string;
-  if (days === 0) day = "Today";
-  else if (days === 1) day = "Tomorrow";
-  else if (days > 1 && days < 7)
-    day = due.toLocaleDateString(undefined, { weekday: "short" });
-  else
-    day = due.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-
-  if (!task.dueHasTime) return day;
-  const time = due
+/**
+ * The one due-date format: short month then day ("Aug 27"), with the time
+ * appended when one was set ("Aug 27 · 2:30pm"). Deliberately absolute rather
+ * than relative — "Wed" is ambiguous once a list spans more than a week, and
+ * Past due / Upcoming already carries the relative meaning.
+ */
+export function formatDueParts(date: Date, hasTime: boolean): string {
+  const day = date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+  if (!hasTime) return day;
+  const time = date
     .toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
     .toLowerCase()
     .replace(" ", "");
   return `${day} · ${time}`;
+}
+
+/** For a stored task. */
+export function formatDue(task: Task): string {
+  if (task.dueAt == null) return "No due date";
+  return formatDueParts(new Date(task.dueAt), Boolean(task.dueHasTime));
+}
+
+/** For live form values (yyyy-mm-dd + HH:mm) rather than a saved task. */
+export function formatDueInput(date: string, time: string): string {
+  if (!date) return "No due date";
+  return formatDueParts(new Date(`${date}T${time || "00:00"}`), time !== "");
 }

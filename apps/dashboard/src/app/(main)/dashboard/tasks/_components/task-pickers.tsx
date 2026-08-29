@@ -14,8 +14,8 @@ import {
 import { cn } from "@/lib/utils";
 import type { UserProfile } from "@/lib/types";
 
-import { toDateInput } from "./task-constants";
-import { initialsOf } from "./task-utils";
+import { toDateInput, toTimeInput } from "./task-constants";
+import { formatDueInput, initialsOf } from "./task-utils";
 
 // Shared by the create dialog and the detail panel. The panel edits in place
 // rather than reopening a modal, so both surfaces need the same controls.
@@ -41,7 +41,11 @@ export function AssigneePicker({
     <Popover>
       <PopoverTrigger asChild>
         {trigger ?? (
-          <Button type="button" variant="outline">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full flex justify-start"
+          >
             <Users />
             {value.length === 0 ? "Assign" : `${value.length} assigned`}
           </Button>
@@ -87,10 +91,13 @@ export function DuePicker({
           <Button
             type="button"
             variant="outline"
-            className={cn(!date && "text-muted-foreground")}
+            className={cn(
+              !date && "text-muted-foreground",
+              "w-full justify-start",
+            )}
           >
             <CalendarIcon />
-            {date ? `${date}${time ? ` · ${time}` : ""}` : "No due date"}
+            {formatDueInput(date, time)}
           </Button>
         )}
       </PopoverTrigger>
@@ -98,12 +105,20 @@ export function DuePicker({
         <Calendar
           mode="single"
           selected={date ? new Date(`${date}T00:00`) : undefined}
-          onSelect={(next) => onChange(next ? toDateInput(next) : "", time)}
+          onSelect={(next) => {
+            if (!next) return onChange("", "");
+            // Picking a date with no time yet stamps the current clock time as
+            // a starting point — most tasks want one, and it's editable below.
+            onChange(toDateInput(next), time || toTimeInput(new Date()));
+          }}
         />
         {/* A time is optional and meaningless without a date, hence the disable. */}
         <div className="flex items-center gap-2 border-t p-3">
           <Input
             type="time"
+            // Native time inputs render in the OS locale's convention. Chromium
+            // honours an explicit lang for the field, which forces 12-hour.
+            lang="en-US"
             value={time}
             disabled={!date}
             onChange={(event) => onChange(date, event.target.value)}

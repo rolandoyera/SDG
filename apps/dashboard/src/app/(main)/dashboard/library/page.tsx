@@ -2,13 +2,32 @@
 
 import { Suspense, useEffect, useState } from "react";
 
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
-import { Loader2, Plus, Search, ShoppingBag } from "lucide-react";
+import {
+  Loader2,
+  Plus,
+  Search,
+  ShoppingBag,
+  TrendingDown,
+  TrendingUp,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/components/auth-context";
+import { DashboardImage } from "@/components/dashboard-image";
+import { FadeIn } from "@/components/fade-in";
+import {
+  ColumnsMenu,
+  type ListViewColumn,
+  ListViewTable,
+  useColumnVisibility,
+  useViewMode,
+  ViewModeTabs,
+} from "@/components/list-view-table";
 import { PageTitle } from "@/components/page-title-updater";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -23,6 +42,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { addLibraryItem, getLibraryItems, getVendors } from "@/lib/db";
 import { mirrorExternalImagesToFirebase } from "@/lib/library-image-mirror";
 import type { LibraryItem, Vendor } from "@/lib/types";
+import { formatCurrency } from "@/lib/utils";
 
 import { QuickCreateTrigger } from "../_components/quick-create-trigger";
 import { LibraryItemCard } from "./_components/library-item-card";
@@ -32,12 +52,18 @@ import { QuickVendorDialog } from "./_components/quick-vendor-dialog";
 import { useLibraryItemForm } from "./_components/use-library-item-form";
 import PageHeader from "@/components/page-header";
 
+// Longest material string the list view renders before cutting off with an
+// ellipsis (full text stays available on hover). Table cells don't wrap, so an
+// uncapped scraped materials blurb would stretch its column across the table.
+const MATERIAL_CHAR_MAX = 40;
+
 function LibraryContent() {
   const { organizationId, loading: authLoading } = useAuth();
   const [items, setItems] = useState<LibraryItem[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [view, setView] = useViewMode("library-view-mode");
 
   // Filters live in the URL (?category=&subcategory=) so category/subcategory
   // badges elsewhere can deep-link into a filtered catalog, and refresh/copied
@@ -166,6 +192,145 @@ function LibraryContent() {
   const isSubcategoryVisible =
     activeCategory !== "All" && SUBCATEGORIES[activeCategory] !== undefined;
 
+  // Columns for the list display mode. A handful of fields that fit the
+  // standard table comfortably; the rest live on the item detail page.
+  const columns: ListViewColumn<LibraryItem>[] = [
+    {
+      id: "image",
+      label: "Image",
+      header: <span className="sr-only">Image</span>,
+      hideable: false,
+      cellClassName: "w-16",
+      cell: (item) => (
+        <div className="relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded border bg-muted">
+          {item.coverImageUrl ? (
+            <DashboardImage
+              src={item.coverImageUrl}
+              alt={item.name}
+              sizes="48px"
+              className="object-cover"
+            />
+          ) : (
+            <ShoppingBag className="size-5 text-muted-foreground/30" />
+          )}
+        </div>
+      ),
+    },
+    {
+      id: "name",
+      label: "Name",
+      hideable: false,
+      cell: (item) => (
+        <Link
+          href={`/dashboard/library/${item.itemId}`}
+          className="font-medium text-foreground hover:text-primary"
+        >
+          {item.name}
+        </Link>
+      ),
+    },
+    {
+      id: "vendor",
+      label: "Vendor",
+      cell: (item) => {
+        const parentVendor = vendors.find((v) => v.vendorId === item.vendorId);
+        if (!parentVendor) return "—";
+        return (
+          <Link
+            href={`/dashboard/vendors/${parentVendor.vendorId}`}
+            className="hover:text-primary hover:underline"
+          >
+            {parentVendor.name}
+          </Link>
+        );
+      },
+    },
+    {
+      id: "category",
+      label: "Category",
+      cell: (item) => item.category,
+    },
+    {
+      id: "subcategory",
+      label: "Subcategory",
+      defaultVisible: false,
+      cell: (item) => item.subcategory || "—",
+    },
+    {
+      id: "sku",
+      label: "SKU",
+      cellClassName: "font-mono text-xs",
+      cell: (item) => item.sku || "—",
+    },
+    {
+      id: "color",
+      label: "Color",
+      cell: (item) => item.finishColor || "—",
+    },
+    {
+      id: "material",
+      label: "Material",
+      cell: (item) => {
+        if (!item.materials) return "—";
+        if (item.materials.length <= MATERIAL_CHAR_MAX) return item.materials;
+        return (
+          <span title={item.materials}>
+            {item.materials.slice(0, MATERIAL_CHAR_MAX).trimEnd()}…
+          </span>
+        );
+      },
+    },
+    {
+      id: "cost",
+      label: "Cost",
+      headClassName: "text-right",
+      cellClassName: "text-right",
+      cell: (item) => formatCurrency(item.unitCost),
+    },
+    {
+      id: "sellingPrice",
+      label: "Selling Price",
+      headClassName: "text-right",
+      cellClassName: "text-right",
+      cell: (item) => (
+        <span className="font-semibold text-primary">
+          {formatCurrency(item.sellingPrice)}
+        </span>
+      ),
+    },
+    {
+      id: "markup",
+      label: "Markup",
+      headClassName: "text-right",
+      cellClassName: "text-right",
+      cell: (item) => {
+        const profitable = item.sellingPrice > item.unitCost;
+        // Items without a selling price carry the org's default markup in the
+        // data; showing it would imply pricing exists, so display 0 instead.
+        const displayMarkup =
+          item.sellingPrice > 0 ? Math.round(item.markup) : 0;
+        return (
+          <Badge
+            className="text-[9px]"
+            variant={profitable ? "trendingUp" : "trendingDown"}
+          >
+            {profitable ? (
+              <TrendingUp className="size-3" />
+            ) : (
+              <TrendingDown className="size-3" />
+            )}
+            {displayMarkup}%
+          </Badge>
+        );
+      },
+    },
+  ];
+
+  const [columnVisibility, setColumnVisibility] = useColumnVisibility(
+    columns,
+    "library-list-columns",
+  );
+
   return (
     <div className="flex w-full flex-col gap-6">
       <PageTitle title="Product Library" />
@@ -267,15 +432,25 @@ function LibraryContent() {
           )}
         </div>
 
-        {/* Quick Search */}
-        <div className="relative w-full max-w-xs">
-          <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search items, vendors or SKU..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
+        {/* Quick Search + display mode controls */}
+        <div className="flex w-full items-center gap-2 md:w-auto">
+          <div className="relative w-full max-w-xs">
+            <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search items, vendors or SKU..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          {view === "list" && (
+            <ColumnsMenu
+              columns={columns}
+              visibility={columnVisibility}
+              onVisibilityChange={setColumnVisibility}
+            />
+          )}
+          <ViewModeTabs view={view} onViewChange={setView} />
         </div>
       </div>
 
@@ -306,8 +481,11 @@ function LibraryContent() {
             </Button>
           )}
         </Card>
-      ) : (
-        <div className="grid xl:grid-cols-6 grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
+      ) : view === "grid" ? (
+        <FadeIn
+          key="grid"
+          className="grid xl:grid-cols-6 grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5"
+        >
           {filteredItems.map((item) => (
             <LibraryItemCard
               key={item.itemId}
@@ -315,7 +493,17 @@ function LibraryContent() {
               parentVendor={vendors.find((v) => v.vendorId === item.vendorId)}
             />
           ))}
-        </div>
+        </FadeIn>
+      ) : (
+        <FadeIn key="list">
+          <ListViewTable
+            columns={columns}
+            rows={filteredItems}
+            rowKey={(item) => item.itemId}
+            visibility={columnVisibility}
+            rowHref={(item) => `/dashboard/library/${item.itemId}`}
+          />
+        </FadeIn>
       )}
 
       <QuickCreateTrigger onTrigger={handleOpenAdd} />

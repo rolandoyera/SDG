@@ -95,7 +95,7 @@ export async function AdsZipLocationsSection({ range }: { range?: string }) {
           className="min-h-32"
         />
       ) : (
-        <AdsLocationsTable data={result.data} locationHeader="ZIP" />
+        <AdsLocationsTable data={result.data} locationHeader="ZIP" zip />
       )}
     </TableCard>
   );

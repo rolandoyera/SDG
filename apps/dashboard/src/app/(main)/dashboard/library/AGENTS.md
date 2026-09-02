@@ -71,7 +71,13 @@ The Global Product Library — an org-wide catalog of items (`LibraryItem` in `@
 across projects and proposals. Two routes, both **client components**:
 
 - [page.tsx](./page.tsx) — the catalog: searchable, category/subcategory-filtered grid of
-  `LibraryItemCard`s, plus the "Add Item" dialog. Honors `?add=true` (Quick Create deep link) via
+  `LibraryItemCard`s, plus the "Add Item" dialog. The grid has a **grid/list display toggle**
+  built on the shared `@/components/list-view-table` module (`ViewModeTabs`, `ColumnsMenu`,
+  `ListViewTable`, `useColumnVisibility`) — a plain `ui/table` with a column-visibility dropdown,
+  deliberately **without** the Projects items tab's TanStack column resizing or dnd-kit row
+  reordering. The columns are defined inline in the page; Vendors uses the same module. View
+  and column choices persist per browser in localStorage (`library-view-mode` /
+  `library-list-columns`), loaded after mount to avoid hydration mismatches. Honors `?add=true` (Quick Create deep link) via
   the shared `QuickCreateTrigger` (`../_components/quick-create-trigger.tsx`), which reacts to
   same-page navigations and clears the param via `window.history.replaceState` (root AGENTS.md
   rule #3), preserving any other params. The category/subcategory filters are **URL-driven** (`?category=`/`?subcategory=`,
@@ -214,9 +220,9 @@ state** — nothing is saved until the user submits, and the mirror step (above)
 hedges and returns the full list when it can't map an opaque variant id to an option (seen on
 arhaus.com). Variant image URLs get the same measured-original upgrade as gallery images.
 Variant NAMES often never reach the markdown at all: BigCommerce swatches render the label only
-as a `title` attribute on a CSS-background span, which Jina/Firecrawl markdown drops (on
+as a `title`attribute on a CSS-background span, which Jina/Firecrawl markdown drops (on
 finearthl.com the model saw nothing but SKU-coded image filenames). The markdown tier therefore
-harvests `[data-product-attribute]` option labels from the raw HTML
+harvests`[data-product-attribute]` option labels from the raw HTML
 (`extractVariantGroupsFromHtml`) and appends them to the prompt as a "Selectable product options"
 block, which the field instructions treat as the authoritative label source.
 When more than one comes back, the hook exposes `variantOptions`/`selectedVariantLabel`/

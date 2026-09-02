@@ -78,7 +78,10 @@ accept a customer ID from the client.
   `AdsLocationsTable`. ZIP mode selects BOTH segments and subtitles each ZIP
   with the impression-dominant city its traffic resolved to (e.g. "33308 /
   Oakland Park, Florida") — the geo hierarchy can't provide this (a postal
-  code's `parent_geo_target` is the state). Rows are aggregated per (location,
+  code's `parent_geo_target` is the state). The ZIP table passes `zip` to
+  `AdsLocationsTable`, which renders each ZIP as an external link to
+  `https://www.zillow.com/<zip>` (new tab) for a quick read on the area's
+  housing stock. Rows are aggregated per (location,
   `targeting_location`); `targeting_location: false` renders the "Outside
   target" badge — that flag is the tell for geo-leak spend (the account's
   week-1 problem), don't drop it. The city and ZIP views answer different

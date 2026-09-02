@@ -72,7 +72,7 @@ export function LibraryItemCard({
       <CardContent className="flex flex-1 flex-col gap-3 py-0">
         <div className="flex-1">
           {/* Item Name - Clicking/hovering on the title takes you to the detail page */}
-          <H3 className="transition-colors group-has-[.detail-link:hover]:text-primary">
+          <H3 className="transition-colors group-has-[.detail-link:hover]:text-primary line-clamp-1">
             <Link
               href={`/dashboard/library/${item.itemId}`}
               className="detail-link block"

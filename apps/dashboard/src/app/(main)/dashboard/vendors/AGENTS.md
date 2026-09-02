@@ -16,7 +16,13 @@ AGENTS.md is worse than none — treat updating it as part of "done," not option
 A vendor directory (trade vendors / procurement reps). Two routes, both **client components**:
 
 - [page.tsx](./page.tsx) — the directory: searchable, category-filtered grid of `VendorCard`s,
-  plus the "Add Vendor" dialog.
+  plus the "Add Vendor" dialog. The grid has a **grid/list display toggle** built on the shared
+  `@/components/list-view-table` module (`ViewModeTabs`, `ColumnsMenu`, `ListViewTable`,
+  `useColumnVisibility`) — a plain `ui/table` with a column-visibility dropdown, no column
+  resizing or row drag-sort. Columns are defined inline in the page; the Library catalog uses
+  the same module. View and column choices persist per browser in localStorage
+  (`vendors-view-mode` / `vendors-list-columns`), loaded after mount to avoid hydration
+  mismatches.
 - [[vendorId]/page.tsx]([vendorId]/page.tsx) — a single vendor profile: hero, linked library
   items, account/contact/notes cards, and edit/delete.
 

@@ -16,7 +16,13 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { Ban, ChevronDownIcon, ListFilter, MoreVertical } from "lucide-react";
+import {
+  Ban,
+  ChevronDownIcon,
+  ExternalLink,
+  ListFilter,
+  MoreVertical,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -759,6 +765,7 @@ export function AdsKeywordsTable({ data }: { data: AdsKeywordRow[] }) {
 
 const locationColumns = (
   locationHeader: string,
+  zip: boolean,
 ): ColumnDef<AdsLocationRow>[] => [
   {
     accessorKey: "city",
@@ -768,9 +775,21 @@ const locationColumns = (
     cell: ({ row }) => (
       <div className="flex items-center gap-2">
         <div className="flex flex-col">
-          <span className="font-medium wrap-break-word whitespace-normal">
-            {row.original.city}
-          </span>
+          {zip ? (
+            <a
+              href={`https://www.zillow.com/${encodeURIComponent(row.original.city)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 font-medium hover:text-primary hover:underline"
+            >
+              {row.original.city}
+              <ExternalLink className="size-3 text-muted-foreground" />
+            </a>
+          ) : (
+            <span className="font-medium wrap-break-word whitespace-normal">
+              {row.original.city}
+            </span>
+          )}
           {row.original.region && (
             <span className="text-muted-foreground text-xs">
               {row.original.region}
@@ -841,13 +860,16 @@ const locationColumns = (
 export function AdsLocationsTable({
   data,
   locationHeader = "City",
+  zip = false,
 }: {
   data: AdsLocationRow[];
   locationHeader?: string;
+  /** ZIP granularity: link each ZIP out to its Zillow page. */
+  zip?: boolean;
 }) {
   const columns = useMemo(
-    () => locationColumns(locationHeader),
-    [locationHeader],
+    () => locationColumns(locationHeader, zip),
+    [locationHeader, zip],
   );
   const table = useReactTable({
     data,

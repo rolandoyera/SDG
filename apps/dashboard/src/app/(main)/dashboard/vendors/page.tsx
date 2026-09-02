@@ -10,6 +10,15 @@ import { toast } from "sonner";
 
 import { useAuth } from "@/components/auth-context";
 import { DashboardImage } from "@/components/dashboard-image";
+import { FadeIn } from "@/components/fade-in";
+import {
+  ColumnsMenu,
+  type ListViewColumn,
+  ListViewTable,
+  useColumnVisibility,
+  useViewMode,
+  ViewModeTabs,
+} from "@/components/list-view-table";
 import {
   FacebookIcon,
   GlobeIcon,
@@ -54,6 +63,7 @@ function VendorsContent() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [view, setView] = useViewMode("vendors-view-mode");
 
   // Category filter lives in the URL (?category=) so links elsewhere can
   // deep-link into a filtered directory, and refresh/copied links land on
@@ -151,6 +161,113 @@ function VendorsContent() {
     })
     .sort((a, b) => a.name.localeCompare(b.name));
 
+  // Columns for the list display mode. A handful of fields that fit the
+  // standard table comfortably; the rest live on the vendor profile page.
+  const columns: ListViewColumn<Vendor>[] = [
+    {
+      id: "logo",
+      label: "Logo",
+      header: <span className="sr-only">Logo</span>,
+      hideable: false,
+      cellClassName: "w-14",
+      cell: (vendor) => (
+        <div className="relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded border bg-muted">
+          {vendor.logoUrl ? (
+            <DashboardImage
+              src={vendor.logoUrl}
+              alt={vendor.name}
+              sizes="40px"
+              className="object-contain"
+            />
+          ) : (
+            <Building2 className="size-4 text-muted-foreground/30" />
+          )}
+        </div>
+      ),
+    },
+    {
+      id: "name",
+      label: "Name",
+      hideable: false,
+      cell: (vendor) => (
+        <Link
+          href={`/dashboard/vendors/${vendor.vendorId}`}
+          className="font-medium text-foreground hover:text-primary"
+        >
+          {vendor.name}
+        </Link>
+      ),
+    },
+    {
+      id: "category",
+      label: "Category",
+      cell: (vendor) => vendor.category || "—",
+    },
+    {
+      id: "accountNumber",
+      label: "Account #",
+      cellClassName: "font-mono text-xs",
+      cell: (vendor) => vendor.accountNumber || "—",
+    },
+    {
+      id: "rep",
+      label: "Representative",
+      cell: (vendor) => vendor.repName || "—",
+    },
+    {
+      id: "email",
+      label: "Email",
+      cell: (vendor) =>
+        vendor.repEmail ? (
+          <a
+            href={`mailto:${vendor.repEmail}`}
+            className="hover:text-primary hover:underline"
+          >
+            {vendor.repEmail}
+          </a>
+        ) : (
+          "—"
+        ),
+    },
+    {
+      id: "phone",
+      label: "Phone",
+      cell: (vendor) =>
+        vendor.repPhone
+          ? formatVendorPhone(vendor.repPhone, vendor.repPhoneCountry)
+          : "—",
+    },
+    {
+      id: "website",
+      label: "Website",
+      cell: (vendor) => {
+        const { websiteHref } = getVendorSocialHrefs(vendor);
+        if (!websiteHref) return "—";
+        return (
+          <a
+            href={websiteHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-primary hover:underline"
+          >
+            {getDisplayUrl(websiteHref)}
+          </a>
+        );
+      },
+    },
+    {
+      id: "address",
+      label: "Address",
+      defaultVisible: false,
+      cell: (vendor) => vendor.formattedAddress || "—",
+    },
+  ];
+
+  const [columnVisibility, setColumnVisibility] = useColumnVisibility(
+    columns,
+    "vendors-list-columns",
+  );
+
   return (
     <>
       <PageTitle title="Vendor Directory" />
@@ -190,15 +307,25 @@ function VendorsContent() {
             </TabsList>
           </Tabs>
 
-          {/* Quick Search */}
-          <div className="relative w-full max-w-xs">
-            <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search vendors, representatives or category..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-background/50 pl-9"
-            />
+          {/* Quick Search + display mode controls */}
+          <div className="flex w-full items-center gap-2 md:w-auto">
+            <div className="relative w-full max-w-xs">
+              <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search vendors, representatives or category..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="bg-background/50 pl-9"
+              />
+            </div>
+            {view === "list" && (
+              <ColumnsMenu
+                columns={columns}
+                visibility={columnVisibility}
+                onVisibilityChange={setColumnVisibility}
+              />
+            )}
+            <ViewModeTabs view={view} onViewChange={setView} />
           </div>
         </div>
 
@@ -229,12 +356,25 @@ function VendorsContent() {
               </Button>
             )}
           </Card>
-        ) : (
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
+        ) : view === "grid" ? (
+          <FadeIn
+            key="grid"
+            className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5"
+          >
             {filteredVendors.map((vendor) => (
               <VendorCard key={vendor.vendorId} vendor={vendor} />
             ))}
-          </div>
+          </FadeIn>
+        ) : (
+          <FadeIn key="list">
+            <ListViewTable
+              columns={columns}
+              rows={filteredVendors}
+              rowKey={(vendor) => vendor.vendorId}
+              visibility={columnVisibility}
+              rowHref={(vendor) => `/dashboard/vendors/${vendor.vendorId}`}
+            />
+          </FadeIn>
         )}
 
         <QuickCreateTrigger onTrigger={() => setIsAddOpen(true)} />

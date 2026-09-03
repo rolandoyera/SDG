@@ -43,6 +43,14 @@ action argument — that would let a client spoof another tenant. The Admin SDK 
 
 ## Rules that are easy to break
 
+- **Nothing in `page.tsx` awaits GA4.** The App Router holds the previous route on screen until
+  everything outside a Suspense boundary resolves, so a top-level await made the page "stick" for
+  seconds on navigation. The header, tab strip and toolbar stream instantly; every tab's sections
+  sit inside ONE `<Suspense>` showing the shared `LoadingState` spinner, then reveal together inside
+  a `FadeIn` (same pattern as Ads and Instagram — one loading state, not per-section streaming;
+  don't split it). Two tiny boundaries sit in the shell: `AnalyticsConnectionDot` (header slot) and
+  `CampaignToolbar` (the toolbar with an empty options list as its fallback, so the date picker is
+  usable before the campaign report lands). Don't hoist a fetch back into `Page`.
 - **All tab sections render server-side every request, even inactive tabs.** Sections passed as
   `children` into the client `<Tabs>`/`<TabsContent>` (see [page.tsx](./page.tsx)) are still
   executed on the server to build the RSC payload. So one page load fans out **every** section's
@@ -61,8 +69,8 @@ action argument — that would let a client spoof another tenant. The Admin SDK 
   (`trace()` and `__dbStats` are defined in `src/lib/db-trace.ts`, and called only from
   `src/lib/db.ts`). The Admin-SDK org read and the GA4/GSC API calls go through neither, so they're
   invisible to it — expect the panel to under-report on this route.
-- **Connection status is checked during SSR.** `page.tsx` awaits `testGA4Connection()` and renders the
-  result as a ping indicator next to the page title (green = connected, red = not). No separate
+- **Connection status is checked during SSR.** `AnalyticsConnectionDot` (behind its own Suspense in the
+  header slot) awaits `testGA4Connection()` and renders the shared `ConnectionDot` next to the page title (green = connected, red = not). No separate
   client-side check, so a page visit produces a single `getActiveOrgConfig` read from this path.
 - **The Conversions form funnels depend on a GA4 custom dimension.** `fetchConversionsData`
   splits `form_start` **and** `contact_form_error` by the `form_type` event param in one guarded
@@ -115,8 +123,8 @@ action argument — that would let a client spoof another tenant. The Admin SDK 
   resolve to America/Los_Angeles calendar days (GSC's day keying); unknown/absent range still
   defaults to 28 days.
 - **Campaign filter comes from `?campaign=`** (no param = all campaigns). The toolbar dropdown's
-  options come from `fetchCampaignOptions(range)` (one extra GA4 report per page load, fetched in
-  `page.tsx`); "(not set)"/"(direct)" are kept deliberately — they're real GA4 buckets. Every
+  options come from `fetchCampaignOptions(range)` (one extra GA4 report per page load, fetched by
+  the `CampaignToolbar` async component in `page.tsx`); "(not set)"/"(direct)" are kept deliberately — they're real GA4 buckets. Every
   GA4-backed section action takes `campaign` as its second arg and applies a session-scoped
   `sessionCampaignName` EXACT filter via `campaignFilter`/`mergeFilters` (the merge matters for
   the Conversions queries that already have their own `dimensionFilter`). The Realtime card

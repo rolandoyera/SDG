@@ -54,6 +54,14 @@ SuperAdmin exposure, but nothing surfaces it. To switch accounts, reconnect (the
 
 ## Rules that are easy to break
 
+- **Nothing in `Page` awaits Firestore or the Graph API.** The App Router holds the previous route
+  on screen until everything outside a Suspense boundary resolves. `page.tsx` therefore has two
+  boundaries: `InstagramHeader` (header row: shared `ConnectionDot` + avatar, fallback is the same
+  row with a pending dot) and `InstagramContent` (tabs + `InstagramConnect`, fallback is the shared
+  `LoadingState` spinner, resolved content wrapped in `FadeIn`). Both read the connection through
+  `cache(getMetaConnection)` so it's still one org-doc read per request. Same one-spinner pattern as
+  Ads and Analytics — don't split the body into per-section boundaries, and don't hoist a fetch
+  back into `Page`.
 - **The `config.metaIntegration` profile fields are a display cache, NOT source of truth.**
   Snapshots are their only writer: the daily cron re-fetches the profile (`fetchProfileDisplay`)
   and refreshes `followersCount`, `mediaCount`, username/name, and `instagramProfilePictureUrl` —

@@ -1,9 +1,14 @@
+import { Suspense } from "react";
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+import { ConnectionDotPending } from "@/components/connection-dot";
+import { FadeIn } from "@/components/fade-in";
+import { LoadingState } from "@/components/loading-state";
 import PageHeader from "@/components/page-header";
 import { PageTitle } from "@/components/page-title-updater";
-import { testGoogleAdsConnection } from "@/server/google-ads-actions";
 
+import { AdsConnectionDot } from "./_components/ads-connection-dot";
 import { AdsDevices } from "./_components/ads-devices";
 import { AdsKpiStrip } from "./_components/ads-kpi-strip";
 import {
@@ -20,11 +25,15 @@ interface PageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
+// Nothing above the Suspense boundary awaits the Google Ads API, so the page
+// shell (header, tabs, toolbar) streams immediately on navigation. Every
+// section sits inside ONE boundary: a single spinner shows until the slowest
+// query resolves, then all panels reveal together with a fade-in. Awaiting a
+// fetch at this level would hold the previous route on screen until it
+// finished.
 export default async function Page({ searchParams }: PageProps) {
   const resolvedSearchParams = await searchParams;
   const range = (resolvedSearchParams.range as string) || "this-month";
-  const connection = await testGoogleAdsConnection();
-  const connected = connection.success;
 
   return (
     <div className="flex flex-col gap-6">
@@ -33,21 +42,9 @@ export default async function Page({ searchParams }: PageProps) {
         title="Google Ads"
         description="What the ad budget buys, in plain sight."
         titleAccessory={
-          <span
-            role="img"
-            className="relative flex size-2.5"
-            title={connected ? "Connected" : "Not connected"}
-            aria-label={connected ? "Connected" : "Not connected"}
-          >
-            <span
-              className={`absolute inline-flex size-full animate-ping rounded-full opacity-75 ${
-                connected ? "bg-green-500" : "bg-red-500"
-              }`}
-            />
-            <span
-              className={`relative inline-flex size-2.5 rounded-full ${connected ? "bg-green-500" : "bg-red-500"}`}
-            />
-          </span>
+          <Suspense fallback={<ConnectionDotPending />}>
+            <AdsConnectionDot />
+          </Suspense>
         }
       />
 
@@ -64,37 +61,41 @@ export default async function Page({ searchParams }: PageProps) {
           <AdsToolbar />
         </div>
 
-        <TabsContent value="overview" className="flex flex-col gap-6">
-          <AdsKpiStrip range={range} />
+        <Suspense fallback={<LoadingState label="Google Ads" />}>
+          <FadeIn>
+            <TabsContent value="overview" className="flex flex-col gap-6">
+              <AdsKpiStrip range={range} />
 
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
-            <div className="md:col-span-1 lg:col-span-4">
-              <AdsTrend range={range} />
-            </div>
-            <div className="md:col-span-1 lg:col-span-3">
-              <AdsDevices range={range} />
-            </div>
-          </div>
-        </TabsContent>
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
+                <div className="md:col-span-1 lg:col-span-4">
+                  <AdsTrend range={range} />
+                </div>
+                <div className="md:col-span-1 lg:col-span-3">
+                  <AdsDevices range={range} />
+                </div>
+              </div>
+            </TabsContent>
 
-        <TabsContent value="campaigns">
-          <AdsCampaignsSection range={range} />
-        </TabsContent>
+            <TabsContent value="campaigns">
+              <AdsCampaignsSection range={range} />
+            </TabsContent>
 
-        <TabsContent value="search-terms">
-          <AdsSearchTermsSection range={range} />
-        </TabsContent>
+            <TabsContent value="search-terms">
+              <AdsSearchTermsSection range={range} />
+            </TabsContent>
 
-        <TabsContent value="keywords">
-          <AdsKeywordsSection range={range} />
-        </TabsContent>
+            <TabsContent value="keywords">
+              <AdsKeywordsSection range={range} />
+            </TabsContent>
 
-        <TabsContent value="locations">
-          <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
-            <AdsLocationsSection range={range} />
-            <AdsZipLocationsSection range={range} />
-          </div>
-        </TabsContent>
+            <TabsContent value="locations">
+              <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
+                <AdsLocationsSection range={range} />
+                <AdsZipLocationsSection range={range} />
+              </div>
+            </TabsContent>
+          </FadeIn>
+        </Suspense>
       </Tabs>
     </div>
   );

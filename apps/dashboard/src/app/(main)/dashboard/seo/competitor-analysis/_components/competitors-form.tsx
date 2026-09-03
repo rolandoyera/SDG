@@ -8,6 +8,8 @@ import { Controller, useFieldArray, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { FadeIn } from "@/components/fade-in";
+import { LoadingState } from "@/components/loading-state";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldError } from "@/components/ui/field";
@@ -40,6 +42,7 @@ export function CompetitorsForm() {
     name: "competitors",
   });
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -51,6 +54,9 @@ export function CompetitorsForm() {
       })
       .catch(() => {
         // Leave the empty form; saving still works.
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
@@ -72,90 +78,94 @@ export function CompetitorsForm() {
     }
   };
 
+  if (loading) return <LoadingState label="Competitors" />;
+
   return (
-    <Card className="gap-2 pt-0">
-      <CardHeader className="bg-muted/50 py-3">
-        <CardTitle>Competitors</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form
-          onSubmit={handleSubmit(onSubmit)}
-          className="flex flex-col gap-4"
-          noValidate
-        >
-          {fields.length === 0 && (
-            <p className="text-muted-foreground text-sm">
-              No competitors yet — add up to {MAX_COMPETITORS}.
-            </p>
-          )}
+    <FadeIn>
+      <Card className="gap-2 pt-0">
+        <CardHeader className="bg-muted/50 py-3">
+          <CardTitle>Competitors</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form
+            onSubmit={handleSubmit(onSubmit)}
+            className="flex flex-col gap-4"
+            noValidate
+          >
+            {fields.length === 0 && (
+              <p className="text-muted-foreground text-sm">
+                No competitors yet — add up to {MAX_COMPETITORS}.
+              </p>
+            )}
 
-          {fields.map((row, index) => (
-            <div
-              key={row.id}
-              className="grid items-start gap-4 sm:grid-cols-[16rem_1fr_auto]"
-            >
-              <Controller
-                control={control}
-                name={`competitors.${index}.name`}
-                render={({ field, fieldState }) => (
-                  <Field className="flex flex-col gap-1.5">
-                    <Label>Name</Label>
-                    <Input {...field} placeholder="Competitor name" />
-                    {fieldState.error && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                )}
-              />
-              <Controller
-                control={control}
-                name={`competitors.${index}.url`}
-                render={({ field, fieldState }) => (
-                  <Field className="flex flex-col gap-1.5">
-                    <Label>Website</Label>
-                    <Input
-                      {...field}
-                      placeholder="https://competitor.com"
-                      inputMode="url"
-                    />
-                    {fieldState.error && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                )}
-              />
-              <div className="flex flex-col gap-1.5">
-                <Label className="invisible hidden sm:block">Remove</Label>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => remove(index)}
-                  aria-label="Remove competitor"
-                >
-                  <X className="size-4" />
-                </Button>
+            {fields.map((row, index) => (
+              <div
+                key={row.id}
+                className="grid items-start gap-4 sm:grid-cols-[16rem_1fr_auto]"
+              >
+                <Controller
+                  control={control}
+                  name={`competitors.${index}.name`}
+                  render={({ field, fieldState }) => (
+                    <Field className="flex flex-col gap-1.5">
+                      <Label>Name</Label>
+                      <Input {...field} placeholder="Competitor name" />
+                      {fieldState.error && (
+                        <FieldError errors={[fieldState.error]} />
+                      )}
+                    </Field>
+                  )}
+                />
+                <Controller
+                  control={control}
+                  name={`competitors.${index}.url`}
+                  render={({ field, fieldState }) => (
+                    <Field className="flex flex-col gap-1.5">
+                      <Label>Website</Label>
+                      <Input
+                        {...field}
+                        placeholder="https://competitor.com"
+                        inputMode="url"
+                      />
+                      {fieldState.error && (
+                        <FieldError errors={[fieldState.error]} />
+                      )}
+                    </Field>
+                  )}
+                />
+                <div className="flex flex-col gap-1.5">
+                  <Label className="invisible hidden sm:block">Remove</Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => remove(index)}
+                    aria-label="Remove competitor"
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
 
-          <div className="flex items-center gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={fields.length >= MAX_COMPETITORS}
-              onClick={() => append({ name: "", url: "" })}
-            >
-              <Plus className="size-4" />
-              Add competitor
-            </Button>
-            <Button type="submit" disabled={saving}>
-              {saving && <Loader2 className="size-4 animate-spin" />}
-              Save
-            </Button>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
+            <div className="flex items-center gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={fields.length >= MAX_COMPETITORS}
+                onClick={() => append({ name: "", url: "" })}
+              >
+                <Plus className="size-4" />
+                Add competitor
+              </Button>
+              <Button type="submit" disabled={saving}>
+                {saving && <Loader2 className="size-4 animate-spin" />}
+                Save
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </FadeIn>
   );
 }

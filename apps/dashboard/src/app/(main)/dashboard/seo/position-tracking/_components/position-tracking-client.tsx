@@ -5,7 +5,6 @@ import { useEffect, useRef, useState } from "react";
 import type { RowSelectionState } from "@tanstack/react-table";
 import { formatDistanceToNow } from "date-fns";
 import {
-  Loader2,
   Plus,
   RefreshCw,
   Trash2,
@@ -18,6 +17,8 @@ import {
   type AppliedDateRange,
   DateRangePicker,
 } from "@/components/date-range-picker";
+import { FadeIn } from "@/components/fade-in";
+import { LoadingState } from "@/components/loading-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -285,19 +286,13 @@ export function PositionTrackingClient() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center py-24">
-        <Loader2 className="size-5 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
+  if (loading) return <LoadingState label="Position Tracking" />;
   if (loadError) {
     return <p className="text-destructive text-sm">{loadError}</p>;
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <FadeIn className="flex flex-col gap-6">
       <Card className="gap-2 pt-0">
         <CardHeader className="flex flex-row items-center justify-between bg-muted/50 py-3">
           <CardTitle>Average Position</CardTitle>
@@ -387,6 +382,6 @@ export function PositionTrackingClient() {
         onOpenChange={setDialogOpen}
         onAdded={setData}
       />
-    </div>
+    </FadeIn>
   );
 }

@@ -86,6 +86,9 @@ SEMrush-replacement rank tracker backed by DataForSEO (core in
 `position-tracking-actions.ts`; `DATAFORSEO_LOGIN`/`DATAFORSEO_PASSWORD`,
 server-side only).
 
+- `PositionTrackingClient` shows the shared `LoadingState` spinner until its
+  mount fetch resolves, then wraps the page body in `FadeIn` — the same
+  one-spinner-then-fade treatment as Ads/Analytics/Instagram.
 - Tracked keywords live on the org doc at `seo.trackedKeywords` (max 50:
   keyword + DataForSEO `location_name` + cached volume/CPC/difficulty/intent
   metadata, batch-refreshed when older than 30 days). The Add dialog takes a
@@ -214,7 +217,9 @@ Manages up to 5 competitors (name + URL). Stored on the org document at
 `seo.competitors` via `saveCompetitors` (server action, org from cookie, URLs
 normalized to origin) — durable config, not cache. The Keyword Analyzer's
 source dropdowns read the same list. This page is where full site-vs-site
-competitor analysis will grow later.
+competitor analysis will grow later. `CompetitorsForm` shows the shared
+`LoadingState` spinner until `fetchCompetitors` resolves, then fades the card
+in — without it the empty form flashed before the saved rows arrived.
 
 ## Analyzer rules (seo-actions.ts)
 

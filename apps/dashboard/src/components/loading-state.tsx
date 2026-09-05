@@ -19,7 +19,7 @@ export function LoadingState({
   return (
     <div
       className={cn(
-        "flex min-h-75 flex-col items-center justify-center gap-3 rounded bg-card shadow-xs ring-1 ring-foreground/5",
+        "flex min-h-[calc(100vh-18rem)] flex-col items-center justify-center gap-3",
         className,
       )}
     >

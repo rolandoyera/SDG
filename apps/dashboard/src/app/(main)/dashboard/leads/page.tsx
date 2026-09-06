@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { LoadingState } from "@/components/loading-state";
+import { FadeIn } from "@/components/fade-in";
 import { useAuth } from "@/components/auth-context";
 import PageHeader from "@/components/page-header";
 import { PageTitle } from "@/components/page-title-updater";
@@ -86,10 +87,12 @@ export default function LeadsPage() {
     }
   };
 
+  if (loading) return <LoadingState label="Loading Leads" />;
+
   return (
     <>
       <PageTitle title="Leads" />
-      <div className="flex w-full flex-col gap-6">
+      <FadeIn className="flex w-full flex-col gap-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <PageHeader
             title="Leads"
@@ -98,21 +101,12 @@ export default function LeadsPage() {
         </div>
         <KpiCards />
 
-        {loading ? (
-          <div className="flex min-h-75 flex-col items-center justify-center gap-3">
-            <Loader2 className="size-8 animate-spin text-primary" />
-            <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
-              Loading Leads
-            </p>
-          </div>
-        ) : (
-          <LeadsTable
-            leads={leads}
-            userMap={userMap}
-            currentUserId={uid ?? undefined}
-            onAddLead={() => setIsAddOpen(true)}
-          />
-        )}
+        <LeadsTable
+          leads={leads}
+          userMap={userMap}
+          currentUserId={uid ?? undefined}
+          onAddLead={() => setIsAddOpen(true)}
+        />
         <TaskReminders />
         <PipelineActivity />
 
@@ -127,7 +121,7 @@ export default function LeadsPage() {
           users={users}
           onSubmit={handleAddSubmit}
         />
-      </div>
+      </FadeIn>
     </>
   );
 }

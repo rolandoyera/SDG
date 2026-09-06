@@ -8,6 +8,8 @@ import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { LoadingState } from "@/components/loading-state";
+import { FadeIn } from "@/components/fade-in";
 import { useAuth } from "@/components/auth-context";
 import {
   AlertDialog,
@@ -194,20 +196,13 @@ export default function VendorDetailPage({ params }: PageProps) {
   };
 
   if (loading || authLoading) {
-    return (
-      <div className="flex min-h-100 flex-col items-center justify-center gap-3">
-        <Loader2 className="size-8 animate-spin text-primary" />
-        <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
-          Loading Vendor Profile
-        </p>
-      </div>
-    );
+    return <LoadingState label="Loading Vendor" />;
   }
 
   if (!vendor) return null;
 
   return (
-    <div className="mx-auto flex flex-col">
+    <FadeIn className="mx-auto flex flex-col">
       <VendorHeader
         vendor={vendor}
         onEdit={() => setIsEditOpen(true)}
@@ -324,6 +319,6 @@ export default function VendorDetailPage({ params }: PageProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </FadeIn>
   );
 }

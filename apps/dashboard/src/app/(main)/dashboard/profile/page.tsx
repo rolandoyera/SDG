@@ -18,6 +18,8 @@ import {
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 
+import { LoadingState } from "@/components/loading-state";
+import { FadeIn } from "@/components/fade-in";
 import { useAuth } from "@/components/auth-context";
 import { PageTitle } from "@/components/page-title-updater";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -265,16 +267,7 @@ function ProfileContent() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex h-[60vh] w-full items-center justify-center">
-        <div className="relative size-12">
-          <div className="absolute inset-0 rounded-full border-4 border-primary/20" />
-          <div className="absolute inset-0 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <LoadingState label="Loading Profile" />;
 
   const userInitials = getInitials(
     fullName || displayName || email || currentUser?.email || "U",
@@ -283,7 +276,7 @@ function ProfileContent() {
   return (
     <>
       <PageTitle title="Profile" />
-      <div className="mx-auto max-w-5xl space-y-6 pb-10">
+      <FadeIn className="mx-auto max-w-5xl space-y-6 pb-10">
         {/* Profile Premium Header Banner Card */}
         <Card className="relative flex flex-col items-center gap-6 p-6 md:flex-row">
           {/* Glow backdrop decorator */}
@@ -610,23 +603,14 @@ function ProfileContent() {
             </form>
           </DialogContent>
         </Dialog>
-      </div>
+      </FadeIn>
     </>
   );
 }
 
 export default function ProfilePage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex h-[60vh] w-full items-center justify-center">
-          <div className="relative size-12">
-            <div className="absolute inset-0 rounded-full border-4 border-primary/20" />
-            <div className="absolute inset-0 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          </div>
-        </div>
-      }
-    >
+    <Suspense fallback={<LoadingState label="Loading Profile" />}>
       <ProfileContent />
     </Suspense>
   );

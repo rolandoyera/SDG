@@ -14,6 +14,7 @@ import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { LoadingState } from "@/components/loading-state";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -195,17 +196,7 @@ function InviteContent() {
 
   if (isVerifying) {
     return (
-      <div className="flex h-[40vh] w-full items-center justify-center">
-        <div className="relative flex flex-col items-center gap-4">
-          <div className="relative size-12">
-            <div className="absolute inset-0 rounded-full border-4 border-primary/20" />
-            <div className="absolute inset-0 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          </div>
-          <p className="animate-pulse font-medium text-muted-foreground text-xs uppercase tracking-widest">
-            Verifying Invitation
-          </p>
-        </div>
-      </div>
+      <LoadingState label="Verifying Invitation" className="min-h-[40vh]" />
     );
   }
 
@@ -430,12 +421,7 @@ export default function InvitePage() {
   return (
     <Suspense
       fallback={
-        <div className="flex h-[40vh] w-full items-center justify-center">
-          <div className="relative size-10">
-            <div className="absolute inset-0 rounded-full border-4 border-primary/20" />
-            <div className="absolute inset-0 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          </div>
-        </div>
+        <LoadingState label="Verifying Invitation" className="min-h-[40vh]" />
       }
     >
       <InviteContent />

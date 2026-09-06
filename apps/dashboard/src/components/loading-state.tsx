@@ -1,31 +1,35 @@
-import { Loader2 } from "lucide-react";
-
 import { cn } from "@/lib/utils";
 
 /**
- * Single loading state for a page body that streams in behind one Suspense
- * boundary (Ads, Analytics, Instagram) or waits on one client fetch (SEO
- * tools). Same spinner treatment as the Library page, in a card shell so the
- * layout holds its shape until the content fades in.
+ * The one loading state. Fills the dashboard content area (viewport minus the
+ * app header and page padding) so the spinner sits at the center of the
+ * screen: pages render this alone while they fetch, then reveal inside
+ * `FadeIn`. Pages that keep a live toolbar on screen (Ads, Analytics,
+ * Instagram, Usage, Diagnostics) pass a shorter min-height so the spinner
+ * centers in the body below it. `AuthGuard` passes `h-screen` for the session
+ * gate, which renders before the app shell exists.
  */
 export function LoadingState({
   label,
   className,
 }: {
-  /** Rendered as "Loading {label}". */
   label: string;
   className?: string;
 }) {
   return (
     <div
       className={cn(
-        "flex min-h-[calc(100vh-18rem)] flex-col items-center justify-center gap-3",
+        "flex min-h-[calc(100svh-7rem)] flex-col items-center justify-center gap-4",
         className,
       )}
     >
-      <Loader2 className="size-8 animate-spin text-primary" />
-      <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
-        Loading {label}
+      <div className="relative size-16">
+        <div className="absolute inset-0 rounded-full border-4 border-primary/20" />
+        <div className="absolute inset-0 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <div className="absolute inset-2 animate-spin rounded-full border-4 border-primary/40 border-b-transparent" />
+      </div>
+      <p className="animate-pulse font-medium text-muted-foreground text-xs uppercase tracking-widest">
+        {label}
       </p>
     </div>
   );

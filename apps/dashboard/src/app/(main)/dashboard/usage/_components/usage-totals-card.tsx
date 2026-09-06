@@ -1,7 +1,6 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 
 export interface UsageTotalSeries {
   key: string;
@@ -17,7 +16,6 @@ interface UsageTotalsCardProps {
   values: Record<string, number>;
   /** "sum" totals over the period (counts); "peak" is the max (gauges). */
   mode: "sum" | "peak";
-  loading: boolean;
   /** Grid span override; a full-width summary row passes "xl:col-span-12". */
   className?: string;
 }
@@ -28,7 +26,6 @@ export function UsageTotalsCard({
   series,
   values,
   mode,
-  loading,
   className = "xl:col-span-6",
 }: UsageTotalsCardProps) {
   return (
@@ -47,13 +44,9 @@ export function UsageTotalsCard({
                 />
                 <span className="text-muted-foreground text-sm">{s.label}</span>
               </div>
-              {loading ? (
-                <Skeleton className="h-8 w-20" />
-              ) : (
-                <span className="font-semibold text-2xl tabular-nums">
-                  {(values[s.key] ?? 0).toLocaleString()}
-                </span>
-              )}
+              <span className="font-semibold text-2xl tabular-nums">
+                {(values[s.key] ?? 0).toLocaleString()}
+              </span>
               <span className="text-muted-foreground text-xs">
                 {mode === "sum" ? "total" : "peak"}
               </span>

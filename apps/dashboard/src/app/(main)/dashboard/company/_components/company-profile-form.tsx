@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 
-import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { LoadingState } from "@/components/loading-state";
+import { FadeIn } from "@/components/fade-in";
 import { useAuth } from "@/components/auth-context";
 import {
   deleteReplacedStorageFiles,
@@ -12,6 +13,7 @@ import {
   updateOrganization,
 } from "@/lib/db";
 import type { Organization } from "@/lib/types";
+import { H1 } from "@/components/ui/typography";
 
 import { BrandColorsCard, BrandColorsFields } from "./brand-colors-section";
 import { LogoCard, LogoFields } from "./logo-section";
@@ -66,13 +68,7 @@ export function CompanyProfileForm() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex min-h-[300px] items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+  if (loading) return <LoadingState label="Loading Company Profile" />;
 
   if (!org) {
     return (
@@ -81,7 +77,14 @@ export function CompanyProfileForm() {
   }
 
   return (
-    <>
+    <FadeIn className="mx-auto flex w-full flex-col gap-6 p-6">
+      <div>
+        <H1>Company Profile</H1>
+        <p className="mt-1 text-muted-foreground text-sm">
+          Manage your organization details and branding used across the app.
+        </p>
+      </div>
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <CompanyInfoCard org={org} onEdit={() => setEditing("company")} />
         <SettingsCard org={org} onEdit={() => setEditing("settings")} />
@@ -167,6 +170,6 @@ export function CompanyProfileForm() {
       >
         {(props) => <SettingsFields {...props} />}
       </SectionEditDialog>
-    </>
+    </FadeIn>
   );
 }

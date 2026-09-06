@@ -18,8 +18,10 @@ identity/branding/defaults, edited by org Admins
 ([\_components/company-profile-form.tsx](./_components/company-profile-form.tsx)).
 
 The route started as the Meta/Instagram card, but that connect flow now lives entirely on
-`/dashboard/instagram` (see that folder's AGENTS.md). `page.tsx` is a plain server component; the
-profile form is a `"use client"` island that loads/saves its own data.
+`/dashboard/instagram` (see that folder's AGENTS.md). `page.tsx` is a plain server component holding only
+`PageTitle`; the profile form is a `"use client"` island that loads/saves its own data and renders
+the page heading itself, so the shared `LoadingState` spinner is all that shows until the org doc
+arrives and the whole page fades in.
 
 ## Where the data lives — no new collection
 

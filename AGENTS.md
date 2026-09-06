@@ -81,6 +81,7 @@ Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, sim
 - Use Tailwind utility classes from the existing theme.
 - Match the current spacing, border radius, shadows, dark mode colors, and typography.
 - Do not modify global CSS, Tailwind config, or theme tokens unless explicitly requested.
+- Page loading is one pattern everywhere: while a page's data loads, render the shared `LoadingState` (`src/components/loading-state.tsx`, the double-ring spinner, centered in the content area) alone — no page header, no skeletons — then wrap the loaded page in `FadeIn`. Pages that keep a live toolbar on screen while the body refetches (Ads, Analytics, Instagram, Usage, Diagnostics) render it in the body with `className="min-h-[calc(100svh-18rem)]"` instead. Inline button spinners stay `Spinner`/`Loader2`.
 
 ## Technical Stack & Architecture Rules
 

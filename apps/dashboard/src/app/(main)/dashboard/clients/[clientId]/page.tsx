@@ -4,9 +4,10 @@ import { use, useEffect, useState } from "react";
 
 import { useRouter } from "next/navigation";
 
-import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { LoadingState } from "@/components/loading-state";
+import { FadeIn } from "@/components/fade-in";
 import { useAuth } from "@/components/auth-context";
 import {
   addClientNote,
@@ -186,14 +187,7 @@ export default function ClientProfilePage({ params }: PageProps) {
   };
 
   if (loading || authLoading) {
-    return (
-      <div className="flex min-h-100 flex-col items-center justify-center gap-3">
-        <Loader2 className="size-8 animate-spin text-primary" />
-        <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
-          Fetching Client Specifications
-        </p>
-      </div>
-    );
+    return <LoadingState label="Loading Client" />;
   }
 
   if (!client) return null;
@@ -202,7 +196,7 @@ export default function ClientProfilePage({ params }: PageProps) {
   const clientName = `${firstName} ${lastName}`.trim() || "Unnamed Client";
 
   return (
-    <div className="flex w-full flex-col gap-6">
+    <FadeIn className="flex w-full flex-col gap-6">
       <ClientDetailHeader
         client={client}
         onEdit={() => setIsEditOpen(true)}
@@ -274,6 +268,6 @@ export default function ClientProfilePage({ params }: PageProps) {
         deleting={deletingProfile}
         onConfirm={handleDeleteConfirm}
       />
-    </div>
+    </FadeIn>
   );
 }

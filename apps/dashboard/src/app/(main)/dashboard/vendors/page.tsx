@@ -5,9 +5,10 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
-import { Building2, Loader2, Mail, Phone, Plus, Search } from "lucide-react";
+import { Building2, Mail, Phone, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 
+import { LoadingState } from "@/components/loading-state";
 import { useAuth } from "@/components/auth-context";
 import { DashboardImage } from "@/components/dashboard-image";
 import { FadeIn } from "@/components/fade-in";
@@ -268,10 +269,12 @@ function VendorsContent() {
     "vendors-list-columns",
   );
 
+  if (loading) return <LoadingState label="Loading Vendors" />;
+
   return (
     <>
       <PageTitle title="Vendor Directory" />
-      <div className="flex w-full flex-col gap-6">
+      <FadeIn className="flex w-full flex-col gap-6">
         {/* Header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -330,14 +333,7 @@ function VendorsContent() {
         </div>
 
         {/* Grid */}
-        {loading ? (
-          <div className="flex min-h-75 flex-col items-center justify-center gap-3">
-            <Loader2 className="size-8 animate-spin text-primary" />
-            <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
-              Loading Directory
-            </p>
-          </div>
-        ) : filteredVendors.length === 0 ? (
+        {filteredVendors.length === 0 ? (
           <Card className="flex min-h-75 flex-col items-center justify-center border-dashed bg-background/30 p-8 text-center">
             <Building2 className="mb-3 size-12 text-muted-foreground/40" />
             <h3 className="font-semibold text-lg">No vendors found</h3>
@@ -385,7 +381,7 @@ function VendorsContent() {
           initialData={EMPTY_VENDOR_FORM}
           onSave={handleAdd}
         />
-      </div>
+      </FadeIn>
     </>
   );
 }
@@ -393,16 +389,7 @@ function VendorsContent() {
 // useSearchParams requires a Suspense boundary on a statically rendered route.
 export default function VendorsPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-75 flex-col items-center justify-center gap-3">
-          <Loader2 className="size-8 animate-spin text-primary" />
-          <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
-            Loading Directory
-          </p>
-        </div>
-      }
-    >
+    <Suspense fallback={<LoadingState label="Loading Vendors" />}>
       <VendorsContent />
     </Suspense>
   );

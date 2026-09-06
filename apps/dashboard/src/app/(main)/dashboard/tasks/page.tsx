@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 
+import { LoadingState } from "@/components/loading-state";
+import { FadeIn } from "@/components/fade-in";
 import { useAuth } from "@/components/auth-context";
 import PageHeader from "@/components/page-header";
 import { PageTitle } from "@/components/page-title-updater";
@@ -19,7 +21,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
 import {
   deleteTask,
   getClients,
@@ -232,10 +233,12 @@ export default function TasksPage() {
       </section>
     );
 
+  if (loading) return <LoadingState label="Loading Tasks" />;
+
   return (
     <>
       <PageTitle title="Tasks" />
-      <div className="flex flex-col lg:flex-row">
+      <FadeIn className="flex flex-col lg:flex-row">
         {uid && (
           <TaskViewsNav
             tasks={tasks}
@@ -264,11 +267,7 @@ export default function TasksPage() {
             New task
           </Button>
 
-          {loading ? (
-            <div className="flex justify-center py-12">
-              <Spinner />
-            </div>
-          ) : visible.length === 0 ? (
+          {visible.length === 0 ? (
             <p className="py-12 text-center text-muted-foreground text-sm">
               Nothing here. Create a task to get started.
             </p>
@@ -295,7 +294,7 @@ export default function TasksPage() {
             onDelete={() => setPendingDelete(selected)}
           />
         )}
-      </div>
+      </FadeIn>
 
       <TaskFormDialog
         open={createOpen}

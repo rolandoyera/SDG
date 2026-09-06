@@ -5,8 +5,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
-import { Loader2 } from "lucide-react";
-
+import { LoadingState } from "@/components/loading-state";
+import { FadeIn } from "@/components/fade-in";
 import { useAuth } from "@/components/auth-context";
 import { PageTitle } from "@/components/page-title-updater";
 import { getContract } from "@/lib/db";
@@ -44,13 +44,7 @@ export default function EditContractPage() {
     };
   }, [authLoading, organizationId, contractId]);
 
-  if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <Loader2 className="size-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
+  if (loading) return <LoadingState label="Loading Contract" />;
 
   if (!contract) {
     return (
@@ -67,10 +61,10 @@ export default function EditContractPage() {
   }
 
   return (
-    <>
+    <FadeIn>
       <PageTitle title={contract.title || "Contract"} />
       {/* key remounts the builder so its initial state re-seeds per contract. */}
       <ContractBuilder key={contract.contractId} contract={contract} />
-    </>
+    </FadeIn>
   );
 }

@@ -61,7 +61,14 @@ export default async function Page({ searchParams }: PageProps) {
           <AdsToolbar />
         </div>
 
-        <Suspense fallback={<LoadingState label="Google Ads" />}>
+        <Suspense
+          fallback={
+            <LoadingState
+              label="Loading Google Ads"
+              className="min-h-[calc(100svh-18rem)]"
+            />
+          }
+        >
           <FadeIn>
             <TabsContent value="overview" className="flex flex-col gap-6">
               <AdsKpiStrip range={range} />

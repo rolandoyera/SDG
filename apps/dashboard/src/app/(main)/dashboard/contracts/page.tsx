@@ -32,6 +32,8 @@ import {
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { toast } from "sonner";
 
+import { LoadingState } from "@/components/loading-state";
+import { FadeIn } from "@/components/fade-in";
 import { useAuth } from "@/components/auth-context";
 import { ContractStatusChain } from "@/app/(main)/dashboard/contracts/_components/contract-status-chain";
 import { useResendSigningLink } from "@/app/(main)/dashboard/contracts/_components/use-resend-signing-link";
@@ -392,10 +394,12 @@ export default function ContractsPage() {
   const statusFilter =
     (table.getColumn("status")?.getFilterValue() as string) ?? "all";
 
+  if (loading) return <LoadingState label="Loading Contracts" />;
+
   return (
     <>
       <PageTitle title="Contracts" />
-      <div className="flex w-full flex-col gap-6">
+      <FadeIn className="flex w-full flex-col gap-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <PageHeader
             title="Contracts"
@@ -458,21 +462,15 @@ export default function ContractsPage() {
             </div>
           </CardHeader>
           <CardContent className="flex flex-col gap-4 px-0 pt-0">
-            {loading ? (
-              <div className="flex h-32 items-center justify-center text-muted-foreground">
-                <Loader2 className="size-5 animate-spin" />
-              </div>
-            ) : (
-              <TanTable
-                table={table}
-                pagination
-                noun="contracts"
-                emptyMessage="No contracts found."
-              />
-            )}
+            <TanTable
+              table={table}
+              pagination
+              noun="contracts"
+              emptyMessage="No contracts found."
+            />
           </CardContent>
         </Card>
-      </div>
+      </FadeIn>
     </>
   );
 }

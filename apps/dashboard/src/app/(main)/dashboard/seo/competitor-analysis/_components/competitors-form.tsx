@@ -8,6 +8,7 @@ import { Controller, useFieldArray, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import PageHeader from "@/components/page-header";
 import { FadeIn } from "@/components/fade-in";
 import { LoadingState } from "@/components/loading-state";
 import { Button } from "@/components/ui/button";
@@ -78,10 +79,14 @@ export function CompetitorsForm() {
     }
   };
 
-  if (loading) return <LoadingState label="Competitors" />;
+  if (loading) return <LoadingState label="Loading Competitors" />;
 
   return (
-    <FadeIn>
+    <FadeIn className="flex flex-col gap-6">
+      <PageHeader
+        title="Competitor Analysis"
+        description="Keep your competitors on hand — the Keyword Analyzer can compare against any of them."
+      />
       <Card className="gap-2 pt-0">
         <CardHeader className="bg-muted/50 py-3">
           <CardTitle>Competitors</CardTitle>

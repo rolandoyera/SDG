@@ -7,6 +7,8 @@ import { useRouter } from "next/navigation";
 import { ChartLine, ChevronDownIcon, ListFilter } from "lucide-react";
 import { toast } from "sonner";
 
+import { LoadingState } from "@/components/loading-state";
+import { FadeIn } from "@/components/fade-in";
 import { useAuth } from "@/components/auth-context";
 import { PageTitle } from "@/components/page-title-updater";
 import { Button } from "@/components/ui/button";
@@ -284,19 +286,7 @@ export default function UsagePage() {
   }, [tab, range, aiRange, role, authLoading]);
 
   if (authLoading || role !== "SuperAdmin") {
-    return (
-      <div className="flex h-[60vh] w-full items-center justify-center">
-        <div className="relative flex flex-col items-center gap-4">
-          <div className="relative size-12">
-            <div className="absolute inset-0 rounded-full border-4 border-primary/20" />
-            <div className="absolute inset-0 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          </div>
-          <p className="animate-pulse font-medium text-muted-foreground text-xs uppercase tracking-widest">
-            Verifying Authority
-          </p>
-        </div>
-      </div>
-    );
+    return <LoadingState label="Verifying Authority" />;
   }
 
   const periodMode = isPeriod(range);
@@ -440,99 +430,102 @@ export default function UsagePage() {
                 </Select>
               </div>
 
-              {/* Two-up: input / output on the first row, requests / errors on
-                  the second. Cards default to xl:col-span-6. */}
-              <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
-                {modelKeys.length === 0 && !aiLoading ? (
-                  <p className="text-muted-foreground text-sm xl:col-span-12">
-                    No per-model data in this range yet — it starts accumulating
-                    with the next Gemini call.
-                  </p>
-                ) : (
-                  <>
-                    <UsageChartCard
-                      title="Gemini spend"
-                      caption={spendCaption}
-                      totalMode="sum"
-                      rangeMs={aiRangeMs}
-                      loading={spendLoading}
-                      className="xl:col-span-4"
-                      valueFormat="currency"
-                      data={spend?.daily ?? []}
-                      series={SPEND_SERIES}
-                    />
-                    <UsageChartCard
-                      title="Input tokens per model"
-                      caption="Per ET day"
-                      totalMode="sum"
-                      rangeMs={aiRangeMs}
-                      loading={aiLoading}
-                      className="xl:col-span-4"
-                      data={modelPoints(aiDaily, "inputTokens", modelKeys)}
-                      series={visibleModelSeries}
-                    />
-                    <UsageChartCard
-                      title="Output tokens per model"
-                      caption="Per ET day"
-                      totalMode="sum"
-                      rangeMs={aiRangeMs}
-                      loading={aiLoading}
-                      className="xl:col-span-4"
-                      data={modelPoints(aiDaily, "outputTokens", modelKeys)}
-                      series={visibleModelSeries}
-                    />
-                    <UsageChartCard
-                      title="Requests per model"
-                      caption="Per ET day"
-                      totalMode="sum"
-                      rangeMs={aiRangeMs}
-                      loading={aiLoading}
-                      data={modelPoints(aiDaily, "requests", modelKeys)}
-                      series={visibleModelSeries}
-                    />
-                  </>
-                )}
-                <UsageChartCard
-                  title="API errors"
-                  caption="Per ET day — server key only"
-                  totalMode="sum"
-                  rangeMs={aiRangeMs}
-                  loading={errorsLoading}
-                  data={errorData}
-                  series={errorSeries}
+              {aiLoading || errorsLoading || spendLoading ? (
+                <LoadingState
+                  label="Loading AI Usage"
+                  className="min-h-[calc(100svh-18rem)]"
                 />
-              </div>
+              ) : (
+                <FadeIn className="flex flex-col gap-6">
+                  {/* Two-up: input / output on the first row, requests / errors on
+                  the second. Cards default to xl:col-span-6. */}
+                  <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+                    {modelKeys.length === 0 ? (
+                      <p className="text-muted-foreground text-sm xl:col-span-12">
+                        No per-model data in this range yet — it starts
+                        accumulating with the next Gemini call.
+                      </p>
+                    ) : (
+                      <>
+                        <UsageChartCard
+                          title="Gemini spend"
+                          caption={spendCaption}
+                          totalMode="sum"
+                          rangeMs={aiRangeMs}
+                          className="xl:col-span-4"
+                          valueFormat="currency"
+                          data={spend?.daily ?? []}
+                          series={SPEND_SERIES}
+                        />
+                        <UsageChartCard
+                          title="Input tokens per model"
+                          caption="Per ET day"
+                          totalMode="sum"
+                          rangeMs={aiRangeMs}
+                          className="xl:col-span-4"
+                          data={modelPoints(aiDaily, "inputTokens", modelKeys)}
+                          series={visibleModelSeries}
+                        />
+                        <UsageChartCard
+                          title="Output tokens per model"
+                          caption="Per ET day"
+                          totalMode="sum"
+                          rangeMs={aiRangeMs}
+                          className="xl:col-span-4"
+                          data={modelPoints(aiDaily, "outputTokens", modelKeys)}
+                          series={visibleModelSeries}
+                        />
+                        <UsageChartCard
+                          title="Requests per model"
+                          caption="Per ET day"
+                          totalMode="sum"
+                          rangeMs={aiRangeMs}
+                          data={modelPoints(aiDaily, "requests", modelKeys)}
+                          series={visibleModelSeries}
+                        />
+                      </>
+                    )}
+                    <UsageChartCard
+                      title="API errors"
+                      caption="Per ET day — server key only"
+                      totalMode="sum"
+                      rangeMs={aiRangeMs}
+                      data={errorData}
+                      series={errorSeries}
+                    />
+                  </div>
 
-              {untrackedRequests > 0 ? (
-                <p className="text-muted-foreground text-sm">
-                  {untrackedRequests.toLocaleString()} request
-                  {untrackedRequests === 1 ? "" : "s"} in this range predate
-                  per-model tracking and aren&apos;t attributed to a model.
-                </p>
-              ) : null}
+                  {untrackedRequests > 0 ? (
+                    <p className="text-muted-foreground text-sm">
+                      {untrackedRequests.toLocaleString()} request
+                      {untrackedRequests === 1 ? "" : "s"} in this range predate
+                      per-model tracking and aren&apos;t attributed to a model.
+                    </p>
+                  ) : null}
 
-              {/* Footer summary: the one place the models are added back up,
+                  {/* Footer summary: the one place the models are added back up,
                   and the only place calls made before per-model tracking
                   shipped are counted. */}
-              <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
-                <UsageTotalsCard
-                  title="AI metrics"
-                  caption={aiUsage && !aiLoading ? aiUsageCaption(aiUsage) : ""}
-                  mode="sum"
-                  loading={aiLoading}
-                  className="xl:col-span-12"
-                  series={AI_SERIES}
-                  values={
-                    aiUsage
-                      ? {
-                          inputTokens: aiUsage.inputTokens,
-                          outputTokens: aiUsage.outputTokens,
-                          requests: aiUsage.requests,
-                        }
-                      : {}
-                  }
-                />
-              </div>
+                  <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+                    <UsageTotalsCard
+                      title="AI metrics"
+                      caption={aiUsage ? aiUsageCaption(aiUsage) : ""}
+                      mode="sum"
+                      className="xl:col-span-12"
+                      series={AI_SERIES}
+                      values={
+                        aiUsage
+                          ? {
+                              inputTokens: aiUsage.inputTokens,
+                              outputTokens: aiUsage.outputTokens,
+                              requests: aiUsage.requests,
+                            }
+                          : {}
+                      }
+                    />
+                  </div>
+                </FadeIn>
+              )}
             </div>
           </TabsContent>
 
@@ -559,66 +552,69 @@ export default function UsagePage() {
                 </Select>
               </div>
 
-              {periodMode ? (
-                <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
-                  <UsageChartCard
-                    title="Billable metrics"
-                    caption="Operations (cumulative)"
-                    totalMode="last"
-                    rangeMs={rangeMs}
-                    loading={totalsLoading}
-                    data={totals?.operations ?? []}
-                    series={OPS_SERIES}
-                  />
-                  <UsageChartCard
-                    title="Subscription metrics"
-                    caption="Peak subscriptions"
-                    totalMode="peak"
-                    rangeMs={rangeMs}
-                    loading={totalsLoading}
-                    data={totals?.subscriptions ?? []}
-                    series={SUBS_SERIES}
-                  />
-                  <UsageChartCard
-                    title="Rules metrics"
-                    caption="Rules evaluations (cumulative)"
-                    totalMode="last"
-                    rangeMs={rangeMs}
-                    loading={totalsLoading}
-                    data={totals?.rules ?? []}
-                    series={RULES_SERIES}
-                  />
-                </div>
+              {(periodMode ? totalsLoading : chartLoading) ? (
+                <LoadingState
+                  label="Loading Data Usage"
+                  className="min-h-[calc(100svh-18rem)]"
+                />
               ) : (
-                <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
-                  <UsageChartCard
-                    title="Billable metrics"
-                    caption={`Operations (${opsCaption})`}
-                    totalMode="sum"
-                    rangeMs={rangeMs}
-                    loading={chartLoading}
-                    data={usage?.operations ?? []}
-                    series={OPS_SERIES}
-                  />
-                  <UsageChartCard
-                    title="Subscription metrics"
-                    caption={`Peak subscriptions (${opsCaption})`}
-                    totalMode="peak"
-                    rangeMs={rangeMs}
-                    loading={chartLoading}
-                    data={usage?.subscriptions ?? []}
-                    series={SUBS_SERIES}
-                  />
-                  <UsageChartCard
-                    title="Rules metrics"
-                    caption={`Rules evaluations (${opsCaption})`}
-                    totalMode="sum"
-                    rangeMs={rangeMs}
-                    loading={chartLoading}
-                    data={usage?.rules ?? []}
-                    series={RULES_SERIES}
-                  />
-                </div>
+                <FadeIn className="flex flex-col gap-6">
+                  {periodMode ? (
+                    <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+                      <UsageChartCard
+                        title="Billable metrics"
+                        caption="Operations (cumulative)"
+                        totalMode="last"
+                        rangeMs={rangeMs}
+                        data={totals?.operations ?? []}
+                        series={OPS_SERIES}
+                      />
+                      <UsageChartCard
+                        title="Subscription metrics"
+                        caption="Peak subscriptions"
+                        totalMode="peak"
+                        rangeMs={rangeMs}
+                        data={totals?.subscriptions ?? []}
+                        series={SUBS_SERIES}
+                      />
+                      <UsageChartCard
+                        title="Rules metrics"
+                        caption="Rules evaluations (cumulative)"
+                        totalMode="last"
+                        rangeMs={rangeMs}
+                        data={totals?.rules ?? []}
+                        series={RULES_SERIES}
+                      />
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+                      <UsageChartCard
+                        title="Billable metrics"
+                        caption={`Operations (${opsCaption})`}
+                        totalMode="sum"
+                        rangeMs={rangeMs}
+                        data={usage?.operations ?? []}
+                        series={OPS_SERIES}
+                      />
+                      <UsageChartCard
+                        title="Subscription metrics"
+                        caption={`Peak subscriptions (${opsCaption})`}
+                        totalMode="peak"
+                        rangeMs={rangeMs}
+                        data={usage?.subscriptions ?? []}
+                        series={SUBS_SERIES}
+                      />
+                      <UsageChartCard
+                        title="Rules metrics"
+                        caption={`Rules evaluations (${opsCaption})`}
+                        totalMode="sum"
+                        rangeMs={rangeMs}
+                        data={usage?.rules ?? []}
+                        series={RULES_SERIES}
+                      />
+                    </div>
+                  )}
+                </FadeIn>
               )}
             </div>
           </TabsContent>

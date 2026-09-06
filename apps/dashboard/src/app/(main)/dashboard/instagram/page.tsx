@@ -138,7 +138,14 @@ export default async function Page({
         <InstagramHeader />
       </Suspense>
 
-      <Suspense fallback={<LoadingState label="Instagram" />}>
+      <Suspense
+        fallback={
+          <LoadingState
+            label="Loading Instagram"
+            className="min-h-[calc(100svh-18rem)]"
+          />
+        }
+      >
         <InstagramContent range={range} metaParam={metaParam} />
       </Suspense>
     </div>

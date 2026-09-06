@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   ArrowRight,
   Building2,
-  Loader2,
   Mail,
   MapPin,
   Phone,
@@ -16,6 +15,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { LoadingState } from "@/components/loading-state";
+import { FadeIn } from "@/components/fade-in";
 import { useAuth } from "@/components/auth-context";
 import { PageTitle } from "@/components/page-title-updater";
 import { Button } from "@/components/ui/button";
@@ -106,10 +107,12 @@ export default function ClientsPage() {
     );
   });
 
+  if (loading) return <LoadingState label="Loading Clients" />;
+
   return (
     <>
       <PageTitle title="Client Directory" />
-      <div className="flex w-full flex-col gap-6">
+      <FadeIn className="flex w-full flex-col gap-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <PageHeader
             title="Client Directory"
@@ -131,14 +134,7 @@ export default function ClientsPage() {
           />
         </div>
 
-        {loading ? (
-          <div className="flex min-h-75 flex-col items-center justify-center gap-3">
-            <Loader2 className="size-8 animate-spin text-primary" />
-            <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
-              Loading Clients Directory
-            </p>
-          </div>
-        ) : filteredClients.length === 0 ? (
+        {filteredClients.length === 0 ? (
           <div className="flex min-h-75 flex-col items-center justify-center p-8 text-center">
             <Users className="mb-3 size-12 text-muted-foreground/40" />
             <h3 className="font-semibold text-lg mb-1">
@@ -246,7 +242,7 @@ export default function ClientsPage() {
           submitting={submitting}
           onSubmit={handleAddSubmit}
         />
-      </div>
+      </FadeIn>
     </>
   );
 }

@@ -27,6 +27,8 @@ import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { LoadingState } from "@/components/loading-state";
+import { FadeIn } from "@/components/fade-in";
 import { useAuth } from "@/components/auth-context";
 import { PageTitle } from "@/components/page-title-updater";
 import { Badge } from "@/components/ui/badge";
@@ -217,19 +219,7 @@ export default function TenantDetailPage({ params }: PageProps) {
   };
 
   if (authLoading || loading || role !== "SuperAdmin") {
-    return (
-      <div className="flex h-[60vh] w-full items-center justify-center">
-        <div className="relative flex flex-col items-center gap-4">
-          <div className="relative size-12">
-            <div className="absolute inset-0 rounded-full border-4 border-primary/20" />
-            <div className="absolute inset-0 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          </div>
-          <p className="animate-pulse font-medium text-muted-foreground text-xs uppercase tracking-widest">
-            Loading Tenant Dashboard
-          </p>
-        </div>
-      </div>
-    );
+    return <LoadingState label="Loading Tenant" />;
   }
 
   if (!org) return null;
@@ -260,7 +250,7 @@ export default function TenantDetailPage({ params }: PageProps) {
   return (
     <>
       <PageTitle title={org.name || "Tenant Dashboard"} />
-      <div className="flex w-full flex-col gap-6">
+      <FadeIn className="flex w-full flex-col gap-6">
         {/* Header & Back Link */}
         <div className="flex flex-col gap-2">
           <HeaderBackLink href="/dashboard/tenants" />
@@ -697,7 +687,7 @@ export default function TenantDetailPage({ params }: PageProps) {
             </TableBody>
           </Table>
         </Card>
-      </div>
+      </FadeIn>
     </>
   );
 }

@@ -4,9 +4,10 @@ import { use, useEffect, useState } from "react";
 
 import { useRouter } from "next/navigation";
 
-import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { LoadingState } from "@/components/loading-state";
+import { FadeIn } from "@/components/fade-in";
 import { useAuth } from "@/components/auth-context";
 import {
   deleteLibraryItem,
@@ -172,14 +173,7 @@ export default function LibraryItemDetailPage({ params }: PageProps) {
   };
 
   if (loading || authLoading) {
-    return (
-      <div className="flex min-h-100 flex-col items-center justify-center gap-3">
-        <Loader2 className="size-8 animate-spin text-primary" />
-        <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
-          Fetching Item Specifications
-        </p>
-      </div>
-    );
+    return <LoadingState label="Loading Item" />;
   }
 
   if (!item) return null;
@@ -187,7 +181,7 @@ export default function LibraryItemDetailPage({ params }: PageProps) {
   const associatedVendor = vendors.find((v) => v.vendorId === item.vendorId);
 
   return (
-    <div className="flex w-full flex-col">
+    <FadeIn className="flex w-full flex-col">
       <ItemDetailHeader
         item={item}
         vendorName={associatedVendor?.name}
@@ -245,6 +239,6 @@ export default function LibraryItemDetailPage({ params }: PageProps) {
           form.setValue("vendorId", vendor.vendorId, { shouldValidate: true });
         }}
       />
-    </div>
+    </FadeIn>
   );
 }

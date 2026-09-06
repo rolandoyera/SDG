@@ -79,7 +79,14 @@ export default async function Page({ searchParams }: PageProps) {
           </Suspense>
         </div>
 
-        <Suspense fallback={<LoadingState label="Analytics" />}>
+        <Suspense
+          fallback={
+            <LoadingState
+              label="Loading Analytics"
+              className="min-h-[calc(100svh-18rem)]"
+            />
+          }
+        >
           <FadeIn>
             <TabsContent value="overview" className="flex flex-col gap-6">
               <AnalyticsKpiStrip range={range} campaign={campaign} />

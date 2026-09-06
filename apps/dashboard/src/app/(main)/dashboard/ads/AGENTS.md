@@ -45,9 +45,10 @@ accept a customer ID from the client.
   page used to "stick" for a few seconds on navigation. The header, tabs and
   toolbar stream instantly; every section (all tabs' panels) sits inside ONE
   `<Suspense>` showing the shared `LoadingState` spinner
-  (`@/components/loading-state`, same look as the Library page's loading
-  state), so a single spinner holds until the slowest query resolves and then
-  everything reveals together inside a `FadeIn`. That single-boundary-plus-fade
+  (`@/components/loading-state`, the app-wide double-ring loader; it takes the
+  shorter body min-height because the shell stays on screen), so a single
+  spinner holds until the slowest query resolves and then everything reveals
+  together inside a `FadeIn`. That single-boundary-plus-fade
   is a deliberate product choice over per-section streaming — don't split it.
   Analytics and Instagram follow the identical pattern. The header's
   connection dot (`AdsConnectionDot` → shared `ConnectionDot`) has its own

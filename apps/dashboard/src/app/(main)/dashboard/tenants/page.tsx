@@ -16,7 +16,6 @@ import {
   ArrowUpDown,
   Building2,
   CreditCard,
-  Loader2,
   Plus,
   Search,
   UserCheck,
@@ -24,6 +23,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { LoadingState } from "@/components/loading-state";
+import { FadeIn } from "@/components/fade-in";
 import { useAuth } from "@/components/auth-context";
 import { PageTitle } from "@/components/page-title-updater";
 import { Badge } from "@/components/ui/badge";
@@ -199,25 +200,15 @@ export default function TenantsPage() {
   }, [currentPage, pageCount]);
 
   if (authLoading || role !== "SuperAdmin") {
-    return (
-      <div className="flex h-[60vh] w-full items-center justify-center">
-        <div className="relative flex flex-col items-center gap-4">
-          <div className="relative size-12">
-            <div className="absolute inset-0 rounded-full border-4 border-primary/20" />
-            <div className="absolute inset-0 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          </div>
-          <p className="animate-pulse font-medium text-muted-foreground text-xs uppercase tracking-widest">
-            Verifying Authority
-          </p>
-        </div>
-      </div>
-    );
+    return <LoadingState label="Verifying Authority" />;
   }
+
+  if (loading) return <LoadingState label="Loading Tenants" />;
 
   return (
     <>
       <PageTitle title="Tenant Directory" />
-      <div className="flex w-full flex-col gap-6">
+      <FadeIn className="flex w-full flex-col gap-6">
         {/* Title & Description */}
         <div className="flex flex-col gap-1">
           <H1 className="flex items-center gap-2">
@@ -265,14 +256,7 @@ export default function TenantsPage() {
         </div>
 
         {/* Data Views */}
-        {loading ? (
-          <div className="flex min-h-75 flex-col items-center justify-center gap-3">
-            <Loader2 className="size-8 animate-spin text-primary" />
-            <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
-              Loading SaaS Organizations
-            </p>
-          </div>
-        ) : orgs.length === 0 ? (
+        {orgs.length === 0 ? (
           <Card className="flex min-h-75 flex-col items-center justify-center border-dashed bg-background/30 p-8 text-center">
             <Building2 className="mb-3 size-12 text-muted-foreground/40" />
             <h3 className="font-semibold text-lg">No tenants found</h3>
@@ -583,7 +567,7 @@ export default function TenantsPage() {
           orgs={orgs}
           onTenantCreated={(newOrg) => setOrgs((prev) => [newOrg, ...prev])}
         />
-      </div>
+      </FadeIn>
     </>
   );
 }

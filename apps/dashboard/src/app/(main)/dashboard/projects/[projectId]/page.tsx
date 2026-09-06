@@ -4,9 +4,10 @@ import { use, useEffect, useState } from "react";
 
 import { useRouter, useSearchParams } from "next/navigation";
 
-import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { LoadingState } from "@/components/loading-state";
+import { FadeIn } from "@/components/fade-in";
 import { useAuth } from "@/components/auth-context";
 import { PageTitle } from "@/components/page-title-updater";
 import { Card } from "@/components/ui/card";
@@ -249,14 +250,7 @@ export default function ProjectDetailPage({ params }: PageProps) {
   };
 
   if (loading || authLoading) {
-    return (
-      <div className="flex min-h-100 flex-col items-center justify-center gap-3">
-        <Loader2 className="size-8 animate-spin text-primary" />
-        <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
-          Fetching Project Specifications
-        </p>
-      </div>
-    );
+    return <LoadingState label="Loading Project" />;
   }
 
   if (!project) return null;
@@ -264,7 +258,7 @@ export default function ProjectDetailPage({ params }: PageProps) {
   return (
     <>
       <PageTitle title={`${project.name} | Project Profile`} />
-      <div className="flex w-full flex-col gap-6">
+      <FadeIn className="flex w-full flex-col gap-6">
         <ProjectHeader
           project={project}
           client={client}
@@ -337,7 +331,7 @@ export default function ProjectDetailPage({ params }: PageProps) {
           deleting={deletingProject}
           onConfirm={handleDeleteConfirm}
         />
-      </div>
+      </FadeIn>
     </>
   );
 }

@@ -8,6 +8,7 @@ import { format } from "date-fns";
 import { deleteDoc, doc, getDoc, setDoc } from "firebase/firestore";
 import { toast } from "sonner";
 
+import { LoadingState } from "@/components/loading-state";
 import { resolveHostOrg } from "@/config/app-config";
 import { db } from "@/lib/firebase";
 
@@ -125,20 +126,10 @@ export function AuthGuard({ children }: { children: ReactNode }) {
 
   if (loading) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center bg-background">
-        <div className="relative flex flex-col items-center gap-4">
-          {/* Elegant Pulsating Double Ring Spinner */}
-          <div className="relative size-16">
-            <div className="absolute inset-0 rounded-full border-4 border-primary/20" />
-            <div className="absolute inset-0 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-            <div className="animation-duration-[1.5s] direction-[reverse] absolute inset-2 animate-spin rounded-full border-4 border-primary/40 border-b-transparent" />
-          </div>
-          {/* Subtly fading loader label */}
-          <p className="animate-pulse font-medium text-muted-foreground text-xs uppercase tracking-widest">
-            Verifying Session
-          </p>
-        </div>
-      </div>
+      <LoadingState
+        label="Verifying Session"
+        className="h-screen w-screen bg-background"
+      />
     );
   }
 

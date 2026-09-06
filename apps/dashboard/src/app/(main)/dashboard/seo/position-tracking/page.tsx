@@ -1,4 +1,3 @@
-import PageHeader from "@/components/page-header";
 import { PageTitle } from "@/components/page-title-updater";
 
 import { PositionTrackingClient } from "./_components/position-tracking-client";
@@ -10,13 +9,9 @@ export const maxDuration = 120;
 
 export default function Page() {
   return (
-    <div className="flex flex-col gap-6">
+    <>
       <PageTitle title="Position Tracking" />
-      <PageHeader
-        title="Position Tracking"
-        description="Daily Google placement for your target keywords."
-      />
       <PositionTrackingClient />
-    </div>
+    </>
   );
 }

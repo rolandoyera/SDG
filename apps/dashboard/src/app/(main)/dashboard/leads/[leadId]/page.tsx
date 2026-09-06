@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { LoadingState } from "@/components/loading-state";
+import { FadeIn } from "@/components/fade-in";
 import { useAuth } from "@/components/auth-context";
 import HeaderBackLink from "@/app/(main)/dashboard/_components/HeaderBackLink";
 import {
@@ -222,14 +224,7 @@ export default function LeadDetailPage({ params }: PageProps) {
   };
 
   if (loading || authLoading) {
-    return (
-      <div className="flex min-h-100 flex-col items-center justify-center gap-3">
-        <Loader2 className="size-8 animate-spin text-primary" />
-        <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
-          Fetching Lead
-        </p>
-      </div>
-    );
+    return <LoadingState label="Loading Lead" />;
   }
 
   if (!lead) return null;
@@ -237,7 +232,7 @@ export default function LeadDetailPage({ params }: PageProps) {
   const isConverted = !!lead.convertedClientId;
 
   return (
-    <div className="flex w-full flex-col gap-6 pb-10">
+    <FadeIn className="flex w-full flex-col gap-6 pb-10">
       <HeaderBackLink href="/dashboard/leads" />
 
       <div className="flex flex-col justify-between gap-4 pb-4 md:flex-row md:items-center">
@@ -494,6 +489,6 @@ export default function LeadDetailPage({ params }: PageProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </FadeIn>
   );
 }

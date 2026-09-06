@@ -11,8 +11,7 @@ import { Suspense, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { notFound, useSearchParams } from "next/navigation";
 
-import { Loader2 } from "lucide-react";
-
+import { LoadingState } from "@/components/loading-state";
 import type { CertData } from "@/lib/contract-pdf-document";
 import { ContractPdf } from "@/lib/contract-pdf-document";
 import type { Contract } from "@/lib/types";
@@ -30,13 +29,7 @@ export default function ContractPdfPreviewPage() {
   if (process.env.NODE_ENV === "production") notFound();
 
   return (
-    <Suspense
-      fallback={
-        <div className="flex h-screen items-center justify-center text-muted-foreground">
-          <Loader2 className="size-5 animate-spin" />
-        </div>
-      }
-    >
+    <Suspense fallback={<LoadingState label="Loading Contract" />}>
       <PreviewInner />
     </Suspense>
   );
@@ -71,13 +64,7 @@ function PreviewInner() {
     );
   }
 
-  if (!data) {
-    return (
-      <div className="flex h-screen items-center justify-center text-muted-foreground">
-        <Loader2 className="size-5 animate-spin" />
-      </div>
-    );
-  }
+  if (!data) return <LoadingState label="Loading Contract" />;
 
   return (
     <PDFViewer style={{ width: "100%", height: "100vh", border: "none" }}>

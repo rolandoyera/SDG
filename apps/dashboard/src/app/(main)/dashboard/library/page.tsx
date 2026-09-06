@@ -6,7 +6,6 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
 import {
-  Loader2,
   Plus,
   Search,
   ShoppingBag,
@@ -29,7 +28,6 @@ import {
 import { PageTitle } from "@/components/page-title-updater";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -51,6 +49,15 @@ import { LibraryItemFormDialog } from "./_components/library-item-form-dialog";
 import { QuickVendorDialog } from "./_components/quick-vendor-dialog";
 import { useLibraryItemForm } from "./_components/use-library-item-form";
 import PageHeader from "@/components/page-header";
+import { LoadingState } from "@/components/loading-state";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 
 // Longest material string the list view renders before cutting off with an
 // ellipsis (full text stays available on hover). Table cells don't wrap, so an
@@ -331,8 +338,10 @@ function LibraryContent() {
     "library-list-columns",
   );
 
+  if (loading) return <LoadingState label="Loading Library" />;
+
   return (
-    <div className="flex w-full flex-col gap-6">
+    <FadeIn className="flex w-full flex-col gap-6">
       <PageTitle title="Product Library" />
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <PageHeader
@@ -454,33 +463,34 @@ function LibraryContent() {
         </div>
       </div>
 
-      {/* Library Grid or Skeletons */}
-      {loading ? (
-        <div className="flex min-h-75 flex-col items-center justify-center gap-3">
-          <Loader2 className="size-8 animate-spin text-primary" />
-          <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
-            Loading Library
-          </p>
+      {/* Library grid or list */}
+      {filteredItems.length === 0 ? (
+        <div className="flex min-h-[calc(100vh-30rem)] flex-col items-center justify-center border-dashed p-8 text-center">
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia>
+                <ShoppingBag className="mb-3 size-12 text-muted-foreground/40" />
+              </EmptyMedia>
+              <EmptyTitle>No Items Yet</EmptyTitle>
+              <EmptyDescription className="w-full">
+                {searchQuery
+                  ? "Get started by adding an item to your library."
+                  : "Try broadening your search or clear the active category filter."}
+              </EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent className="flex-row justify-center gap-2">
+              {!searchQuery && (
+                <Button
+                  onClick={handleOpenAdd}
+                  className="mt-4 flex items-center gap-2"
+                >
+                  <Plus className="size-4" />
+                  Add An Item
+                </Button>
+              )}
+            </EmptyContent>
+          </Empty>
         </div>
-      ) : filteredItems.length === 0 ? (
-        <Card className="flex min-h-75 flex-col items-center justify-center border-dashed p-8 text-center">
-          <ShoppingBag className="mb-3 size-12 text-muted-foreground/40" />
-          <h3 className="font-semibold text-lg">Library is empty</h3>
-          <p className="mt-1 max-w-sm text-muted-foreground text-sm">
-            {searchQuery
-              ? "Try broadening your search or clear the active category filter."
-              : "Get started by adding an item to your library."}
-          </p>
-          {!searchQuery && (
-            <Button
-              onClick={handleOpenAdd}
-              className="mt-4 flex items-center gap-2"
-            >
-              <Plus className="size-4" />
-              Add An Item
-            </Button>
-          )}
-        </Card>
       ) : view === "grid" ? (
         <FadeIn
           key="grid"
@@ -527,23 +537,14 @@ function LibraryContent() {
           form.setValue("vendorId", vendor.vendorId, { shouldValidate: true });
         }}
       />
-    </div>
+    </FadeIn>
   );
 }
 
 // useSearchParams requires a Suspense boundary on a statically rendered route.
 export default function LibraryPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-75 flex-col items-center justify-center gap-3">
-          <Loader2 className="size-8 animate-spin text-primary" />
-          <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
-            Loading Library
-          </p>
-        </div>
-      }
-    >
+    <Suspense fallback={<LoadingState label="Loading Library" />}>
       <LibraryContent />
     </Suspense>
   );

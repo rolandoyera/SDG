@@ -17,6 +17,7 @@ import {
   type AppliedDateRange,
   DateRangePicker,
 } from "@/components/date-range-picker";
+import PageHeader from "@/components/page-header";
 import { FadeIn } from "@/components/fade-in";
 import { LoadingState } from "@/components/loading-state";
 import { Badge } from "@/components/ui/badge";
@@ -286,13 +287,17 @@ export function PositionTrackingClient() {
     }
   };
 
-  if (loading) return <LoadingState label="Position Tracking" />;
+  if (loading) return <LoadingState label="Loading Position Tracking" />;
   if (loadError) {
     return <p className="text-destructive text-sm">{loadError}</p>;
   }
 
   return (
     <FadeIn className="flex flex-col gap-6">
+      <PageHeader
+        title="Position Tracking"
+        description="Daily Google placement for your target keywords."
+      />
       <Card className="gap-2 pt-0">
         <CardHeader className="flex flex-row items-center justify-between bg-muted/50 py-3">
           <CardTitle>Average Position</CardTitle>

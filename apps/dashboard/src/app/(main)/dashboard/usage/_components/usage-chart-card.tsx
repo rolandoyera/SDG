@@ -13,7 +13,6 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Skeleton } from "@/components/ui/skeleton";
 
 export interface UsageSeries {
   key: string;
@@ -31,7 +30,6 @@ interface UsageChartCardProps {
   totalMode: "sum" | "peak" | "last";
   /** Window span, to pick time-only vs date tick labels. */
   rangeMs: number;
-  loading: boolean;
   /** Grid span override; three-up rows pass "xl:col-span-4". */
   className?: string;
   /** Counts render as integers; currency renders USD and allows decimal ticks. */
@@ -47,7 +45,6 @@ export function UsageChartCard({
   data,
   totalMode,
   rangeMs,
-  loading,
   className = "xl:col-span-6",
   valueFormat = "count",
 }: UsageChartCardProps) {
@@ -124,13 +121,9 @@ export function UsageChartCard({
                           }
                     }
                   />
-                  {loading ? (
-                    <Skeleton className="h-6 w-12" />
-                  ) : (
-                    <span className="font-semibold text-xl tabular-nums">
-                      {formatValue(totalOf(s.key))}
-                    </span>
-                  )}
+                  <span className="font-semibold text-xl tabular-nums">
+                    {formatValue(totalOf(s.key))}
+                  </span>
                   <span className="text-muted-foreground text-xs">
                     {totalMode === "peak" ? "peak" : "total"}
                   </span>
@@ -139,66 +132,62 @@ export function UsageChartCard({
             ))}
           </div>
           <div className="min-w-0 flex-1">
-            {loading ? (
-              <Skeleton className="h-50 w-full" />
-            ) : (
-              <ChartContainer config={chartConfig} className="h-50 w-full">
-                <LineChart
-                  accessibilityLayer
-                  data={data}
-                  margin={{ bottom: 0, left: 0, right: 12, top: 8 }}
-                >
-                  <CartesianGrid vertical={false} strokeOpacity={0.4} />
-                  <XAxis
-                    dataKey="t"
-                    tickLine={false}
-                    axisLine={false}
-                    tickMargin={8}
-                    minTickGap={48}
-                    tickFormatter={(t: number) => format(t, tickFormat)}
-                  />
-                  <YAxis
-                    tickLine={false}
-                    axisLine={false}
-                    tickMargin={4}
-                    width={isCurrency ? 56 : 40}
-                    allowDecimals={isCurrency}
-                    tickFormatter={
-                      isCurrency
-                        ? (value: number) => formatValue(value)
-                        : undefined
-                    }
-                  />
-                  <ChartTooltip
-                    cursor={false}
-                    content={
-                      <ChartTooltipContent
-                        indicator="line"
-                        labelFormatter={(_, payload) => {
-                          const t = payload?.[0]?.payload?.t as
-                            | number
-                            | undefined;
-                          return t ? format(t, "MMM d, h:mm a") : "";
-                        }}
-                      />
-                    }
-                  />
-                  {series
-                    .filter((s) => !hidden.has(s.key))
-                    .map((s) => (
-                      <Line
-                        key={s.key}
-                        dataKey={s.key}
-                        type="monotone"
-                        stroke={`var(--color-${s.key})`}
-                        strokeWidth={2}
-                        dot={false}
-                        isAnimationActive={false}
-                      />
-                    ))}
-                </LineChart>
-              </ChartContainer>
-            )}
+            <ChartContainer config={chartConfig} className="h-50 w-full">
+              <LineChart
+                accessibilityLayer
+                data={data}
+                margin={{ bottom: 0, left: 0, right: 12, top: 8 }}
+              >
+                <CartesianGrid vertical={false} strokeOpacity={0.4} />
+                <XAxis
+                  dataKey="t"
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
+                  minTickGap={48}
+                  tickFormatter={(t: number) => format(t, tickFormat)}
+                />
+                <YAxis
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={4}
+                  width={isCurrency ? 56 : 40}
+                  allowDecimals={isCurrency}
+                  tickFormatter={
+                    isCurrency
+                      ? (value: number) => formatValue(value)
+                      : undefined
+                  }
+                />
+                <ChartTooltip
+                  cursor={false}
+                  content={
+                    <ChartTooltipContent
+                      indicator="line"
+                      labelFormatter={(_, payload) => {
+                        const t = payload?.[0]?.payload?.t as
+                          | number
+                          | undefined;
+                        return t ? format(t, "MMM d, h:mm a") : "";
+                      }}
+                    />
+                  }
+                />
+                {series
+                  .filter((s) => !hidden.has(s.key))
+                  .map((s) => (
+                    <Line
+                      key={s.key}
+                      dataKey={s.key}
+                      type="monotone"
+                      stroke={`var(--color-${s.key})`}
+                      strokeWidth={2}
+                      dot={false}
+                      isAnimationActive={false}
+                    />
+                  ))}
+              </LineChart>
+            </ChartContainer>
             <p className="mt-2 text-center text-muted-foreground text-xs">
               {caption}
             </p>

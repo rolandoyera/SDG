@@ -22,6 +22,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { LoadingState } from "@/components/loading-state";
+import { FadeIn } from "@/components/fade-in";
 import { useAuth } from "@/components/auth-context";
 import { AddressValue } from "@/components/ui/address-value";
 import {
@@ -120,20 +122,13 @@ export default function TradeDetailPage({ params }: PageProps) {
   };
 
   if (loading || authLoading) {
-    return (
-      <div className="flex min-h-[400px] flex-col items-center justify-center gap-3">
-        <Loader2 className="size-8 animate-spin text-primary" />
-        <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
-          Loading Trade Profile
-        </p>
-      </div>
-    );
+    return <LoadingState label="Loading Trade" />;
   }
 
   if (!trade) return null;
 
   return (
-    <div className="mx-auto flex max-w-7xl flex-col gap-6">
+    <FadeIn className="mx-auto flex max-w-7xl flex-col gap-6">
       <HeaderBackLink href="/dashboard/trades" />
 
       {/* Detail Header Control Bar */}
@@ -414,7 +409,7 @@ export default function TradeDetailPage({ params }: PageProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </FadeIn>
   );
 }
 

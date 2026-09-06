@@ -7,7 +7,6 @@ import Link from "next/link";
 import {
   AlertTriangle,
   Hammer,
-  Loader2,
   Mail,
   Phone,
   Plus,
@@ -16,6 +15,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { LoadingState } from "@/components/loading-state";
+import { FadeIn } from "@/components/fade-in";
 import { useAuth } from "@/components/auth-context";
 import { PageTitle } from "@/components/page-title-updater";
 import { Badge } from "@/components/ui/badge";
@@ -121,10 +122,12 @@ export default function TradesPage() {
     return matchesSearch && matchesType;
   });
 
+  if (loading) return <LoadingState label="Loading Trades" />;
+
   return (
     <>
       <PageTitle title="Trades & Services" />
-      <div className="flex w-full flex-col gap-6">
+      <FadeIn className="flex w-full flex-col gap-6">
         {/* Header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -185,14 +188,7 @@ export default function TradesPage() {
         </div>
 
         {/* Directory Grid */}
-        {loading ? (
-          <div className="flex min-h-75 flex-col items-center justify-center gap-3">
-            <Loader2 className="size-8 animate-spin text-primary" />
-            <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
-              Loading Directory
-            </p>
-          </div>
-        ) : filteredTrades.length === 0 ? (
+        {filteredTrades.length === 0 ? (
           <Card className="flex min-h-75 flex-col items-center justify-center border-dashed bg-background/30 p-8 text-center">
             <Hammer className="mb-3 size-12 text-muted-foreground/40" />
             <h3 className="font-semibold text-lg">No trade profiles found</h3>
@@ -227,7 +223,7 @@ export default function TradesPage() {
           initialData={EMPTY_TRADE_FORM}
           onSave={handleAdd}
         />
-      </div>
+      </FadeIn>
     </>
   );
 }

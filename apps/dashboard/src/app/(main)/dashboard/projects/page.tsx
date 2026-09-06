@@ -9,7 +9,6 @@ import {
   Building2,
   DollarSign,
   FolderKanban,
-  Loader2,
   MapPin,
   Plus,
   PlusCircle,
@@ -17,6 +16,8 @@ import {
   User,
 } from "lucide-react";
 import { toast } from "sonner";
+import { LoadingState } from "@/components/loading-state";
+import { FadeIn } from "@/components/fade-in";
 import { DataField } from "@/components/ui/data-field";
 import { useAuth } from "@/components/auth-context";
 import { PageTitle } from "@/components/page-title-updater";
@@ -150,10 +151,12 @@ export default function ProjectsPage() {
     );
   });
 
+  if (loading) return <LoadingState label="Loading Projects" />;
+
   return (
     <>
       <PageTitle title="Projects" />
-      <div className="flex w-full flex-col gap-6">
+      <FadeIn className="flex w-full flex-col gap-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <PageHeader
             title="Projects"
@@ -187,14 +190,7 @@ export default function ProjectsPage() {
         </div>
 
         {/* Loading or Visual Grid Cards */}
-        {loading ? (
-          <div className="flex min-h-75 flex-col items-center justify-center gap-3">
-            <Loader2 className="size-8 animate-spin text-primary" />
-            <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
-              Loading Project spaces
-            </p>
-          </div>
-        ) : filteredProjects.length === 0 ? (
+        {filteredProjects.length === 0 ? (
           <div className="flex min-h-75 flex-col items-center justify-center p-8 text-center">
             <FolderKanban className="mb-3 size-12 text-muted-foreground/40" />
             <h3 className="font-semibold text-lg mb-1">
@@ -216,7 +212,7 @@ export default function ProjectsPage() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-1 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-1 xl:grid-cols-4">
             {filteredProjects.map((project) => {
               const parentClient = clients.find(
                 (c) => c.uid === project.clientId,
@@ -324,7 +320,7 @@ export default function ProjectsPage() {
           }
           onSubmit={handleSubmitProject}
         />
-      </div>
+      </FadeIn>
     </>
   );
 }

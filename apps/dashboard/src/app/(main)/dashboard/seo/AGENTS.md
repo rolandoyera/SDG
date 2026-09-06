@@ -87,8 +87,10 @@ SEMrush-replacement rank tracker backed by DataForSEO (core in
 server-side only).
 
 - `PositionTrackingClient` shows the shared `LoadingState` spinner until its
-  mount fetch resolves, then wraps the page body in `FadeIn` — the same
-  one-spinner-then-fade treatment as Ads/Analytics/Instagram.
+  mount fetch resolves, then wraps the page body in `FadeIn` — the app-wide
+  one-spinner-then-fade treatment. The `PageHeader` renders inside the client
+  (`page.tsx` is just `PageTitle` + the client) so the spinner is the only
+  thing on screen while loading; don't move the header back into `page.tsx`.
 - Tracked keywords live on the org doc at `seo.trackedKeywords` (max 50:
   keyword + DataForSEO `location_name` + cached volume/CPC/difficulty/intent
   metadata, batch-refreshed when older than 30 days). The Add dialog takes a
@@ -218,8 +220,10 @@ Manages up to 5 competitors (name + URL). Stored on the org document at
 normalized to origin) — durable config, not cache. The Keyword Analyzer's
 source dropdowns read the same list. This page is where full site-vs-site
 competitor analysis will grow later. `CompetitorsForm` shows the shared
-`LoadingState` spinner until `fetchCompetitors` resolves, then fades the card
-in — without it the empty form flashed before the saved rows arrived.
+`LoadingState` spinner until `fetchCompetitors` resolves, then fades the page
+in — without it the empty form flashed before the saved rows arrived. The
+`PageHeader` renders inside `CompetitorsForm` for the same reason as Position
+Tracking: the spinner is the only thing on screen while loading.
 
 ## Analyzer rules (seo-actions.ts)
 
